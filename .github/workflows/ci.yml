@@ -1,0 +1,36 @@
+on: [push, pull_request, workflow_dispatch]
+
+name: CI
+
+jobs:
+  test:
+    name: Test
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout sources
+        uses: actions/checkout@v2
+
+      - name: Install stable toolchain
+        uses: actions-rs/toolchain@v1
+        with:
+          profile: minimal
+          toolchain: stable
+          override: true
+
+      - name: Run cargo test
+        uses: actions-rs/cargo@v1
+        with:
+          command: test
+
+      - name: Run basic example 
+        uses: actions-rs/cargo@v1
+        with:
+          command: run
+          args: --example=basic test/test.c.instr.wasm "Test"
+            
+      - name: Run many example 
+        uses: actions-rs/cargo@v1
+        with:
+          command: run
+          args: --example=many test/test.c.instr.wasm "Test"
+

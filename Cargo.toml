@@ -1,0 +1,23 @@
+[package]
+name = "dylibso-observe-sdk"
+version = "0.1.0"
+edition = "2021"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+anyhow = "1.0.70"
+wasmtime = "8.0.0"
+wasmtime-wasi = "8.0.0"
+opentelemetry = { git = "https://github.com/open-telemetry/opentelemetry-rust", features = ["metrics", "trace"], rev = "67bc4f9" }
+opentelemetry-zipkin = "0.17.0"
+opentelemetry-stdout = { git = "https://github.com/open-telemetry/opentelemetry-rust", features = ["trace"], rev = "67bc4f9" }
+observe-demangle = {path = "./demangle", version = "0.1"}
+tokio = { version = "1.28.1", features = ["full"] }
+rand = "0.8.5"
+
+[workspace]
+members = [
+  ".",
+  "demangle",
+]

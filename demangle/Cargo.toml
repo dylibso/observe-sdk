@@ -1,0 +1,8 @@
+[package]
+name = "observe-demangle"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+cpp_demangle = "0.4"
+rustc-demangle = "0.1"
