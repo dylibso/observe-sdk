@@ -94,9 +94,3 @@ These are already checked in, but you can compile and instrument them with. Plea
 ```
 make instrument WASM_INSTR_API_KEY=<your-api-key>
 ```
-
-### Running Zipkin
-
-One of the test adapters will output to Zipkin, defaulting to one running on localhost.
-
-    docker run -d -p 9411:9411 openzipkin/zipkin
