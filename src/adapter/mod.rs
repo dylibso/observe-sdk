@@ -1,6 +1,5 @@
 pub mod otelstdout;
 pub mod stdout;
-pub mod zipkin;
 
 use core::time;
 use std::{sync::Arc, thread};

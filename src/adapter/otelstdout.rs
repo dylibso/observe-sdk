@@ -1,6 +1,3 @@
-use core::time;
-use std::thread;
-
 use anyhow::Result;
 use opentelemetry::{
     global::{self, set_tracer_provider, shutdown_tracer_provider, BoxedTracer},
@@ -90,8 +87,8 @@ impl OtelStdoutAdapter {
     }
 
     // flush any remaning spans
-    pub fn shutdown() {
-        thread::sleep(time::Duration::from_millis(50));
+    pub async fn shutdown() {
+        tokio::time::sleep(tokio::time::Duration::from_millis(10)).await;
         shutdown_tracer_provider();
     }
 }
