@@ -50,7 +50,9 @@ pub async fn main() -> anyhow::Result<()> {
     // create our adapter
     let adapter = StdoutAdapter::new();
 
-    // Our magic
+    // Provide the observability functions to the `Linker` to be made
+    // available to the instrumented guest code. These are safe to add
+    // and are a no-op if guest code is uninstrumented.
     let id = adapter.lock().await.new_collector();
     let events = add_to_linker(id, &mut linker)?;
     let collector = Collector::new(adapter, id, events).await?;
