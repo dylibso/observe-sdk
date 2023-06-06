@@ -4,7 +4,7 @@ use std::time::SystemTime;
 use tokio::sync::mpsc::{channel, Receiver, Sender};
 
 use anyhow::{anyhow, Result};
-use observe_demangle::demangle_function_name;
+use modsurfer_demangle::demangle_function_name;
 use wasmtime::{Caller, FrameInfo, FuncType, Linker, Val, ValType, WasmBacktrace};
 
 pub mod adapter;
