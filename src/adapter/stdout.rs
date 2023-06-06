@@ -71,7 +71,7 @@ impl Adapter for StdoutAdapter {
     // flush any remaning spans
     fn shutdown(&self) {
         // close event stream and join the thread handle
-        thread::sleep(time::Duration::from_millis(50));
+        thread::sleep(time::Duration::from_millis(5));
     }
 }
 

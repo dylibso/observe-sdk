@@ -1,4 +1,3 @@
-use anyhow::Result;
 use opentelemetry::{
     global::{self, set_tracer_provider, shutdown_tracer_provider, BoxedTracer},
     sdk::trace::TracerProvider,
@@ -6,45 +5,53 @@ use opentelemetry::{
     KeyValue,
 };
 
-use crate::{add_to_linker, Event};
+use crate::Event;
 use opentelemetry_stdout;
-use std::sync::atomic::{AtomicUsize, Ordering};
-use wasmtime::Linker;
+use std::{
+    sync::{
+        atomic::{AtomicUsize, Ordering},
+        Arc,
+    },
+    thread, time,
+};
+use tokio::sync::Mutex;
+
+use super::Adapter;
 
 //use super::json_span_exporter;
 
-#[derive(Clone)]
+pub type OtelAdapterContainer = Arc<Mutex<OtelStdoutAdapter>>;
+
+#[derive(Clone, Copy)]
 pub struct OtelStdoutAdapter {}
 
 impl OtelStdoutAdapter {
-    pub async fn new<T: 'static>(linker: &mut Linker<T>) -> Result<OtelStdoutAdapter> {
-        // let _ = stdout::new_pipeline()
-        //                .install_simple();
-
+    pub fn new() -> OtelAdapterContainer {
         let exporter = opentelemetry_stdout::SpanExporter::default();
         let provider = TracerProvider::builder()
             .with_simple_exporter(exporter)
             .build();
         set_tracer_provider(provider);
 
-        let (mut recv_events, _) = add_to_linker(next_id(), linker)?;
         let adapter = OtelStdoutAdapter {};
 
-        let a2 = adapter.clone();
-
-        tokio::spawn(async move {
-            let tracer = global::tracer("demo");
-            tracer.in_span("receiver", |_cx| {
-                while let Some(event) = recv_events.blocking_recv() {
-                    a2.handle_event(event, &tracer);
-                }
-            })
-        });
-
-        Ok(adapter)
+        Arc::new(Mutex::new(adapter))
     }
 
-    pub fn handle_event(&self, event: Event, tracer: &BoxedTracer) {
+    pub fn new_collector(&mut self) -> usize {
+        next_id()
+    }
+
+    pub fn start_trace<F>(module_name: String, action_name: String, f: F)
+    where
+        F: FnOnce(),
+    {
+        global::tracer(module_name).in_span(action_name, |_cx| {
+            f();
+        });
+    }
+
+    fn _handle_event(&mut self, event: Event, tracer: &BoxedTracer) {
         match event {
             Event::Func(_id, f) => {
                 let mut x = tracer.build(SpanBuilder {
@@ -62,7 +69,7 @@ impl OtelStdoutAdapter {
                 }
 
                 for e in f.within.iter() {
-                    self.handle_event(e.to_owned(), tracer);
+                    self.handle_event(e.to_owned());
                 }
 
                 x.end_with_timestamp(f.end);
@@ -85,11 +92,18 @@ impl OtelStdoutAdapter {
             Event::Shutdown(_id) => todo!(),
         }
     }
+}
 
+impl Adapter for OtelStdoutAdapter {
     // flush any remaning spans
-    pub async fn shutdown() {
-        tokio::time::sleep(tokio::time::Duration::from_millis(10)).await;
+    fn shutdown(&self) {
+        thread::sleep(time::Duration::from_millis(5));
         shutdown_tracer_provider();
+    }
+
+    fn handle_event(&mut self, event: Event) {
+        let tracer = global::tracer("event");
+        self._handle_event(event, &tracer);
     }
 }
 
