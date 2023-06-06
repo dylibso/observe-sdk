@@ -88,8 +88,8 @@ impl OtelStdoutAdapter {
                         vec![KeyValue::new("amount", a.amount as i64)],
                     );
             }
-            Event::Metadata(_id, _) => todo!(),
-            Event::Shutdown(_id) => todo!(),
+            Event::Metadata(_id, _) => {}
+            Event::Shutdown(_id) => {}
         }
     }
 }
