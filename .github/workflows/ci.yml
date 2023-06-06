@@ -34,3 +34,12 @@ jobs:
           command: run
           args: --example=many test/test.c.instr.wasm "Test"
 
+      - name: Run OpenTelemetry STDOUT example
+        run: |
+          cargo run --example=otel-stdout test/nested.c.instr.wasm > test.json
+          cat test.json \
+            | head -n 1 \
+            | jq '.resourceSpans[].scopeSpans[].spans[0].attributes[0]' \
+            | jq '.key == "function_name", .value.stringValue == "_start"'
+
+
