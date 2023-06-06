@@ -138,10 +138,14 @@ pub(crate) fn instrument_enter<T>(
     _output: &mut [Val],
     ctx: Arc<Mutex<InstrumentationContext>>,
 ) -> anyhow::Result<()> {
+    let func_id = _input[0].unwrap_i32() as u32;
+    let func_name_offset = _input[1].unwrap_i32() as u32;
     let bt = WasmBacktrace::capture(caller);
 
     if let Some(frame) = bt.frames().first() {
         if let Ok(mut cont) = ctx.lock() {
+            let fid = frame.func_index();
+            eprintln!("func_id {func_id} func_name_offset {func_name_offset} wasmtime fid {fid}");
             cont.enter(frame)?;
         }
     }
@@ -198,7 +202,7 @@ pub fn add_to_linker<T: 'static>(id: usize, linker: &mut Linker<T>) -> Result<Ev
     linker.func_new(
         MODULE_NAME,
         "instrument_enter",
-        t.clone(),
+        FuncType::new([ValType::I32, ValType::I32], []),
         move |caller, params, results| instrument_enter(caller, params, results, enter_ctx.clone()),
     )?;
 
@@ -206,7 +210,7 @@ pub fn add_to_linker<T: 'static>(id: usize, linker: &mut Linker<T>) -> Result<Ev
     linker.func_new(
         MODULE_NAME,
         "instrument_exit",
-        t,
+        FuncType::new([ValType::I32], []),
         move |caller, params, results| instrument_exit(caller, params, results, exit_ctx.clone()),
     )?;
 
