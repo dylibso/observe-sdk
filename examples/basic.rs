@@ -28,7 +28,9 @@ pub async fn main() -> anyhow::Result<()> {
     let mut linker = wasmtime::Linker::new(&engine);
     wasmtime_wasi::add_to_linker(&mut linker, |wasi| wasi)?;
 
-    // Our magic
+    // Provide the observability functions to the `Linker` to be made available
+    // to the instrumented guest code. These are safe to add and are a no-op
+    // if guest code is uninstrumented.
     let id = adapter.lock().await.new_collector();
     let events = add_to_linker(id, &mut linker)?;
 
