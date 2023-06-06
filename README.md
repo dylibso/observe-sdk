@@ -34,7 +34,7 @@ First install the cargo dependency for the SDK:
 dylibso-observe-sdk = { git = "https://github.com/dylibso/observe-sdk.git" }
 ```
 
-> **Note**: A runnable example can be found [here](examples/basic.rs).
+> **Note**: A runnable example can be found [here](rust/examples/basic.rs).
 
 ```rust
 use dylibso_observe_sdk::{
@@ -80,13 +80,13 @@ pub async fn main() -> anyhow::Result<()> {
 To build the Wasmtime-based SDK, run:
 
 ```
-$ cargo build
+cargo build
 ```
 
 ### Testing
 
 ```
-$ make test
+make test
 ```
 
 ### Compile the Test Modules
