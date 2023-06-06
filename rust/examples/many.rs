@@ -20,7 +20,6 @@ pub async fn main() -> anyhow::Result<()> {
 
     // Build the adapters here, setup whatever they need to track the collectors
     let adapter = StdoutAdapter::new();
-    //OtelStdoutAdapter::new(&mut linker)?;
 
     for _ in 0..10 {
         let mut instances = Vec::new();
