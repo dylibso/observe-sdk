@@ -145,7 +145,13 @@ pub(crate) fn instrument_enter<T>(
     if let Some(frame) = bt.frames().first() {
         if let Ok(mut cont) = ctx.lock() {
             let fid = frame.func_index();
-            eprintln!("func_id {func_id} func_name_offset {func_name_offset} wasmtime fid {fid}");
+            let mut jname = String::new();
+            if let Some(name) = frame.func_name() {
+                let mut oname = Some(demangle_function_name(name.to_string()));
+                oname = Some(name.to_string());
+                jname = oname.unwrap();
+            }
+            eprintln!("func_id {func_id} func_name_offset {func_name_offset} wasmtime fid {fid} name {jname}");
             cont.enter(frame)?;
         }
     }
