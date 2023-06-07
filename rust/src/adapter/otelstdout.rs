@@ -42,13 +42,11 @@ impl OtelStdoutAdapter {
         next_id()
     }
 
-    pub fn start_trace<F>(module_name: String, action_name: String, f: F)
+    pub fn start_trace<F, T>(module_name: String, action_name: String, f: F) -> T
     where
-        F: FnOnce(),
+        F: FnOnce() -> T,
     {
-        global::tracer(module_name).in_span(action_name, |_cx| {
-            f();
-        });
+        global::tracer(module_name).in_span(action_name, |_cx| f())
     }
 
     fn _handle_event(&mut self, event: Event, tracer: &BoxedTracer) {
