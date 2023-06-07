@@ -1,7 +1,7 @@
 use std::sync::Arc;
 
 use dylibso_observe_sdk::{
-    adapter::{stdout::StdoutAdapter, Collector},
+    adapter::{otelstdout::OtelStdoutAdapter, stdout::StdoutAdapter, Collector},
     add_to_linker,
 };
 use rand::{seq::SliceRandom, thread_rng};
@@ -19,7 +19,7 @@ pub async fn main() -> anyhow::Result<()> {
     let module = wasmtime::Module::new(&engine, data)?;
 
     // Build the adapters here, setup whatever they need to track the collectors
-    let adapter = StdoutAdapter::new();
+    let adapter = OtelStdoutAdapter::new();
 
     for _ in 0..10 {
         let mut instances = Vec::new();
@@ -57,7 +57,15 @@ pub async fn main() -> anyhow::Result<()> {
                 let f = instance
                     .get_func(&mut store, function_name)
                     .expect("function exists");
-                f.call(&mut store, &[], &mut []).unwrap();
+
+                OtelStdoutAdapter::start_trace(
+                    String::from("module-name"),
+                    function_name.to_string(),
+                    || {
+                        f.call(&mut store, &[], &mut []).unwrap();
+                    },
+                );
+
                 task::yield_now().await;
                 collector.shutdown().await;
             });

@@ -1,4 +1,5 @@
 // use std::sync::mpsc::{channel, Receiver, Sender};
+use log::error;
 use std::sync::{Arc, Mutex};
 use std::time::SystemTime;
 use tokio::sync::mpsc::{channel, Receiver, Sender};
@@ -75,7 +76,9 @@ impl InstrumentationContext {
             // only push the end of the final call onto the channel
             // this will contain all the other calls within it
             if self.stack.is_empty() {
-                self.events_tx.try_send(Event::Func(self.id, func))?;
+                if let Err(e) = self.events_tx.try_send(Event::Func(self.id, func)) {
+                    error!("error recording function exit: {}", e);
+                };
             }
 
             return Ok(());
@@ -97,8 +100,9 @@ impl InstrumentationContext {
             self.stack.push(f);
         }
 
-        // self.events_tx.blocking_send(ev)?;
-        self.events_tx.try_send(ev)?;
+        if let Err(e) = self.events_tx.try_send(ev) {
+            error!("error recording memory allocation: {}", e);
+        }
         Ok(())
     }
 }
