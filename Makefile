@@ -10,5 +10,5 @@ MODULES := $(wildcard test/*.c)
 instrument:
 	@for file in $(MODULES); do \
 		$(WASICC) -o $$file.wasm $$file; \
-		curl -L -F wasm=@$$file.wasm https://compiler-preview.dylibso.com/instrument -X POST -H "Authorization: Bearer $(WASM_INSTR_API_KEY)" > $$file.instr.wasm; \
+		curl -F wasm=@$$file.wasm https://compiler-preview.dylibso.com/instrument -X POST -H "Authorization: Bearer $(WASM_INSTR_API_KEY)" > $$file.instr.wasm; \
 	done
