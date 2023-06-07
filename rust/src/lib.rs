@@ -137,7 +137,7 @@ pub(crate) fn instrument_enter<T>(
     _output: &mut [Val],
     ctx: Arc<Mutex<InstrumentationContext>>,
 ) -> anyhow::Result<()> {
-    let bt = WasmBacktrace::capture(&caller);
+    let bt = WasmBacktrace::capture(caller);
 
     if let Some(frame) = bt.frames().first() {
         if let Ok(mut cont) = ctx.lock() {
@@ -154,7 +154,7 @@ pub(crate) fn instrument_exit<T>(
     _output: &mut [Val],
     ctx: Arc<Mutex<InstrumentationContext>>,
 ) -> Result<()> {
-    let bt = WasmBacktrace::capture(&caller);
+    let bt = WasmBacktrace::capture(caller);
 
     if let Some(frame) = bt.frames().first() {
         if let Ok(mut cont) = ctx.lock() {
@@ -172,7 +172,7 @@ pub(crate) fn instrument_memory_grow<T>(
     ctx: Arc<Mutex<InstrumentationContext>>,
 ) -> Result<()> {
     let amount_in_pages = input[0].unwrap_i32(); // The number of pages requested by `memory.grow` instruction
-    let bt = WasmBacktrace::capture(&caller);
+    let bt = WasmBacktrace::capture(caller);
 
     // TODO: this should scream and die loudly if it can't actually get ahold of the frame
     if let Some(frame) = bt.frames().last() {
@@ -183,42 +183,37 @@ pub(crate) fn instrument_memory_grow<T>(
     Ok(())
 }
 
-const MODULE_NAME: &'static str = "dylibso_observe";
+const MODULE_NAME: &str = "dylibso_observe";
+
 type EventChannels = (Receiver<Event>, Sender<Event>);
 
+/// Link observability import functions required by instrumented wasm code
 pub fn add_to_linker<T: 'static>(id: usize, linker: &mut Linker<T>) -> Result<EventChannels> {
     let (ctx, events_rx, events_tx) = InstrumentationContext::new(id);
 
     let t = FuncType::new([], []);
-    // TODO: figure out how to do with with less calls to `clone`
 
-    // Enter
-    let ctx1 = ctx.clone();
+    let enter_ctx = ctx.clone();
     linker.func_new(
         MODULE_NAME,
         "instrument_enter",
         t.clone(),
-        move |caller, params, results| instrument_enter(caller, params, results, ctx1.clone()),
+        move |caller, params, results| instrument_enter(caller, params, results, enter_ctx.clone()),
     )?;
 
-    // Exit
-    let ctx2 = ctx.clone();
+    let exit_ctx = ctx.clone();
     linker.func_new(
         MODULE_NAME,
         "instrument_exit",
-        t.clone(),
-        move |caller, params, results| instrument_exit(caller, params, results, ctx2.clone()),
+        t,
+        move |caller, params, results| instrument_exit(caller, params, results, exit_ctx.clone()),
     )?;
 
-    // Trace
-    let ctx3 = ctx.clone();
     linker.func_new(
         MODULE_NAME,
         "instrument_memory_grow",
         FuncType::new([ValType::I32], []),
-        move |caller, params, results| {
-            instrument_memory_grow(caller, params, results, ctx3.clone())
-        },
+        move |caller, params, results| instrument_memory_grow(caller, params, results, ctx.clone()),
     )?;
 
     Ok((events_rx, events_tx))

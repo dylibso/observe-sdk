@@ -1,7 +1,7 @@
 use std::sync::Arc;
 
 use dylibso_observe_sdk::{
-    adapter::{otelstdout::OtelStdoutAdapter, stdout::StdoutAdapter, Collector},
+    adapter::{otelstdout::OtelStdoutAdapter, Collector},
     add_to_linker,
 };
 use rand::{seq::SliceRandom, thread_rng};
