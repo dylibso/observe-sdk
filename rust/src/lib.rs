@@ -39,18 +39,6 @@ impl InstrumentationContext {
         )
     }
 
-    pub fn send_event(&self, ev: Event) -> Result<()> {
-        if let Err(e) = self.events_tx.try_send(ev.clone()) {
-            match ev {
-                Event::Func(id, _) => error!("error recording function {}: {}", id, e),
-                Event::Alloc(_, _) => error!("error recording memory allocation: {}", e),
-                Event::Metadata(_, _) => error!("error recording metadata event: {}", e),
-                Event::Shutdown(_) => error!("error recording shutdown event: {}", e),
-            }
-        }
-        Ok(())
-    }
-
     pub fn enter(&mut self, fi: &FrameInfo) -> Result<()> {
         let mut fc = FunctionCall {
             index: fi.func_index(),
@@ -83,12 +71,14 @@ impl InstrumentationContext {
             // only push the end of the final call onto the channel
             // this will contain all the other calls within it
             if self.stack.is_empty() {
-                self.send_event(Event::Func(self.id, func))?;
+                if let Err(e) = self.events_tx.try_send(Event::Func(self.id, func)) {
+                    error!("error recording function exit: {}", e);
+                };
             }
 
             return Ok(());
         }
-        Err(anyhow!("empty stack"))
+        Err(anyhow!("empty stack in exit"))
     }
 
     pub fn allocate(&mut self, _fi: &FrameInfo, amount: u32) -> Result<()> {
@@ -105,7 +95,9 @@ impl InstrumentationContext {
             self.stack.push(f);
         }
 
-        self.send_event(ev)?;
+        if let Err(e) = self.events_tx.try_send(ev) {
+            error!("error recording memory allocation: {}", e);
+        }
         Ok(())
     }
 }
