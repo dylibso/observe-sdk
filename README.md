@@ -34,7 +34,7 @@ First install the cargo dependency for the SDK:
 dylibso-observe-sdk = { git = "https://github.com/dylibso/observe-sdk.git" }
 ```
 
-> **Note**: A runnable example can be found [here](examples/basic.rs).
+> **Note**: A runnable example can be found [here](rust/examples/otel-stdout.rs).
 
 ```rust
 use dylibso_observe_sdk::{
