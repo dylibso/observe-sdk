@@ -39,8 +39,15 @@ impl InstrumentationContext {
         )
     }
 
-    pub async fn send_event(&self, ev: Event) -> Result<()> {
-        self.events_tx.send(ev).await?;
+    pub fn send_event(&self, ev: Event) -> Result<()> {
+        if let Err(e) = self.events_tx.try_send(ev.clone()) {
+            match ev {
+                Event::Func(id, _) => error!("error recording function {}: {}", id, e),
+                Event::Alloc(_, _) => error!("error recording memory allocation: {}", e),
+                Event::Metadata(_, _) => error!("error recording metadata event: {}", e),
+                Event::Shutdown(_) => error!("error recording shutdown event: {}", e),
+            }
+        }
         Ok(())
     }
 
@@ -64,7 +71,7 @@ impl InstrumentationContext {
     pub fn exit(&mut self, fi: &FrameInfo) -> Result<()> {
         if let Some(mut func) = self.stack.pop() {
             if func.index != fi.func_index() {
-                return Err(anyhow!("we missed a function exit"));
+                return Err(anyhow!("missed a function exit"));
             }
             func.end = SystemTime::now();
 
@@ -76,14 +83,12 @@ impl InstrumentationContext {
             // only push the end of the final call onto the channel
             // this will contain all the other calls within it
             if self.stack.is_empty() {
-                if let Err(e) = self.events_tx.try_send(Event::Func(self.id, func)) {
-                    error!("error recording function exit: {}", e);
-                };
+                self.send_event(Event::Func(self.id, func))?;
             }
 
             return Ok(());
         }
-        Err(anyhow!("oh ohh the stack was empty"))
+        Err(anyhow!("empty stack"))
     }
 
     pub fn allocate(&mut self, _fi: &FrameInfo, amount: u32) -> Result<()> {
@@ -100,9 +105,7 @@ impl InstrumentationContext {
             self.stack.push(f);
         }
 
-        if let Err(e) = self.events_tx.try_send(ev) {
-            error!("error recording memory allocation: {}", e);
-        }
+        self.send_event(ev)?;
         Ok(())
     }
 }
