@@ -17,7 +17,7 @@ opentelemetry-zipkin = "0.17.0"
 opentelemetry-stdout = { git = "https://github.com/open-telemetry/opentelemetry-rust", features = [
   "trace",
 ], rev = "67bc4f9" }
-tokio = { version = "1.28.1", features = ["full"] }
+tokio = { version = "1.28.1", features = ["sync", "rt-multi-thread", "macros"] }
 rand = "0.8.5"
 modsurfer-demangle = { git = "https://github.com/dylibso/modsurfer" }
 log = "0.4.18"
