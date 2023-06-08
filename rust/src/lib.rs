@@ -39,26 +39,26 @@ impl InstrumentationContext {
         )
     }
 
-    pub fn enter(&mut self, fi: &FrameInfo) -> Result<()> {
+    pub fn enter(&mut self, func_index : u32, func_name : &String) -> Result<()> {
         let mut fc = FunctionCall {
-            index: fi.func_index(),
+            index: func_index,
             start: SystemTime::now(),
             end: SystemTime::now(),
             within: Vec::new(),
             raw_name: None,
             name: None,
         };
-        if let Some(name) = fi.func_name() {
-            fc.name = Some(demangle_function_name(name.to_string()));
-            fc.raw_name = Some(name.to_string());
+        if let name = func_name {
+            fc.name = Some(demangle_function_name(String::from(name)));
+            fc.raw_name = Some(String::from(name));
         };
         self.stack.push(fc);
         Ok(())
     }
 
-    pub fn exit(&mut self, fi: &FrameInfo) -> Result<()> {
+    pub fn exit(&mut self, func_index : u32) -> Result<()> {
         if let Some(mut func) = self.stack.pop() {
-            if func.index != fi.func_index() {
+            if func.index != func_index {
                 return Err(anyhow!("missed a function exit"));
             }
             func.end = SystemTime::now();
@@ -81,7 +81,7 @@ impl InstrumentationContext {
         Err(anyhow!("empty stack in exit"))
     }
 
-    pub fn allocate(&mut self, _fi: &FrameInfo, amount: u32) -> Result<()> {
+    pub fn allocate(&mut self, amount: u32) -> Result<()> {
         let ev = Event::Alloc(
             self.id,
             Allocation {
@@ -133,7 +133,7 @@ pub struct Allocation {
 }
 
 pub(crate) fn instrument_enter<T>(
-    caller: Caller<T>,
+    mut caller: Caller<T>,
     _input: &[Val],
     _output: &mut [Val],
     ctx: Arc<Mutex<InstrumentationContext>>,
@@ -151,8 +151,17 @@ pub(crate) fn instrument_enter<T>(
                 oname = Some(name.to_string());
                 jname = oname.unwrap();
             }
-            eprintln!("func_id {func_id} func_name_offset {func_name_offset} wasmtime fid {fid} name {jname}");
-            cont.enter(frame)?;
+            //let memory = wasmtime::Memory::new(caller);
+            //Memory::read(caller, )
+            let export = caller.get_export("memory").unwrap();
+
+                let memory = export.into_memory().unwrap();
+                let mut buf : [u8; 10] = [0; 10];
+                memory.read(caller, 0xA, &mut buf);
+
+
+            eprintln!("func_id {func_id} func_name_offset {func_name_offset}");
+            cont.enter(func_id, &String::from("placeholder_name"))?;
         }
     }
 
@@ -165,11 +174,12 @@ pub(crate) fn instrument_exit<T>(
     _output: &mut [Val],
     ctx: Arc<Mutex<InstrumentationContext>>,
 ) -> Result<()> {
+    let func_id = _input[0].unwrap_i32() as u32;
     let bt = WasmBacktrace::capture(caller);
 
     if let Some(frame) = bt.frames().first() {
         if let Ok(mut cont) = ctx.lock() {
-            cont.exit(frame)?;
+            cont.exit(func_id)?;
         }
     }
 
@@ -188,7 +198,7 @@ pub(crate) fn instrument_memory_grow<T>(
     // TODO: this should scream and die loudly if it can't actually get ahold of the frame
     if let Some(frame) = bt.frames().last() {
         if let Ok(mut cont) = ctx.lock() {
-            cont.allocate(frame, amount_in_pages as u32)?;
+            cont.allocate(amount_in_pages as u32)?;
         }
     }
     Ok(())
