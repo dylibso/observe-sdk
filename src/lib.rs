@@ -146,16 +146,30 @@ pub(crate) fn instrument_enter<T>(
                 oname = Some(name.to_string());
                 jname = oname.unwrap();
             }
-            //let memory = wasmtime::Memory::new(caller);
-            //Memory::read(caller, )
-            let export = caller.get_export("memory").unwrap();
+            let mut i = 0;
+            let mut namebuf: Vec<u8> = Vec::new();
+            let prefix = "if_buf_";
+            /*loop*/ {
+                let mut exportname = String::from(prefix);
+                exportname.push_str(&i.to_string());
+                let exportres = caller.get_export(&exportname);
+                if exportres.is_none() {
+                    //break;
+                }
+                let export = exportres.unwrap();
+                let glob = export.into_global().unwrap();
+                let val = glob.get(caller).unwrap_v128();
+                let bytes = val.to_le_bytes();
+                for byte in bytes.iter() {
+                    namebuf.push(*byte);
+                }
+                i += 1;
+            }
 
-                let memory = export.into_memory().unwrap();
-                let mut buf : [u8; 10] = [0; 10];
-                memory.read(caller, 0xA, &mut buf);
+            let printname = String::from_utf8(namebuf).unwrap();
 
 
-            eprintln!("func_id {func_id} func_name_offset {func_name_offset}");
+            eprintln!("func_id {func_id} func_name_offset {func_name_offset} printname {printname}");
             cont.enter(func_id, &String::from("placeholder_name"))?;
         }
     }
