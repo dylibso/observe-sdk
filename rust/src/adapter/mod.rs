@@ -1,3 +1,4 @@
+pub mod otel_formater;
 pub mod otelstdout;
 pub mod stdout;
 
