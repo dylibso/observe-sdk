@@ -112,7 +112,7 @@ pub enum Event {
 #[derive(Debug, Clone)]
 pub struct Metadata {
     pub key: String,
-    pub value: String,
+    pub value: u64,
 }
 
 #[derive(Debug, Clone)]

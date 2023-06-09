@@ -15,7 +15,7 @@ pub struct OtelAdapterContainer(Arc<Mutex<OtelStdoutAdapter>>);
 pub struct OtelTraceCtx(Collector);
 
 impl OtelTraceCtx {
-    pub async fn set_trace_id(&mut self, id: String) {
+    pub async fn set_trace_id(&mut self, id: u64) {
         self.0.set_metadata("trace_id".to_string(), id).await;
     }
 
@@ -82,9 +82,9 @@ impl OtelStdoutAdapter {
                 Some(vec![span])
             }
             Event::Metadata(_id, Metadata { key, value }) => {
-                if key == "trace_id" {
-                    self.trace_id = value;
-                }
+                // if key == "trace_id" {
+                //     self.trace_id = value;
+                // }
 
                 None
             }
@@ -115,3 +115,4 @@ fn next_id() -> usize {
     static COUNTER: AtomicUsize = AtomicUsize::new(1);
     COUNTER.fetch_add(1, Ordering::Relaxed)
 }
+

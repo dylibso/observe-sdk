@@ -1,6 +1,8 @@
 pub mod otel_formatter;
 pub mod otelstdout;
 pub mod stdout;
+pub mod datadog;
+pub mod datadog_formatter;
 
 use core::time;
 use std::{sync::Arc, thread};
@@ -49,7 +51,7 @@ impl Collector {
         thread::sleep(time::Duration::from_millis(50));
     }
 
-    pub async fn set_metadata(&self, key: String, value: String) {
+    pub async fn set_metadata(&self, key: String, value: u64) {
         self.send_events
             .send(Event::Metadata(0, Metadata { key, value }))
             .await
