@@ -116,7 +116,7 @@ impl ResourceSpan {
             scope: Scope {
                 name: "event".to_string(),
             },
-            spans: spans,
+            spans,
         }]
     }
 }

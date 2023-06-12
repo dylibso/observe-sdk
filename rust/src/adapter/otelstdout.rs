@@ -36,27 +36,21 @@ impl OtelStdoutAdapter {
         next_id()
     }
 
-    fn _handle_event(
-        &mut self,
-        trace_id: String,
-        event: Event,
-        parent_span_id: Option<String>,
-    ) -> Option<Vec<Span>> {
+    fn _handle_event(&mut self, event: Event, parent_span_id: Option<String>) -> Option<Vec<Span>> {
         match event {
             Event::Func(_id, f) => {
                 let function_name = &f.name.clone().unwrap_or("unknown-name".to_string());
                 let name = format!("function-call-{}", &function_name);
 
-                let mut span = Span::new(trace_id.clone(), parent_span_id, name, f.start, f.end);
+                let mut span =
+                    Span::new(self.trace_id.clone(), parent_span_id, name, f.start, f.end);
                 span.add_attribute_string("function_name".to_string(), function_name.to_string());
 
                 let span_id = Some(span.span_id.clone());
                 let mut spans = vec![span];
 
                 for e in f.within.iter() {
-                    if let Some(mut s) =
-                        self._handle_event(trace_id.clone(), e.to_owned(), span_id.clone())
-                    {
+                    if let Some(mut s) = self._handle_event(e.to_owned(), span_id.clone()) {
                         spans.append(&mut s);
                     };
                 }
@@ -65,7 +59,7 @@ impl OtelStdoutAdapter {
             }
             Event::Alloc(_id, a) => {
                 let mut span = Span::new(
-                    trace_id.clone(),
+                    self.trace_id.clone(),
                     parent_span_id,
                     "allocation".to_string(),
                     a.ts,
@@ -93,7 +87,7 @@ impl Adapter for OtelStdoutAdapter {
     }
 
     fn handle_event(&mut self, event: Event) {
-        if let Some(spans) = self._handle_event("some_random_trace".to_string(), event, None) {
+        if let Some(spans) = self._handle_event(event, None) {
             let mut otf = OtelFormatter::new();
             let mut rs = ResourceSpan::new();
             rs.add_spans(spans);
