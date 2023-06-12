@@ -5,12 +5,9 @@ import (
 	"os"
 	"time"
 
-	// "time"
-
 	observe "github.com/dylibso/observe-sdk-wazero"
 	"github.com/tetratelabs/wazero"
 	"github.com/tetratelabs/wazero/imports/wasi_snapshot_preview1"
-	// "github.com/tetratelabs/wazero/sys"
 )
 
 func main() {
@@ -29,7 +26,7 @@ func main() {
 	// Adapter API
 	adapter := observe.StdoutAdapter{}
 	adapter.Start(collector)
-	defer adapter.Stop()
+	defer adapter.Wait(collector, time.Millisecond*5)
 	//
 	// END OUR API
 
@@ -55,7 +52,4 @@ func main() {
 		log.Panicln(err)
 	}
 	defer m.Close(ctx)
-
-	log.Println("OK")
-	time.Sleep(time.Millisecond)
 }

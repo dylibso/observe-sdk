@@ -21,6 +21,17 @@ type Collector struct {
 	Config           *Config
 }
 
+func (c *Collector) clearEvents() {
+	for {
+		select {
+		case <-c.Events:
+			continue
+		default:
+			break
+		}
+	}
+}
+
 func (c *Collector) pushFunction(ev RawEvent) {
 	c.startedFunctions = append(c.startedFunctions, startedFunction{
 		startTime: time.Now(),
@@ -116,11 +127,9 @@ func (c *Collector) InitRuntime() (context.Context, wazero.Runtime, error) {
 }
 
 func (c *Collector) ModuleBegin(name string) {
-	go func() {
-		c.Events <- ModuleBeginEvent{
-			Name: name,
-		}
-	}()
+	c.Events <- ModuleBeginEvent{
+		Name: name,
+	}
 }
 
 func Init(config *Config) (context.Context, wazero.Runtime, Collector, error) {

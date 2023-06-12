@@ -2,6 +2,7 @@ package dylibso_observe
 
 import (
 	"log"
+	"time"
 )
 
 type Adapter interface {
@@ -27,13 +28,10 @@ func (s StdoutAdapter) Event(e Event) {
 }
 
 func (a StdoutAdapter) Stop() {
-	go func() {
-		a.stop <- true
-	}()
+	a.stop <- true
 }
 
 func (a StdoutAdapter) Start(collector Collector) {
-	a.collector = collector
 	go func() {
 		for {
 			select {
@@ -44,4 +42,16 @@ func (a StdoutAdapter) Start(collector Collector) {
 			}
 		}
 	}()
+}
+
+func (a StdoutAdapter) Wait(collector Collector, timeout time.Duration) {
+	for {
+		select {
+		case <-time.After(timeout):
+			if len(collector.Events) > 0 {
+				continue
+			}
+			return
+		}
+	}
 }
