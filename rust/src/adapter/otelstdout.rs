@@ -13,7 +13,7 @@ use tokio::sync::Mutex;
 
 use super::{
     otel_formater::{self, Span},
-    Adapter,
+    Adapter, Collector,
 };
 
 pub type OtelAdapterContainer = Arc<Mutex<OtelStdoutAdapter>>;
@@ -77,6 +77,12 @@ impl OtelStdoutAdapter {
             }
             Event::Shutdown(_id) => None,
         }
+    }
+
+    pub async fn set_trace_id(collector: &Collector, trace_id: String) {
+        collector
+            .set_metadata("trace_id".to_string(), trace_id)
+            .await;
     }
 }
 

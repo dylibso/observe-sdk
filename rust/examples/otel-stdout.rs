@@ -15,7 +15,6 @@ pub async fn main() -> anyhow::Result<()> {
     let engine = wasmtime::Engine::new(&config)?;
     let module = wasmtime::Module::new(&engine, data)?;
 
-    // let adapter = StdoutAdapter::new();
     let adapter = OtelStdoutAdapter::new();
 
     // Setup WASI
@@ -46,9 +45,7 @@ pub async fn main() -> anyhow::Result<()> {
         .get_func(&mut store, function_name)
         .expect("function exists");
 
-    collector
-        .set_metadata("trace_id".to_string(), "some-new-trace-id".to_string())
-        .await;
+    OtelStdoutAdapter::set_trace_id(&collector, "any-old-trace-id".to_string()).await;
     f.call(&mut store, &[], &mut []).unwrap();
 
     task::yield_now().await;
