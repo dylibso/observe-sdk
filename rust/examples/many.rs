@@ -58,13 +58,7 @@ pub async fn main() -> anyhow::Result<()> {
                     .get_func(&mut store, function_name)
                     .expect("function exists");
 
-                OtelStdoutAdapter::start_trace(
-                    String::from("module-name"),
-                    function_name.to_string(),
-                    || {
-                        f.call(&mut store, &[], &mut []).unwrap();
-                    },
-                );
+                f.call(&mut store, &[], &mut []).unwrap();
 
                 task::yield_now().await;
                 collector.shutdown().await;
