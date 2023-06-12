@@ -197,16 +197,8 @@ mod tests {
     fn build_resource() {
         let rs =
             ResourceSpan::new().add_attribute("service.name".to_owned(), "something".to_owned());
-        assert_eq!(
-            rs.resource
-                .attributes
-                .first()
-                .unwrap()
-                .value
-                .string_value
-                .unwrap(),
-            "something"
-        );
+        let attrib = rs.resource.attributes.first().unwrap();
+        assert_eq!(attrib.value.string_value.as_ref().unwrap(), "something");
     }
 
     #[test]
