@@ -1,56 +1,55 @@
 use std::time::SystemTime;
 
-use rand::{distributions::Alphanumeric, Rng};
-use serde::Deserialize;
+use rand::Rng;
 use serde::Serialize;
 
-#[derive(Default, Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[derive(Default, Debug, Clone, PartialEq, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct OtelFormatter {
     pub resource_spans: Vec<ResourceSpan>,
 }
 
-#[derive(Default, Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[derive(Default, Debug, Clone, PartialEq, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct ResourceSpan {
     pub resource: Resource,
     pub scope_spans: Vec<ScopeSpan>,
 }
 
-#[derive(Default, Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[derive(Default, Debug, Clone, PartialEq, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct Resource {
     pub attributes: Vec<Attribute>,
 }
 
-#[derive(Default, Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[derive(Default, Debug, Clone, PartialEq, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct Attribute {
     pub key: String,
     pub value: Value,
 }
 
-#[derive(Default, Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[derive(Default, Debug, Clone, PartialEq, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct Value {
     pub string_value: Option<String>,
     pub int_value: Option<i64>,
 }
 
-#[derive(Default, Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[derive(Default, Debug, Clone, PartialEq, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct ScopeSpan {
     pub scope: Scope,
     pub spans: Vec<Span>,
 }
 
-#[derive(Default, Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[derive(Default, Debug, Clone, PartialEq, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct Scope {
     pub name: String,
 }
 
-#[derive(Default, Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[derive(Default, Debug, Clone, PartialEq, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct Span {
     pub trace_id: String,
@@ -67,13 +66,13 @@ pub struct Span {
     pub status: Status,
 }
 
-#[derive(Default, Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[derive(Default, Debug, Clone, PartialEq, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct Value2 {
     pub string_value: String,
 }
 
-#[derive(Default, Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[derive(Default, Debug, Clone, PartialEq, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct Status {}
 
@@ -178,13 +177,14 @@ impl Span {
     }
 }
 
+pub fn new_trace_id() -> String {
+    // This is how OpenTelemetry does it:
+    // https://docs.rs/opentelemetry_api/0.19.0/src/opentelemetry_api/trace/span_context.rs.html#137
+    format!("{:032x}", rand::thread_rng().gen::<u128>())
+}
+
 pub fn new_span_id() -> String {
-    rand::thread_rng()
-        .sample_iter(&Alphanumeric)
-        .take(16)
-        .map(char::from)
-        .collect::<String>()
-        .to_uppercase()
+    format!("{:016x}", rand::thread_rng().gen::<u64>())
 }
 
 #[cfg(test)]
