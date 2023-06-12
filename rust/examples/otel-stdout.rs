@@ -35,7 +35,7 @@ pub async fn main() -> anyhow::Result<()> {
     let id = adapter.lock().await.new_collector();
     let events = add_to_linker(id, &mut linker)?;
 
-    let collector = Collector::new(adapter, id, events).await?;
+    let collector = Collector::new(adapter.clone(), id, events).await?;
 
     let instance = linker.instantiate(&mut store, &module)?;
 
@@ -46,13 +46,10 @@ pub async fn main() -> anyhow::Result<()> {
         .get_func(&mut store, function_name)
         .expect("function exists");
 
-    OtelStdoutAdapter::start_trace(
-        String::from("module-name"),
-        function_name.to_string(),
-        || {
-            f.call(&mut store, &[], &mut []).unwrap();
-        },
-    );
+    collector
+        .set_metadata("trace_id".to_string(), "some-new-trace-id".to_string())
+        .await;
+    f.call(&mut store, &[], &mut []).unwrap();
 
     task::yield_now().await;
     collector.shutdown().await;

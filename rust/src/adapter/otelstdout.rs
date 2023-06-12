@@ -1,6 +1,6 @@
 use crate::{
     adapter::otel_formater::{OtelFormatter, ResourceSpan},
-    Event,
+    Event, Metadata,
 };
 use std::{
     sync::{
@@ -11,30 +11,29 @@ use std::{
 };
 use tokio::sync::Mutex;
 
-use super::{otel_formater::Span, Adapter};
+use super::{
+    otel_formater::{self, Span},
+    Adapter,
+};
 
 pub type OtelAdapterContainer = Arc<Mutex<OtelStdoutAdapter>>;
 
-#[derive(Clone, Copy)]
-pub struct OtelStdoutAdapter {}
+#[derive(Clone)]
+pub struct OtelStdoutAdapter {
+    pub trace_id: String,
+}
 
 impl OtelStdoutAdapter {
     pub fn new() -> OtelAdapterContainer {
-        let adapter = OtelStdoutAdapter {};
+        let adapter = OtelStdoutAdapter {
+            trace_id: otel_formater::new_span_id(),
+        };
 
         Arc::new(Mutex::new(adapter))
     }
 
     pub fn new_collector(&mut self) -> usize {
         next_id()
-    }
-
-    pub fn start_trace<F, T>(module_name: String, action_name: String, f: F) -> T
-    where
-        F: FnOnce() -> T,
-    {
-        println!("======= starting trace");
-        f()
     }
 
     fn _handle_event(
@@ -45,12 +44,12 @@ impl OtelStdoutAdapter {
     ) -> Option<Vec<Span>> {
         match event {
             Event::Func(_id, f) => {
-                let name = format!(
-                    "function-call-{}",
-                    &f.name.clone().unwrap_or("unknown-name".to_string())
-                );
+                let function_name = &f.name.clone().unwrap_or("unknown-name".to_string());
+                let name = format!("function-call-{}", &function_name);
 
-                let span = Span::new(trace_id.clone(), parent_span_id, name, f.start, f.end);
+                let mut span = Span::new(trace_id.clone(), parent_span_id, name, f.start, f.end);
+                span.add_attribute_string("function_name".to_string(), function_name.to_string());
+
                 let span_id = Some(span.span_id.clone());
                 let mut spans = vec![span];
 
@@ -64,14 +63,24 @@ impl OtelStdoutAdapter {
 
                 Some(spans)
             }
-            Event::Alloc(_id, a) => Some(vec![Span::new(
-                trace_id.clone(),
-                parent_span_id,
-                "allocation".to_string(),
-                a.ts,
-                a.ts,
-            )]),
-            Event::Metadata(_id, _) => None,
+            Event::Alloc(_id, a) => {
+                let mut span = Span::new(
+                    trace_id.clone(),
+                    parent_span_id,
+                    "allocation".to_string(),
+                    a.ts,
+                    a.ts,
+                );
+                span.add_attribute_i64("amount".to_string(), a.amount.into());
+                Some(vec![span])
+            }
+            Event::Metadata(_id, Metadata { key, value }) => {
+                if key == "trace_id" {
+                    self.trace_id = value;
+                }
+
+                None
+            }
             Event::Shutdown(_id) => None,
         }
     }

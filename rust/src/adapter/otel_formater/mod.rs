@@ -1,4 +1,3 @@
-use std::alloc::System;
 use std::time::SystemTime;
 
 use rand::{distributions::Alphanumeric, Rng};
@@ -34,7 +33,8 @@ pub struct Attribute {
 #[derive(Default, Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct Value {
-    pub string_value: String,
+    pub string_value: Option<String>,
+    pub int_value: Option<i64>,
 }
 
 #[derive(Default, Debug, Clone, PartialEq, Serialize, Deserialize)]
@@ -60,18 +60,11 @@ pub struct Span {
     pub kind: i64,
     pub start_time_unix_nano: u128,
     pub end_time_unix_nano: u128,
-    pub attributes: Vec<Attribute2>,
+    pub attributes: Vec<Attribute>,
     pub dropped_attributes_count: i64,
     pub dropped_events_count: i64,
     pub dropped_links_count: i64,
     pub status: Status,
-}
-
-#[derive(Default, Debug, Clone, PartialEq, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase")]
-pub struct Attribute2 {
-    pub key: String,
-    pub value: Value2,
 }
 
 #[derive(Default, Debug, Clone, PartialEq, Serialize, Deserialize)]
@@ -110,7 +103,8 @@ impl ResourceSpan {
         let attribute = Attribute {
             key,
             value: Value {
-                string_value: value,
+                string_value: Some(value),
+                int_value: None,
             },
         };
         self.resource.attributes.push(attribute);
@@ -163,8 +157,28 @@ impl Span {
             status: Status {},
         }
     }
+
+    pub fn add_attribute_string(&mut self, key: String, value: String) {
+        self.attributes.push(Attribute {
+            key,
+            value: Value {
+                string_value: Some(value),
+                int_value: None,
+            },
+        });
+    }
+    pub fn add_attribute_i64(&mut self, key: String, value: i64) {
+        self.attributes.push(Attribute {
+            key,
+            value: Value {
+                int_value: Some(value),
+                string_value: None,
+            },
+        });
+    }
 }
-fn new_span_id() -> String {
+
+pub fn new_span_id() -> String {
     rand::thread_rng()
         .sample_iter(&Alphanumeric)
         .take(16)
@@ -184,7 +198,13 @@ mod tests {
         let rs =
             ResourceSpan::new().add_attribute("service.name".to_owned(), "something".to_owned());
         assert_eq!(
-            rs.resource.attributes.first().unwrap().value.string_value,
+            rs.resource
+                .attributes
+                .first()
+                .unwrap()
+                .value
+                .string_value
+                .unwrap(),
             "something"
         );
     }

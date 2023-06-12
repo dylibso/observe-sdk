@@ -8,7 +8,7 @@ use std::{sync::Arc, thread};
 use anyhow::Result;
 use tokio::sync::{mpsc::Sender, Mutex};
 
-use crate::{Event, EventChannels};
+use crate::{Event, EventChannels, Metadata};
 
 pub trait Adapter {
     fn handle_event(&mut self, event: Event);
@@ -44,5 +44,12 @@ impl Collector {
             .await
             .unwrap();
         thread::sleep(time::Duration::from_millis(50));
+    }
+
+    pub async fn set_metadata(&self, key: String, value: String) {
+        self.send_events
+            .send(Event::Metadata(0, Metadata { key, value }))
+            .await
+            .unwrap();
     }
 }

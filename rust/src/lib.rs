@@ -106,8 +106,14 @@ impl InstrumentationContext {
 pub enum Event {
     Func(usize, FunctionCall),
     Alloc(usize, Allocation),
-    Metadata(usize, String),
+    Metadata(usize, Metadata),
     Shutdown(usize),
+}
+
+#[derive(Debug, Clone)]
+pub struct Metadata {
+    pub key: String,
+    pub value: String,
 }
 
 #[derive(Debug, Clone)]
