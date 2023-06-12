@@ -1,4 +1,4 @@
-module github.com/dylibso/observe-wazero
+module github.com/dylibso/observe-sdk-wazero
 
 go 1.19
 
