@@ -62,18 +62,28 @@ mod tests {
             .filter_map(identity)
             .collect::<Vec<Value>>();
 
-        let mut trace_id = "";
-        if let Some(trace) = traces.first() {
-            if let Some(resource_spans) = trace["resourceSpans"].as_array().unwrap().first() {
-                if let Some(spans) = resource_spans["scopeSpans"].as_array().unwrap().first() {
-                    if let Some(span) = spans["spans"].as_array().unwrap().first() {
-                        trace_id = span["traceId"].as_str().unwrap_or_default();
-                    }
+        let trace_id = attribute_of_first_span(traces.first().unwrap(), "traceId".to_string());
+        assert_eq!(trace_id, Some("any-old-trace-id".to_string()));
+
+        // test.c.instr.wasm spits out 10 allocations at the top level, this may change with the
+        // function naming work
+        let allocations = traces
+            .iter()
+            .filter(|t| attribute_of_first_span(t, "name".to_string()).unwrap() == "allocation");
+        assert_eq!(allocations.count(), 10);
+
+        Ok(())
+    }
+
+    fn attribute_of_first_span(trace: &Value, attribute: String) -> Option<String> {
+        if let Some(resource_spans) = trace["resourceSpans"].as_array().unwrap().first() {
+            if let Some(spans) = resource_spans["scopeSpans"].as_array().unwrap().first() {
+                if let Some(span) = spans["spans"].as_array().unwrap().first() {
+                    let value = span[attribute].as_str().unwrap_or_default();
+                    return Some(value.to_string());
                 }
             }
         }
-
-        assert_eq!(trace_id, "any-old-trace-id");
-        Ok(())
+        None
     }
 }
