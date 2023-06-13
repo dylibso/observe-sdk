@@ -126,7 +126,7 @@ pub struct Allocation {
     pub amount: u32,
 }
 
-pub(crate) fn instrument_enter(
+pub fn instrument_enter(
     _input: &[Val],
     _output: &mut [Val],
     ctx: Arc<Mutex<InstrumentationContext>>,
@@ -143,7 +143,7 @@ pub(crate) fn instrument_enter(
     Ok(())
 }
 
-pub(crate) fn instrument_exit(
+pub fn instrument_exit(
     _input: &[Val],
     _output: &mut [Val],
     ctx: Arc<Mutex<InstrumentationContext>>,
@@ -171,8 +171,10 @@ const MODULE_NAME: &'static str = "dylibso_observe";
 type EventChannels = (Receiver<Event>, Sender<Event>);
 type FunctionNames = HashMap<u32, String>;
 
-pub fn add_to_linker<T: 'static>(id: usize, linker: &mut Linker<T>, data : &Vec<u8>) -> Result<EventChannels> {
-    let (ctx, events_rx, events_tx) = InstrumentationContext::new(id);
+pub fn add_to_linker<T: 'static>(id: usize, linker: &mut Linker<T>, data : &Vec<u8>, ctx: Arc<Mutex<InstrumentationContext>>, events_rx: Receiver<Event>,
+    events_tx: Sender<Event>) -> Result<EventChannels> {
+//pub fn add_to_linker<T: 'static>(id: usize, linker: &mut Linker<T>, data : &Vec<u8>) -> Result<EventChannels> { 
+//    let (ctx, events_rx, events_tx) = InstrumentationContext::new(id);
 
     // Build up a table of function id to name mapping
     //let mut function_names = Vec::new();

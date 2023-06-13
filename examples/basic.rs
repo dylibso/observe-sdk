@@ -1,8 +1,13 @@
 use dylibso_observe_sdk::{
     adapter::{stdout::StdoutAdapter, Collector},
     add_to_linker,
+    instrument_enter,
+    instrument_exit
 };
+use dylibso_observe_sdk::InstrumentationContext;
 use tokio::task;
+use std::collections::HashMap;
+use wasmtime::{Val};
 
 #[tokio::main]
 pub async fn main() -> anyhow::Result<()> {
@@ -32,7 +37,10 @@ pub async fn main() -> anyhow::Result<()> {
     // to the instrumented guest code. These are safe to add and are a no-op
     // if guest code is uninstrumented.
     let id = adapter.lock().await.new_collector();
-    let events = add_to_linker(id, &mut linker, &data)?;
+    let (ctx, events_rx, events_tx) = InstrumentationContext::new(id);
+    let ctx0 = ctx.clone();
+    let ctx00 = ctx.clone();;
+    let events = add_to_linker(id, &mut linker, &data, ctx, events_rx, events_tx)?;
 
     let collector = Collector::new(adapter, id, events).await?;
 
@@ -44,7 +52,11 @@ pub async fn main() -> anyhow::Result<()> {
     let f = instance
         .get_func(&mut store, function_name)
         .expect("function exists");
+    let mut hm = HashMap::<u32, String>::new();
+    hm.insert(10, String::from("_start"));
+    instrument_enter(&[Val::from(10)], &mut[], ctx0, &hm).unwrap();
     f.call(&mut store, &[], &mut []).unwrap();
+    instrument_exit(&[Val::from(10)], &mut[], ctx00).unwrap();
     task::yield_now().await;
     collector.shutdown().await;
 

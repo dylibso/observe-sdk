@@ -27,18 +27,18 @@ impl OtelStdoutAdapter {
             .build();
         set_tracer_provider(provider);
 
-        let (mut recv_events, _) = add_to_linker(next_id(), linker, &Vec::new())?;
+        //let (mut recv_events, _) = add_to_linker(next_id(), linker, &Vec::new())?;
         let adapter = OtelStdoutAdapter {};
 
         let a2 = adapter.clone();
 
         tokio::spawn(async move {
             let tracer = global::tracer("demo");
-            tracer.in_span("receiver", |_cx| {
+            /*tracer.in_span("receiver", |_cx| {
                 while let Some(event) = recv_events.blocking_recv() {
                     a2.handle_event(event, &tracer);
                 }
-            })
+            })*/
         });
 
         Ok(adapter)
