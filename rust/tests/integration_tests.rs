@@ -8,7 +8,7 @@ mod tests {
     #[test]
     fn basic() -> Result<()> {
         // cargo run --example basic ../test/test.c.instr.wasm
-        let mut output = Command::new("cargo")
+        let output = Command::new("cargo")
             .args(&["run", "--example", "basic", "../test/test.c.instr.wasm"])
             .output()
             .expect("Failed to run the example `examples/basic`");
