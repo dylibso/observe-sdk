@@ -1,11 +1,10 @@
-// use std::sync::mpsc::{channel, Receiver, Sender};
-use log::error;
 use std::sync::{Arc, Mutex};
 use std::time::SystemTime;
-use tokio::sync::mpsc::{channel, Receiver, Sender};
 
 use anyhow::{anyhow, Result};
+use log::error;
 use modsurfer_demangle::demangle_function_name;
+use tokio::sync::mpsc::{channel, Receiver, Sender};
 use wasmtime::{Caller, FrameInfo, FuncType, Linker, Val, ValType, WasmBacktrace};
 
 pub mod adapter;
@@ -186,10 +185,10 @@ pub(crate) fn instrument_memory_grow<T>(
 
 const MODULE_NAME: &str = "dylibso_observe";
 
-type EventChannels = (Receiver<Event>, Sender<Event>);
+type EventChannel = (Sender<Event>, Receiver<Event>);
 
 /// Link observability import functions required by instrumented wasm code
-pub fn add_to_linker<T: 'static>(id: usize, linker: &mut Linker<T>) -> Result<EventChannels> {
+pub fn add_to_linker<T: 'static>(id: usize, linker: &mut Linker<T>) -> Result<EventChannel> {
     let (ctx, events_rx, events_tx) = InstrumentationContext::new(id);
 
     let t = FuncType::new([], []);
@@ -217,5 +216,5 @@ pub fn add_to_linker<T: 'static>(id: usize, linker: &mut Linker<T>) -> Result<Ev
         move |caller, params, results| instrument_memory_grow(caller, params, results, ctx.clone()),
     )?;
 
-    Ok((events_rx, events_tx))
+    Ok((events_tx, events_rx))
 }

@@ -1,22 +1,38 @@
-use crate::{
-    adapter::otel_formater::{OtelFormatter, ResourceSpan},
-    Event, Metadata,
-};
-use std::{
-    sync::{
-        atomic::{AtomicUsize, Ordering},
-        Arc,
-    },
-    thread, time,
-};
+use std::sync::atomic::{AtomicUsize, Ordering};
+use std::sync::Arc;
+use std::{thread, time};
+
+use crate::adapter::otel_formatter::{self, OtelFormatter, ResourceSpan, Span};
+use crate::adapter::{Adapter, Collector};
+use crate::{add_to_linker, Event, Metadata};
+
+use anyhow::Result;
 use tokio::sync::Mutex;
+use wasmtime::Linker;
 
-use super::{
-    otel_formater::{self, Span},
-    Adapter, Collector,
-};
+pub struct OtelAdapterContainer(pub Arc<Mutex<OtelStdoutAdapter>>);
 
-pub type OtelAdapterContainer = Arc<Mutex<OtelStdoutAdapter>>;
+pub struct OtelTraceCtx(Collector);
+
+impl OtelTraceCtx {
+    pub async fn set_trace_id(&mut self, id: String) {
+        self.0.set_metadata("trace_id".to_string(), id).await;
+    }
+
+    pub async fn shutdown(&self) {
+        self.0.shutdown().await;
+    }
+}
+
+impl OtelAdapterContainer {
+    pub async fn start<T: 'static>(&self, linker: &mut Linker<T>) -> Result<OtelTraceCtx> {
+        let id = next_id();
+        let events = add_to_linker(id, linker)?;
+        let collector = Collector::new(self.0.clone(), id, events).await?;
+
+        Ok(OtelTraceCtx(collector))
+    }
+}
 
 #[derive(Clone)]
 pub struct OtelStdoutAdapter {
@@ -24,16 +40,13 @@ pub struct OtelStdoutAdapter {
 }
 
 impl OtelStdoutAdapter {
+    #[allow(clippy::new_ret_no_self)]
     pub fn new() -> OtelAdapterContainer {
-        let adapter = OtelStdoutAdapter {
-            trace_id: otel_formater::new_span_id(),
+        let adapter = Self {
+            trace_id: otel_formatter::new_span_id(),
         };
 
-        Arc::new(Mutex::new(adapter))
-    }
-
-    pub fn new_collector(&mut self) -> usize {
-        next_id()
+        OtelAdapterContainer(Arc::new(Mutex::new(adapter)))
     }
 
     fn _handle_event(&mut self, event: Event, parent_span_id: Option<String>) -> Option<Vec<Span>> {
@@ -77,12 +90,6 @@ impl OtelStdoutAdapter {
             }
             Event::Shutdown(_id) => None,
         }
-    }
-
-    pub async fn set_trace_id(collector: &Collector, trace_id: String) {
-        collector
-            .set_metadata("trace_id".to_string(), trace_id)
-            .await;
     }
 }
 
