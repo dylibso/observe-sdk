@@ -6,7 +6,7 @@ use anyhow::{anyhow, Result};
 use log::error;
 use modsurfer_demangle::demangle_function_name;
 use tokio::sync::mpsc::{channel, Receiver, Sender};
-use wasmtime::{Caller, FrameInfo, FuncType, Linker, Val, ValType, WasmBacktrace};
+use wasmtime::{Caller, FuncType, Linker, Val, ValType};
 use std::collections::HashMap;
 
 pub mod adapter;
@@ -40,7 +40,7 @@ impl InstrumentationContext {
         )
     }
 
-    pub fn enter(&mut self, func_index : u32, func_name : &String) -> Result<()> {
+    pub fn enter(&mut self, func_index : u32, func_name : &str) -> Result<()> {
         let mut fc = FunctionCall {
             index: func_index,
             start: SystemTime::now(),
@@ -131,70 +131,43 @@ pub struct Allocation {
     pub amount: u32,
 }
 
-pub(crate) fn instrument_enter<T>(
-    caller: Caller<T>,
+pub(crate) fn instrument_enter(
     _input: &[Val],
     _output: &mut [Val],
     ctx: Arc<Mutex<InstrumentationContext>>,
     function_names: &FunctionNames
 ) -> anyhow::Result<()> {
     let func_id = _input[0].unwrap_i32() as u32;
-    let func_name_offset = _input[1].unwrap_i32() as u32;
-    let bt = WasmBacktrace::capture(caller);
-
-    if let Some(frame) = bt.frames().first() {
-        if let Ok(mut cont) = ctx.lock() {
-            /*let fid = frame.func_index();
-            let mut jname = String::new();
-            if let Some(name) = frame.func_name() {
-                let mut oname = Some(demangle_function_name(name.to_string()));
-                oname = Some(name.to_string());
-                jname = oname.unwrap();
-            }*/
-            let mut printname = "placeholder".to_string();
-            let temp = function_names.get(&func_id);
-            if temp.is_some() {
-                printname = temp.unwrap().to_string();
-            }
-            cont.enter(func_id, &printname)?;
-        }
+    let printname = match function_names.get(&func_id) {
+        Some(s) => s,
+        _ => "placeholder"
+    };
+    if let Ok(mut cont) = ctx.lock() {
+        cont.enter(func_id, printname)?;
     }
-
     Ok(())
 }
 
-pub(crate) fn instrument_exit<T>(
-    caller: Caller<T>,
+pub(crate) fn instrument_exit(
     _input: &[Val],
     _output: &mut [Val],
     ctx: Arc<Mutex<InstrumentationContext>>,
 ) -> Result<()> {
     let func_id = _input[0].unwrap_i32() as u32;
-    let bt = WasmBacktrace::capture(caller);
-
-    if let Some(frame) = bt.frames().first() {
-        if let Ok(mut cont) = ctx.lock() {
-            cont.exit(func_id)?;
-        }
+    if let Ok(mut cont) = ctx.lock() {
+        cont.exit(func_id)?;
     }
-
     Ok(())
 }
 
-pub(crate) fn instrument_memory_grow<T>(
-    caller: Caller<T>,
+pub(crate) fn instrument_memory_grow(
     input: &[Val],
     _output: &mut [Val],
     ctx: Arc<Mutex<InstrumentationContext>>,
 ) -> Result<()> {
     let amount_in_pages = input[0].unwrap_i32(); // The number of pages requested by `memory.grow` instruction
-    let bt = WasmBacktrace::capture(caller);
-
-    // TODO: this should scream and die loudly if it can't actually get ahold of the frame
-    if let Some(frame) = bt.frames().last() {
-        if let Ok(mut cont) = ctx.lock() {
-            cont.allocate(amount_in_pages as u32)?;
-        }
+    if let Ok(mut cont) = ctx.lock() {
+        cont.allocate(amount_in_pages as u32)?;
     }
     Ok(())
 }
@@ -257,7 +230,7 @@ pub fn add_to_linker<T: 'static>(id: usize, linker: &mut Linker<T>, data : &Vec<
         MODULE_NAME,
         "instrument_enter",
         FuncType::new([ValType::I32, ValType::I32], []),
-        move |caller, params, results| instrument_enter(caller, params, results, enter_ctx.clone(), &function_names),
+        move |_caller, params, results| instrument_enter(params, results, enter_ctx.clone(), &function_names),
     )?;
 
     let exit_ctx = ctx.clone();
@@ -265,14 +238,14 @@ pub fn add_to_linker<T: 'static>(id: usize, linker: &mut Linker<T>, data : &Vec<
         MODULE_NAME,
         "instrument_exit",
         FuncType::new([ValType::I32], []),
-        move |caller, params, results| instrument_exit(caller, params, results, exit_ctx.clone()),
+        move |_caller, params, results| instrument_exit( params, results, exit_ctx.clone()),
     )?;
 
     linker.func_new(
         MODULE_NAME,
         "instrument_memory_grow",
         FuncType::new([ValType::I32], []),
-        move |caller, params, results| instrument_memory_grow(caller, params, results, ctx.clone()),
+        move |_caller, params, results| instrument_memory_grow(params, results, ctx.clone()),
     )?;
 
     Ok((events_tx, events_rx))
