@@ -3,6 +3,7 @@ package dylibso_observe
 import (
 	"time"
 
+	"github.com/ianlancetaylor/demangle"
 	"github.com/tetratelabs/wazero/api"
 )
 
@@ -36,6 +37,7 @@ type Event interface {
 
 type CallEvent struct {
 	Raw      []RawEvent
+	Time     time.Time
 	Duration time.Duration
 }
 
@@ -61,31 +63,12 @@ func (e MemoryGrowEvent) RawEvents() []RawEvent {
 	return []RawEvent{e.Raw}
 }
 
-/*
-type Event struct {
-	Raw        []RawEvent
-	Time       time.Duration
-	Kind       EventKind
-	ModuleName string
-}
-
-func (e Event) IsModuleBegin() bool {
-	return e.Kind == ModuleBegin
-}
-
-func (e Event) IsFunctionCall() bool {
-	return e.Kind == Call
-}
-
-func (e Event) IsMemoryGrow() bool {
-	return e.Kind == MemoryGrow
-}
-
-
-*/
-
-func (e MemoryGrowEvent) DemangledFunctionName() (string, error) {
-	return DemangleFunctionName(e.Raw.FunctionName)
+func (e MemoryGrowEvent) DemangledFunctionName() string {
+	s, err := demangle.ToString(e.Raw.FunctionName)
+	if err != nil {
+		return e.Raw.FunctionName
+	}
+	return s
 }
 
 func (e MemoryGrowEvent) FunctionName() string {
@@ -100,8 +83,12 @@ func (e CallEvent) FunctionName() string {
 	return e.Raw[0].FunctionName
 }
 
-func (e CallEvent) DemangledFunctionName() (string, error) {
-	return DemangleFunctionName(e.Raw[0].FunctionName)
+func (e CallEvent) DemangledFunctionName() string {
+	s, err := demangle.ToString(e.Raw[0].FunctionName)
+	if err != nil {
+		return e.Raw[0].FunctionName
+	}
+	return s
 }
 
 func (e CallEvent) FunctionIndex() uint32 {

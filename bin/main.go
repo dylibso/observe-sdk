@@ -22,14 +22,6 @@ func main() {
 	}
 	defer r.Close(ctx) // This closes everything this Runtime created.
 
-	//
-	// Adapter API
-	adapter := observe.NewStdoutAdapter()
-	adapter.Start(collector)
-	defer adapter.Wait(collector, time.Millisecond)
-	//
-	// END OUR API
-
 	// Instantiate WASI
 	wasi_snapshot_preview1.MustInstantiate(ctx, r)
 
@@ -39,15 +31,22 @@ func main() {
 		log.Panicln(err)
 	}
 
-	// BEGIN OUR API
+	config := wazero.NewModuleConfig().WithStdin(os.Stdin).WithStdout(os.Stdout).WithStderr(os.Stderr).WithArgs(os.Args[1:]...).WithStartFunctions("_start")
+	cm, err := r.CompileModule(ctx, wasm)
+	if err != nil {
+		log.Panicln(err)
+	}
+
 	//
-	// Signal module start
+	// Adapter API
+	adapter := observe.NewStdoutAdapter(cm)
+	adapter.Start(collector)
+	defer adapter.Wait(collector, time.Millisecond)
 	collector.ModuleBegin("something")
 	//
 	// END OUR API
 
-	config := wazero.NewModuleConfig().WithStdin(os.Stdin).WithStdout(os.Stdout).WithStderr(os.Stderr).WithArgs(os.Args[2:]...).WithStartFunctions("_start")
-	m, err := r.InstantiateWithConfig(ctx, wasm, config)
+	m, err := r.InstantiateModule(ctx, cm, config)
 	if err != nil {
 		log.Panicln(err)
 	}

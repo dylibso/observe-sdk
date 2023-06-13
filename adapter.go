@@ -3,6 +3,9 @@ package dylibso_observe
 import (
 	"log"
 	"time"
+
+	"github.com/ianlancetaylor/demangle"
+	"github.com/tetratelabs/wazero"
 )
 
 type Adapter interface {
@@ -11,22 +14,51 @@ type Adapter interface {
 	Event(Event)
 }
 
-type StdoutAdapter struct {
-	stop      chan bool
-	collector Collector
+type AdapterBase struct {
+	StopChan  chan bool
+	Collector Collector
+	Names     map[uint32]string
 }
 
-func NewStdoutAdapter() StdoutAdapter {
-	return StdoutAdapter{stop: make(chan bool, 1)}
+type StdoutAdapter struct {
+	AdapterBase
+}
+
+func (a *AdapterBase) GetNames(cm wazero.CompiledModule) {
+	d := map[uint32]string{}
+
+	for name, f := range cm.ExportedFunctions() {
+		d[f.Index()] = name
+	}
+
+	for _, f := range cm.ImportedFunctions() {
+		d[f.Index()] = f.Name()
+	}
+
+	a.Names = d
+}
+
+func NewAdataperBase(cm wazero.CompiledModule) AdapterBase {
+	a := AdapterBase{
+		StopChan:  make(chan bool, 1),
+		Collector: Collector{},
+	}
+	a.GetNames(cm)
+	return a
+}
+
+func NewStdoutAdapter(cm wazero.CompiledModule) StdoutAdapter {
+	return StdoutAdapter{AdapterBase: NewAdataperBase(cm)}
 }
 
 func (s *StdoutAdapter) Event(e Event) {
 	switch event := e.(type) {
 	case CallEvent:
-		name := event.FunctionName()
+		name := event.DemangledFunctionName()
 		log.Println("Call to", name, "took", event.Duration)
 	case MemoryGrowEvent:
-		name := event.FunctionName()
+		name := event.DemangledFunctionName()
+		name, _ = demangle.ToString(name)
 		log.Println("Allocated", event.MemoryGrowAmount(), "pages of memory in", name)
 	case ModuleBeginEvent:
 		log.Println("Starting module:", event.Name)
@@ -34,7 +66,7 @@ func (s *StdoutAdapter) Event(e Event) {
 }
 
 func (a *StdoutAdapter) Stop() {
-	a.stop <- true
+	a.StopChan <- true
 }
 
 func (a *StdoutAdapter) Start(collector Collector) {
@@ -43,7 +75,7 @@ func (a *StdoutAdapter) Start(collector Collector) {
 			select {
 			case event := <-collector.Events:
 				a.Event(event)
-			case <-a.stop:
+			case <-a.StopChan:
 				return
 			}
 		}
@@ -51,13 +83,12 @@ func (a *StdoutAdapter) Start(collector Collector) {
 }
 
 func (a *StdoutAdapter) Wait(collector Collector, timeout time.Duration) {
-	for {
-		select {
-		case <-time.After(timeout):
-			if len(collector.Events) > 0 {
-				continue
-			}
+	select {
+	case <-time.After(timeout):
+		if len(collector.Events) > 0 {
+			a.Wait(collector, timeout)
 			return
 		}
+		return
 	}
 }

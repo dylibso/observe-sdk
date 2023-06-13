@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"github.com/tetratelabs/wazero"
+	"github.com/tetratelabs/wazero/api"
 	"github.com/tetratelabs/wazero/experimental"
 )
 
@@ -19,6 +20,7 @@ type Collector struct {
 	startedFunctions []startedFunction
 	Events           chan Event
 	Config           *Config
+	// Adapters map[string]Adapter
 }
 
 func (c *Collector) clearEvents() {
@@ -75,10 +77,10 @@ func NewCollector(config *Config) Collector {
 
 func (c *Collector) InitRuntime() (context.Context, wazero.Runtime, error) {
 	ctx := context.WithValue(context.Background(), experimental.FunctionListenerFactoryKey{}, *c)
-	r := wazero.NewRuntimeWithConfig(ctx, c.Config.RuntimeConfig)
+	r := wazero.NewRuntimeWithConfig(ctx, c.Config.RuntimeConfig.WithCustomSections(true))
 	observe := r.NewHostModuleBuilder("dylibso_observe")
 	functions := observe.NewFunctionBuilder()
-	functions.WithFunc(func(ctx context.Context) {
+	functions.WithFunc(func(ctx context.Context, m api.Module) {
 		ev := <-c.raw
 		if ev.Kind != RawEnter {
 			log.Panicln("Expected event", RawEnter, "but got", ev.Kind)
@@ -100,6 +102,7 @@ func (c *Collector) InitRuntime() (context.Context, wazero.Runtime, error) {
 		}
 		event := CallEvent{
 			Raw:      []RawEvent{start, ev},
+			Time:     startTime,
 			Duration: time.Now().Sub(startTime),
 		}
 		c.Events <- event
