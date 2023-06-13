@@ -49,7 +49,7 @@ impl InstrumentationContext {
         };
         if let Some(name) = fi.func_name() {
             fc.name = Some(demangle_function_name(name.to_string()));
-            fc.name = Some(name.to_string());
+            fc.raw_name = Some(name.to_string());
         };
         self.stack.push(fc);
         Ok(())
