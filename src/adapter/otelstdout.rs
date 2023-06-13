@@ -27,7 +27,7 @@ impl OtelStdoutAdapter {
             .build();
         set_tracer_provider(provider);
 
-        let (mut recv_events, _) = add_to_linker(next_id(), linker)?;
+        let (mut recv_events, _) = add_to_linker(next_id(), linker, &Vec::new())?;
         let adapter = OtelStdoutAdapter {};
 
         let a2 = adapter.clone();

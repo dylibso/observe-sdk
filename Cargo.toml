@@ -20,3 +20,4 @@ opentelemetry-stdout = { git = "https://github.com/open-telemetry/opentelemetry-
 tokio = { version = "1.28.1", features = ["full"] }
 rand = "0.8.5"
 modsurfer-demangle = { git = "https://github.com/dylibso/modsurfer" }
+wasmparser = "0.107.0"
