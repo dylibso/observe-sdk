@@ -1,9 +1,4 @@
-use std::sync::Arc;
-
-use dylibso_observe_sdk::{
-    adapter::{otelstdout::OtelStdoutAdapter, Collector},
-    add_to_linker,
-};
+use dylibso_observe_sdk::adapter::otelstdout::OtelStdoutAdapter;
 use rand::{seq::SliceRandom, thread_rng};
 use tokio::task;
 
@@ -18,13 +13,13 @@ pub async fn main() -> anyhow::Result<()> {
     let engine = wasmtime::Engine::new(&config)?;
     let module = wasmtime::Module::new(&engine, data)?;
 
-    // Build the adapters here, setup whatever they need to track the collectors
+    // create a thread-safe adapter container, which is used to create trace contexts,
+    // one-per-instance of a wasm module.
     let adapter = OtelStdoutAdapter::new();
 
     for _ in 0..10 {
         let mut instances = Vec::new();
         for _ in 0..10 {
-            let adap = Arc::clone(&adapter);
             // Setup WASI
             let wasi_ctx = wasmtime_wasi::WasiCtxBuilder::new()
                 .inherit_env()?
@@ -39,18 +34,15 @@ pub async fn main() -> anyhow::Result<()> {
             // Provide the observability functions to the `Linker` to be made
             // available to the instrumented guest code. These are safe to add
             // and are a no-op if guest code is uninstrumented.
-            let id = adap.lock().await.new_collector();
-            let events = add_to_linker(id, &mut linker)?;
-
-            let collector = Collector::new(adap, id, events).await?;
+            let trace_ctx = adapter.start(&mut linker).await?;
 
             let instance = linker.instantiate(&mut store, &module)?;
-            instances.push((collector, instance, store));
+            instances.push((trace_ctx, instance, store));
         }
 
         instances.shuffle(&mut thread_rng());
 
-        for (collector, instance, mut store) in instances {
+        for (trace_ctx, instance, mut store) in instances {
             // get the function and run it, the events pop into the queue
             // as the function is running
             tokio::spawn(async move {
@@ -58,16 +50,10 @@ pub async fn main() -> anyhow::Result<()> {
                     .get_func(&mut store, function_name)
                     .expect("function exists");
 
-                OtelStdoutAdapter::start_trace(
-                    String::from("module-name"),
-                    function_name.to_string(),
-                    || {
-                        f.call(&mut store, &[], &mut []).unwrap();
-                    },
-                );
+                f.call(&mut store, &[], &mut []).unwrap();
 
                 task::yield_now().await;
-                collector.shutdown().await;
+                trace_ctx.shutdown().await;
             });
         }
     }

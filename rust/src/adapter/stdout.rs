@@ -1,17 +1,13 @@
-use core::time;
-use std::{
-    collections::HashMap,
-    sync::Arc,
-    thread::{self},
-    time::SystemTime,
-};
+use std::collections::HashMap;
+use std::sync::atomic::{AtomicUsize, Ordering};
+use std::sync::Arc;
+use std::thread;
+use std::time::{self, SystemTime};
 
+use crate::adapter::Adapter;
 use crate::Event;
 
 use tokio::sync::Mutex;
-
-use crate::adapter::Adapter;
-use std::sync::atomic::{AtomicUsize, Ordering};
 
 pub type StdoutAdapterContainer = Arc<Mutex<StdoutAdapter>>;
 

@@ -1,93 +1,94 @@
-use opentelemetry::{
-    global::{self, set_tracer_provider, shutdown_tracer_provider, BoxedTracer},
-    sdk::trace::TracerProvider,
-    trace::{Span, SpanBuilder, Tracer},
-    KeyValue,
-};
+use std::sync::atomic::{AtomicUsize, Ordering};
+use std::sync::Arc;
+use std::{thread, time};
 
-use crate::Event;
-use opentelemetry_stdout;
-use std::{
-    sync::{
-        atomic::{AtomicUsize, Ordering},
-        Arc,
-    },
-    thread, time,
-};
+use crate::adapter::otel_formatter::{self, OtelFormatter, ResourceSpan, Span};
+use crate::adapter::{Adapter, Collector};
+use crate::{add_to_linker, Event, Metadata};
+
+use anyhow::Result;
 use tokio::sync::Mutex;
+use wasmtime::Linker;
 
-use super::Adapter;
+pub struct OtelAdapterContainer(Arc<Mutex<OtelStdoutAdapter>>);
 
-//use super::json_span_exporter;
+pub struct OtelTraceCtx(Collector);
 
-pub type OtelAdapterContainer = Arc<Mutex<OtelStdoutAdapter>>;
+impl OtelTraceCtx {
+    pub async fn set_trace_id(&mut self, id: String) {
+        self.0.set_metadata("trace_id".to_string(), id).await;
+    }
 
-#[derive(Clone, Copy)]
-pub struct OtelStdoutAdapter {}
+    pub async fn shutdown(&self) {
+        self.0.shutdown().await;
+    }
+}
+
+impl OtelAdapterContainer {
+    pub async fn start<T: 'static>(&self, linker: &mut Linker<T>) -> Result<OtelTraceCtx> {
+        let id = next_id();
+        let events = add_to_linker(id, linker)?;
+        let collector = Collector::new(self.0.clone(), id, events).await?;
+
+        Ok(OtelTraceCtx(collector))
+    }
+}
+
+#[derive(Clone)]
+pub struct OtelStdoutAdapter {
+    pub trace_id: String,
+}
 
 impl OtelStdoutAdapter {
+    #[allow(clippy::new_ret_no_self)]
     pub fn new() -> OtelAdapterContainer {
-        let exporter = opentelemetry_stdout::SpanExporter::default();
-        let provider = TracerProvider::builder()
-            .with_simple_exporter(exporter)
-            .build();
-        set_tracer_provider(provider);
+        let adapter = Self {
+            trace_id: otel_formatter::new_span_id(),
+        };
 
-        let adapter = OtelStdoutAdapter {};
-
-        Arc::new(Mutex::new(adapter))
+        OtelAdapterContainer(Arc::new(Mutex::new(adapter)))
     }
 
-    pub fn new_collector(&mut self) -> usize {
-        next_id()
-    }
-
-    pub fn start_trace<F, T>(module_name: String, action_name: String, f: F) -> T
-    where
-        F: FnOnce() -> T,
-    {
-        global::tracer(module_name).in_span(action_name, |_cx| f())
-    }
-
-    fn _handle_event(&mut self, event: Event, tracer: &BoxedTracer) {
+    fn _handle_event(&mut self, event: Event, parent_span_id: Option<String>) -> Option<Vec<Span>> {
         match event {
             Event::Func(_id, f) => {
-                let mut x = tracer.build(SpanBuilder {
-                    start_time: Some(f.start),
-                    name: format!(
-                        "function-call-{}",
-                        &f.name.clone().unwrap_or("unknown-name".to_string())
-                    )
-                    .into(),
-                    ..Default::default()
-                });
+                let function_name = &f.name.clone().unwrap_or("unknown-name".to_string());
+                let name = format!("function-call-{}", &function_name);
 
-                if let Some(name) = f.name {
-                    x.set_attribute(KeyValue::new("function_name", name));
-                }
+                let mut span =
+                    Span::new(self.trace_id.clone(), parent_span_id, name, f.start, f.end);
+                span.add_attribute_string("function_name".to_string(), function_name.to_string());
+
+                let span_id = Some(span.span_id.clone());
+                let mut spans = vec![span];
 
                 for e in f.within.iter() {
-                    self.handle_event(e.to_owned());
+                    if let Some(mut s) = self._handle_event(e.to_owned(), span_id.clone()) {
+                        spans.append(&mut s);
+                    };
                 }
 
-                x.end_with_timestamp(f.end);
+                Some(spans)
             }
             Event::Alloc(_id, a) => {
-                tracer
-                    .build(SpanBuilder {
-                        name: "allocation".into(),
-                        start_time: Some(a.ts),
-                        end_time: Some(a.ts),
-                        ..Default::default()
-                    })
-                    .add_event_with_timestamp(
-                        "allocation",
-                        a.ts,
-                        vec![KeyValue::new("amount", a.amount as i64)],
-                    );
+                let mut span = Span::new(
+                    self.trace_id.clone(),
+                    parent_span_id,
+                    "allocation".to_string(),
+                    a.ts,
+                    a.ts,
+                );
+                span.add_attribute_i64("amount".to_string(), a.amount.into());
+                Some(vec![span])
             }
-            Event::Metadata(_id, _) => {}
-            Event::Shutdown(_id) => {}
+            Event::Metadata(_id, Metadata { key, value }) => {
+                if key == "trace_id" {
+                    self.trace_id = value;
+                }
+
+                None
+            }
+            Event::Shutdown(_id) => None,
         }
     }
 }
@@ -96,12 +97,17 @@ impl Adapter for OtelStdoutAdapter {
     // flush any remaning spans
     fn shutdown(&self) {
         thread::sleep(time::Duration::from_millis(5));
-        shutdown_tracer_provider();
     }
 
     fn handle_event(&mut self, event: Event) {
-        let tracer = global::tracer("event");
-        self._handle_event(event, &tracer);
+        if let Some(spans) = self._handle_event(event, None) {
+            let mut otf = OtelFormatter::new();
+            let mut rs = ResourceSpan::new();
+            rs.add_spans(spans);
+            otf.add_resource_span(rs);
+
+            println!("{}", serde_json::to_string(&otf).unwrap());
+        };
     }
 }
 

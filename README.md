@@ -37,10 +37,7 @@ dylibso-observe-sdk = { git = "https://github.com/dylibso/observe-sdk.git" }
 > **Note**: A runnable example can be found [here](rust/examples/otel-stdout.rs).
 
 ```rust
-use dylibso_observe_sdk::{
-    adapter::{otelstdout::OtelStdoutAdapter, Collector},
-    add_to_linker,
-};
+use dylibso_observe_sdk::adapter::otelstdout::OtelStdoutAdapter;
 use tokio::task;
 
 #[tokio::main]
@@ -53,8 +50,8 @@ pub async fn main() -> anyhow::Result<()> {
     // Create instance
     let engine = wasmtime::Engine::new(&config)?;
     let module = wasmtime::Module::new(&engine, data)?;
-
-    // let adapter = StdoutAdapter::new();
+    
+    // Create Observe SDK adapter for OpenTelemetry output written to STDOUT
     let adapter = OtelStdoutAdapter::new();
 
     // Setup WASI
@@ -70,28 +67,19 @@ pub async fn main() -> anyhow::Result<()> {
     // Provide the observability functions to the `Linker` to be made available
     // to the instrumented guest code. These are safe to add and are a no-op
     // if guest code is uninstrumented.
-    let id = adapter.lock().await.new_collector();
-    let events = add_to_linker(id, &mut linker)?;
-    let collector = Collector::new(adapter, id, events).await?;
-    let instance = linker.instantiate(&mut store, &module)?;
-
+    let trace_ctx = adapter.start(&mut linker).await?;
+    
     // get the function and run it, the events pop into the queue
     // as the function is running
-
+    let instance = linker.instantiate(&mut store, &module)?;
     let f = instance
         .get_func(&mut store, function_name)
         .expect("function exists");
-
-    OtelStdoutAdapter::start_trace(
-        String::from("your-trace-identifier"),
-        function_name.to_string(),
-        || {
-            f.call(&mut store, &[], &mut []).unwrap();
-        },
-    );
-
+    f.call(&mut store, &[], &mut []).unwrap();
     task::yield_now().await;
-    collector.shutdown().await;
+
+    // shut down the trace context to flush all remaining spans and cleanup
+    trace_ctx.shutdown().await;
 
     Ok(())
 }
