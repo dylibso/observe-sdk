@@ -21,8 +21,8 @@ impl InstrumentationContext {
         id: usize,
     ) -> (
         Arc<Mutex<InstrumentationContext>>,
-        Receiver<Event>,
         Sender<Event>,
+        Receiver<Event>,
     ) {
         // TODO: decide how big the buffer for this channel should be
         // this channel will block the module if it fills
@@ -33,8 +33,8 @@ impl InstrumentationContext {
                 events_tx: events_tx.clone(),
                 stack: Vec::new(),
             })),
-            events_rx,
             events_tx,
+            events_rx,
         )
     }
 
@@ -189,7 +189,7 @@ type EventChannel = (Sender<Event>, Receiver<Event>);
 
 /// Link observability import functions required by instrumented wasm code
 pub fn add_to_linker<T: 'static>(id: usize, linker: &mut Linker<T>) -> Result<EventChannel> {
-    let (ctx, events_rx, events_tx) = InstrumentationContext::new(id);
+    let (ctx, events_tx, events_rx) = InstrumentationContext::new(id);
 
     let t = FuncType::new([], []);
 
