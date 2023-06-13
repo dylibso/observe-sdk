@@ -7,6 +7,7 @@ use log::error;
 use modsurfer_demangle::demangle_function_name;
 use tokio::sync::mpsc::{channel, Receiver, Sender};
 use wasmtime::{Caller, FrameInfo, FuncType, Linker, Val, ValType, WasmBacktrace};
+use std::collections::HashMap;
 
 pub mod adapter;
 
@@ -48,10 +49,8 @@ impl InstrumentationContext {
             raw_name: None,
             name: None,
         };
-        if let name = func_name {
-            fc.name = Some(demangle_function_name(String::from(name)));
-            fc.raw_name = Some(String::from(name));
-        };
+        fc.name = Some(demangle_function_name(String::from(func_name)));
+        fc.raw_name = Some(String::from(func_name));
         self.stack.push(fc);
         Ok(())
     }
@@ -133,10 +132,11 @@ pub struct Allocation {
 }
 
 pub(crate) fn instrument_enter<T>(
-    mut caller: Caller<T>,
+    caller: Caller<T>,
     _input: &[Val],
     _output: &mut [Val],
     ctx: Arc<Mutex<InstrumentationContext>>,
+    function_names: &FunctionNames
 ) -> anyhow::Result<()> {
     let func_id = _input[0].unwrap_i32() as u32;
     let func_name_offset = _input[1].unwrap_i32() as u32;
@@ -144,38 +144,19 @@ pub(crate) fn instrument_enter<T>(
 
     if let Some(frame) = bt.frames().first() {
         if let Ok(mut cont) = ctx.lock() {
-            let fid = frame.func_index();
+            /*let fid = frame.func_index();
             let mut jname = String::new();
             if let Some(name) = frame.func_name() {
                 let mut oname = Some(demangle_function_name(name.to_string()));
                 oname = Some(name.to_string());
                 jname = oname.unwrap();
+            }*/
+            let mut printname = "placeholder".to_string();
+            let temp = function_names.get(&func_id);
+            if temp.is_some() {
+                printname = temp.unwrap().to_string();
             }
-            let mut i = 0;
-            let mut namebuf: Vec<u8> = Vec::new();
-            let prefix = "if_buf_";
-            /*loop*/ {
-                let mut exportname = String::from(prefix);
-                exportname.push_str(&i.to_string());
-                let exportres = caller.get_export(&exportname);
-                if exportres.is_none() {
-                    //break;
-                }
-                let export = exportres.unwrap();
-                let glob = export.into_global().unwrap();
-                let val = glob.get(caller).unwrap_v128();
-                let bytes = val.to_le_bytes();
-                for byte in bytes.iter() {
-                    namebuf.push(*byte);
-                }
-                i += 1;
-            }
-
-            let printname = String::from_utf8(namebuf).unwrap();
-
-
-            eprintln!("func_id {func_id} func_name_offset {func_name_offset} printname {printname}");
-            cont.enter(func_id, &String::from("placeholder_name"))?;
+            cont.enter(func_id, &printname)?;
         }
     }
 
@@ -221,10 +202,53 @@ pub(crate) fn instrument_memory_grow<T>(
 const MODULE_NAME: &str = "dylibso_observe";
 
 type EventChannel = (Sender<Event>, Receiver<Event>);
+type FunctionNames = HashMap<u32, String>;
 
 /// Link observability import functions required by instrumented wasm code
-pub fn add_to_linker<T: 'static>(id: usize, linker: &mut Linker<T>) -> Result<EventChannel> {
+pub fn add_to_linker<T: 'static>(id: usize, linker: &mut Linker<T>, data : &Vec<u8>) -> Result<EventChannel> {
     let (ctx, events_tx, events_rx) = InstrumentationContext::new(id);
+
+    // Build up a table of function id to name mapping
+    //let mut function_names = Vec::new();
+    let mut function_names = FunctionNames::new();
+    let parser = wasmparser::Parser::new(0);
+    for payload in parser.parse_all(&data) {
+        let payload = payload?;
+        match payload {
+            wasmparser::Payload::CustomSection(custom) => {
+                if custom.name() == "name" {
+                    let name_reader =
+                        wasmparser::NameSectionReader::new(custom.data(), custom.data_offset());
+                    for x in name_reader.into_iter() {
+                        let x = x?;
+                        match x {
+                            //wasmparser::Name::Module { name, name_range } => (),
+                            wasmparser::Name::Function(f) => {
+                                for k in f.into_iter() {
+                                    let k = k?;
+                                    function_names.insert(k.index, k.name.to_string());
+                                }
+                            },
+                            _ => ()
+                            //wasmparser::Name::Local(_) => (),
+                            //wasmparser::Name::Label(_) => (),
+                            //wasmparser::Name::Type(_) => (),
+                            //wasmparser::Name::Table(_) => (),
+                            //wasmparser::Name::Memory(_) => (),
+                            //wasmparser::Name::Global(_) => (),
+                            //wasmparser::Name::Element(_) => (),
+                            //wasmparser::Name::Data(_) => (),
+                            //wasmparser::Name::Unknown { ty, data, range } => (),
+                        }
+                    }
+                    continue;
+                }
+            },
+            _ => {
+
+            }
+        }
+    }
 
     let t = FuncType::new([], []);
 
@@ -233,7 +257,7 @@ pub fn add_to_linker<T: 'static>(id: usize, linker: &mut Linker<T>) -> Result<Ev
         MODULE_NAME,
         "instrument_enter",
         FuncType::new([ValType::I32, ValType::I32], []),
-        move |caller, params, results| instrument_enter(caller, params, results, enter_ctx.clone()),
+        move |caller, params, results| instrument_enter(caller, params, results, enter_ctx.clone(), &function_names),
     )?;
 
     let exit_ctx = ctx.clone();
