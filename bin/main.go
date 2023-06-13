@@ -26,7 +26,7 @@ func main() {
 	// Adapter API
 	adapter := observe.NewStdoutAdapter()
 	adapter.Start(collector)
-	defer adapter.Wait(collector, time.Millisecond*10)
+	defer adapter.Wait(collector, time.Millisecond)
 	//
 	// END OUR API
 

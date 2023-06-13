@@ -39,7 +39,9 @@ func (c Collector) Before(ctx context.Context, _ api.Module, def api.FunctionDef
 		}
 		event.Stack = append(event.Stack, f)
 	}
-	c.raw <- event
+	go func() {
+		c.raw <- event
+	}()
 	return ctx
 }
 

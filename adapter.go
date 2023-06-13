@@ -23,10 +23,10 @@ func NewStdoutAdapter() StdoutAdapter {
 func (s *StdoutAdapter) Event(e Event) {
 	switch event := e.(type) {
 	case CallEvent:
-		name, _ := event.DemangledFunctionName()
+		name := event.FunctionName()
 		log.Println("Call to", name, "took", event.Duration)
 	case MemoryGrowEvent:
-		name, _ := event.DemangledFunctionName()
+		name := event.FunctionName()
 		log.Println("Allocated", event.MemoryGrowAmount(), "pages of memory in", name)
 	case ModuleBeginEvent:
 		log.Println("Starting module:", event.Name)
