@@ -16,22 +16,28 @@ type StdoutAdapter struct {
 	collector Collector
 }
 
-func (s StdoutAdapter) Event(e Event) {
+func NewStdoutAdapter() StdoutAdapter {
+	return StdoutAdapter{stop: make(chan bool, 1)}
+}
+
+func (s *StdoutAdapter) Event(e Event) {
 	switch event := e.(type) {
 	case CallEvent:
-		log.Println("Call to", event.FunctionName(), "took", event.Duration)
+		name, _ := event.DemangledFunctionName()
+		log.Println("Call to", name, "took", event.Duration)
 	case MemoryGrowEvent:
-		log.Println("Allocated", event.MemoryGrowAmount(), "pages of memory in", event.FunctionName())
+		name, _ := event.DemangledFunctionName()
+		log.Println("Allocated", event.MemoryGrowAmount(), "pages of memory in", name)
 	case ModuleBeginEvent:
 		log.Println("Starting module:", event.Name)
 	}
 }
 
-func (a StdoutAdapter) Stop() {
+func (a *StdoutAdapter) Stop() {
 	a.stop <- true
 }
 
-func (a StdoutAdapter) Start(collector Collector) {
+func (a *StdoutAdapter) Start(collector Collector) {
 	go func() {
 		for {
 			select {
@@ -44,7 +50,7 @@ func (a StdoutAdapter) Start(collector Collector) {
 	}()
 }
 
-func (a StdoutAdapter) Wait(collector Collector, timeout time.Duration) {
+func (a *StdoutAdapter) Wait(collector Collector, timeout time.Duration) {
 	for {
 		select {
 		case <-time.After(timeout):

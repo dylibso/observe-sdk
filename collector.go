@@ -45,12 +45,12 @@ func (c *Collector) popFunction() (bool, RawEvent, time.Time) {
 	}
 
 	event := c.startedFunctions[len(c.startedFunctions)-1]
-
-	funcs := make([]startedFunction, len(c.startedFunctions)-1)
-	for i := range funcs {
-		funcs[i] = c.startedFunctions[i]
-	}
-	c.startedFunctions = funcs
+	c.startedFunctions = c.startedFunctions[:len(c.startedFunctions)-1]
+	// funcs := make([]startedFunction, len(c.startedFunctions)-1)
+	// for i := range funcs {
+	// 	funcs[i] = c.startedFunctions[i]
+	// }
+	// c.startedFunctions = funcs
 
 	return true, event.event, event.startTime
 }

@@ -35,12 +35,11 @@ func (c Collector) Before(ctx context.Context, _ api.Module, def api.FunctionDef
 		if len(event.Stack) == 0 {
 			event.FunctionName = f.Name()
 			event.FunctionIndex = f.Index()
+			break
 		}
 		event.Stack = append(event.Stack, f)
 	}
-	go func() {
-		c.raw <- event
-	}()
+	c.raw <- event
 	return ctx
 }
 

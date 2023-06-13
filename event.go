@@ -84,6 +84,10 @@ func (e Event) IsMemoryGrow() bool {
 
 */
 
+func (e MemoryGrowEvent) DemangledFunctionName() (string, error) {
+	return DemangleFunctionName(e.Raw.FunctionName)
+}
+
 func (e MemoryGrowEvent) FunctionName() string {
 	return e.Raw.FunctionName
 }
@@ -94,6 +98,10 @@ func (e MemoryGrowEvent) FunctionIndex() uint32 {
 
 func (e CallEvent) FunctionName() string {
 	return e.Raw[0].FunctionName
+}
+
+func (e CallEvent) DemangledFunctionName() (string, error) {
+	return DemangleFunctionName(e.Raw[0].FunctionName)
 }
 
 func (e CallEvent) FunctionIndex() uint32 {
