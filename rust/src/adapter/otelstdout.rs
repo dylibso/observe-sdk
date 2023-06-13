@@ -10,7 +10,7 @@ use anyhow::Result;
 use tokio::sync::Mutex;
 use wasmtime::Linker;
 
-pub struct OtelAdapterContainer(pub Arc<Mutex<OtelStdoutAdapter>>);
+pub struct OtelAdapterContainer(Arc<Mutex<OtelStdoutAdapter>>);
 
 pub struct OtelTraceCtx(Collector);
 

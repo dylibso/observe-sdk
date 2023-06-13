@@ -54,8 +54,6 @@ impl StdoutAdapter {
 }
 
 impl Adapter for StdoutAdapter {
-    // let id = adapter.0.lock().await.new_collector();
-    // let events = add_to_linker(id, &mut linker)?;
     fn handle_event(&mut self, event: Event) {
         // this is a littel screwy because the id is embeded in the event itself
         match event {
