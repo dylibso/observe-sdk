@@ -1,7 +1,4 @@
-use dylibso_observe_sdk::{
-    adapter::{otelstdout::OtelStdoutAdapter, Collector},
-    add_to_linker,
-};
+use dylibso_observe_sdk::adapter::otelstdout::OtelStdoutAdapter;
 use tokio::task;
 
 #[tokio::main]
@@ -31,10 +28,7 @@ pub async fn main() -> anyhow::Result<()> {
     // Provide the observability functions to the `Linker` to be made available
     // to the instrumented guest code. These are safe to add and are a no-op
     // if guest code is uninstrumented.
-    let id = adapter.lock().await.new_collector();
-    let events = add_to_linker(id, &mut linker)?;
-
-    let collector = Collector::new(adapter.clone(), id, events).await?;
+    let mut trace_ctx = adapter.start(&mut linker).await?;
 
     let instance = linker.instantiate(&mut store, &module)?;
 
@@ -45,11 +39,11 @@ pub async fn main() -> anyhow::Result<()> {
         .get_func(&mut store, function_name)
         .expect("function exists");
 
-    OtelStdoutAdapter::set_trace_id(&collector, "any-old-trace-id".to_string()).await;
+    trace_ctx.set_trace_id("any-old-trace-id".to_string()).await;
     f.call(&mut store, &[], &mut []).unwrap();
 
     task::yield_now().await;
-    collector.shutdown().await;
+    trace_ctx.shutdown().await;
 
     Ok(())
 }
