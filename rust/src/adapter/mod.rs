@@ -1,6 +1,8 @@
 pub mod otel_formatter;
 pub mod otelstdout;
 pub mod stdout;
+pub mod zipkin_formatter;
+pub mod zipkin;
 
 use core::time;
 use std::{sync::Arc, thread};
