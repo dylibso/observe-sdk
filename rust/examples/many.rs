@@ -11,7 +11,7 @@ pub async fn main() -> anyhow::Result<()> {
 
     // Create instance
     let engine = wasmtime::Engine::new(&config)?;
-    let module = wasmtime::Module::new(&engine, data)?;
+    let module = wasmtime::Module::new(&engine, &data)?;
 
     // create a thread-safe adapter container, which is used to create trace contexts,
     // one-per-instance of a wasm module.
@@ -34,7 +34,7 @@ pub async fn main() -> anyhow::Result<()> {
             // Provide the observability functions to the `Linker` to be made
             // available to the instrumented guest code. These are safe to add
             // and are a no-op if guest code is uninstrumented.
-            let trace_ctx = adapter.start(&mut linker).await?;
+            let trace_ctx = adapter.start(&mut linker, &data).await?;
 
             let instance = linker.instantiate(&mut store, &module)?;
             instances.push((trace_ctx, instance, store));
