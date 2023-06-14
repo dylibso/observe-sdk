@@ -26,7 +26,7 @@ pub struct Span {
     pub metrics: HashMap<String, f64>,
     pub service: String,
     #[serde(rename = "type")]
-    pub typ: String,
+    pub typ: Option<String>,
 }
 
 impl DatadogFormatter {
@@ -57,26 +57,20 @@ impl Span {
             None => new_span_id(),
         };
 
-        let mut meta = config.default_tags.clone();
-
-        meta.insert("http.status_code".to_string(), "200".to_string());
-        meta.insert("http.method".to_string(), "POST".to_string());
-        meta.insert("http.url".to_string(), "http://localhost:3000".to_string());
-
         Ok(Span {
             trace_id,
             span_id,
             parent_id: p_id,
             name,
-            meta,
+            meta: HashMap::new(),
             metrics: HashMap::new(),
-            service: "planktonic".to_string(),
+            service: config.service_name.to_string(),
             start: start_time
                 .duration_since(SystemTime::UNIX_EPOCH)?
                 .as_nanos() as u64,
             duration: end_time.duration_since(start_time)?.as_nanos() as u64,
-            resource: "request".to_string(),
-            typ: config.trace_type.to_string(),
+            resource: "func".into(),
+            typ: None,
             error: 0,
         })
     }

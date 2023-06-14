@@ -1,4 +1,5 @@
 use anyhow::Result;
+use log::warn;
 use crate::{
     adapter::datadog_formatter::DatadogFormatter,
     Event, Metadata,
@@ -56,7 +57,6 @@ pub struct DatadogConfig {
     pub trace_type: DatadogTraceType,
 }
 
-
 impl DatadogConfig {
     pub fn new() -> DatadogConfig {
         DatadogConfig {
@@ -87,7 +87,7 @@ impl DatadogAdapter {
         match event {
             Event::Func(_id, f) => {
                 let function_name = &f.name.clone().unwrap_or("unknown-name".to_string());
-                let name = format!("function-call-{}", &function_name);
+                let name = format!("{}", &function_name);
 
                 let config = self.config.clone();
                 let span =
@@ -144,11 +144,22 @@ impl Adapter for DatadogAdapter {
     fn shutdown(&self) -> Result<()> {
         let mut dtf = DatadogFormatter::new();
         let mut trace = Trace::new();
+        let mut first_span = true;
         for span in &self.spans {
+            let mut span = span.clone();
+            if first_span {
+                let mut meta = self.config.default_tags.clone();
+                meta.insert("http.status_code".to_string(), "200".to_string());
+                meta.insert("http.method".to_string(), "POST".to_string());
+                meta.insert("http.url".to_string(), "http://localhost:3000".to_string());
+                span.meta = meta;
+                span.resource = "request".into();
+                span.typ = Some(self.config.trace_type.to_string());
+                first_span = false;
+            }
             trace.push(span.clone());
         }
         dtf.traces.push(trace);
-
 
         let host = Url::parse(&self.config.agent_host)?;
         let url = host.join("/v0.3/traces")?.to_string();
@@ -159,11 +170,8 @@ impl Adapter for DatadogAdapter {
             .set("Content-Type", "application/json")
             .send_string(&body);
 
-        // Check the response status
-        if response.is_ok() {
-            println!("Request to datadog agent was successful!");
-        } else {
-            println!("Request to datadog agent failed with status: {:#?}", response);
+        if !response.is_ok() {
+            warn!("Request to datadog agent failed with status: {:#?}", response);
         }
 
         Ok(())
@@ -178,7 +186,7 @@ impl Adapter for DatadogAdapter {
                     }
                 }
             }
-            Err(e) => println!("{}", e),
+            Err(e) => warn!("{}", e),
         } 
     }
 }
