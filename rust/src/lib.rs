@@ -223,28 +223,28 @@ pub fn add_to_linker<T: 'static>(id: usize, linker: &mut Linker<T>, data : &Vec<
         }
     }
 
-    let t = FuncType::new([], []);
+    let t = FuncType::new([ValType::I32], []);
 
     let enter_ctx = ctx.clone();
     linker.func_new(
         MODULE_NAME,
         "instrument_enter",
-        FuncType::new([ValType::I32, ValType::I32], []),
-        move |_caller, params, results| instrument_enter(params, results, enter_ctx.clone(), &function_names),
+        t.clone(),
+        move |_caller: Caller<T>, params, results| instrument_enter(params, results, enter_ctx.clone(), &function_names),
     )?;
 
     let exit_ctx = ctx.clone();
     linker.func_new(
         MODULE_NAME,
         "instrument_exit",
-        FuncType::new([ValType::I32], []),
+        t.clone(),
         move |_caller, params, results| instrument_exit( params, results, exit_ctx.clone()),
     )?;
 
     linker.func_new(
         MODULE_NAME,
         "instrument_memory_grow",
-        FuncType::new([ValType::I32], []),
+        t.clone(),
         move |_caller, params, results| instrument_memory_grow(params, results, ctx.clone()),
     )?;
 
