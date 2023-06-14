@@ -6,11 +6,12 @@ use std::{
     sync::{
         atomic::{AtomicUsize, Ordering},
         Arc,
-    }, collections::HashMap
+    }, collections::HashMap, str::from_utf8
 };
 use serde_json::json;
 use tokio::sync::Mutex;
 use ureq;
+use std::net::UdpSocket;
 use url::Url;
 
 use super::{
@@ -24,6 +25,7 @@ pub type DatadogAdapterContainer = Arc<Mutex<DatadogAdapter>>;
 pub struct DatadogAdapter {
     pub trace_id: u64,
     pub spans: Vec<Span>,
+    pub stats: Vec<Vec<u8>>,
     pub config: DatadogConfig,
 }
 
@@ -51,6 +53,7 @@ impl DatadogAdapter {
         let adapter = DatadogAdapter {
             trace_id: datadog_formatter::new_span_id(),
             spans: vec![],
+            stats: vec![],
             config,
         };
 
@@ -100,11 +103,16 @@ impl DatadogAdapter {
                 }
                 None
             }
+            Event::Stats(stat) => {
+                self.stats.push(stat);
+                None
+            }
             Event::Shutdown(_id) => {
                 // when we receive the shutdown
                 // then dump the trace to the agent
                 self.shutdown();
                 self.spans.clear();
+                self.stats.clear();
                 None
             },
         }
@@ -127,7 +135,6 @@ impl Adapter for DatadogAdapter {
         }
         dtf.traces.push(trace);
 
-
         let host = Url::parse(&self.config.agent_host).unwrap();
         let url = host.join("/v0.3/traces").unwrap().to_string();
         let j = json!(&dtf.traces);
@@ -143,6 +150,14 @@ impl Adapter for DatadogAdapter {
         } else {
             println!("Request failed with status: {:#?}", response);
         }
+
+        let socket = UdpSocket::bind("127.0.0.1:8126").unwrap();
+        socket.connect("127.0.0.1:8125").unwrap();
+        for stat in &self.stats {
+            socket.send(&stat).unwrap();
+            println!("Sending stat: {}", from_utf8(&stat).unwrap());
+        }
+
     }
 
     fn handle_event(&mut self, event: Event) {

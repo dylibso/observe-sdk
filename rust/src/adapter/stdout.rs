@@ -61,6 +61,7 @@ impl Adapter for StdoutAdapter {
             Event::Alloc(id, _) => self._handle_event(id, event),
             Event::Metadata(id, _) => self._handle_event(id, event),
             Event::Shutdown(id) => self.remove_collector(id),
+            Event::Stats(_stat) => todo!(),
         };
     }
 
@@ -89,6 +90,7 @@ impl Collector {
                 println!("{:?} Alloc: {}", a.ts.duration_since(self.start), a.amount)
             }
             Event::Metadata(_id, _) => todo!(),
+            Event::Stats(_stats) => todo!(),
             Event::Shutdown(_id) => {} //noop for now
         }
     }

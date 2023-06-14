@@ -1,3 +1,4 @@
+use std::str::from_utf8;
 use std::sync::{Arc, Mutex};
 use std::time::SystemTime;
 
@@ -99,12 +100,23 @@ impl InstrumentationContext {
         }
         Ok(())
     }
+
+    pub fn write_statsd(&mut self, stat: &[u8]) -> Result<()> {
+        //let stat = from_utf8(stat)?.to_string();
+        let ev = Event::Stats(stat.to_owned());
+
+        if let Err(e) = self.events_tx.try_send(ev) {
+            error!("error recording stat: {}", e);
+        }
+        Ok(())
+    }
 }
 
 #[derive(Debug, Clone)]
 pub enum Event {
     Func(usize, FunctionCall),
     Alloc(usize, Allocation),
+    Stats(Vec<u8>),
     Metadata(usize, Metadata),
     Shutdown(usize),
 }
@@ -183,7 +195,7 @@ pub(crate) fn instrument_memory_grow<T>(
     Ok(())
 }
 
-pub(crate) fn statsd_write<T>(
+pub(crate) fn write_statsd<T>(
     caller: &mut Caller<T>,
     input: &[Val],
     _output: &mut [Val],
@@ -194,11 +206,10 @@ pub(crate) fn statsd_write<T>(
     let memory = caller.get_export("memory").unwrap().into_memory().unwrap();
     let mut buffer = vec![0u8; len as usize];
 
-    // let context = caller.as_context_mut();
-    // memory.read(store, offset as usize, &mut buffer);
+    memory.read(caller, offset as usize, &mut buffer)?;
 
     if let Ok(mut cont) = ctx.lock() {
-        //cont.write_statsd(, )?;
+        cont.write_statsd(&buffer)?;
     }
     Ok(())
 }
@@ -240,9 +251,9 @@ pub fn add_to_linker<T: 'static>(id: usize, linker: &mut Linker<T>) -> Result<Ev
     let write_ctx = ctx.clone();
     linker.func_new(
         MODULE_NAME,
-        "statsd_write",
+        "write_statsd",
         FuncType::new([ValType::I32, ValType::I32], []),
-        move |mut caller, params, results| statsd_write(&mut caller, params, results, write_ctx.clone()),
+        move |mut caller, params, results| write_statsd(&mut caller, params, results, write_ctx.clone()),
     )?;
 
     Ok((events_tx, events_rx))

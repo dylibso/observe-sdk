@@ -88,6 +88,7 @@ impl OtelStdoutAdapter {
 
                 None
             }
+            Event::Stats(_stat) => None,
             Event::Shutdown(_id) => None,
         }
     }
