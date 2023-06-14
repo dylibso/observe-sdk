@@ -5,7 +5,7 @@ use anyhow::{anyhow, Result};
 use log::error;
 use modsurfer_demangle::demangle_function_name;
 use tokio::sync::mpsc::{channel, Receiver, Sender};
-use wasmtime::{Caller, FrameInfo, FuncType, Linker, Val, ValType, WasmBacktrace};
+use wasmtime::{Caller, FrameInfo, FuncType, Linker, Val, ValType, WasmBacktrace, AsContextMut};
 
 pub mod adapter;
 
@@ -183,6 +183,26 @@ pub(crate) fn instrument_memory_grow<T>(
     Ok(())
 }
 
+pub(crate) fn statsd_write<T>(
+    caller: &mut Caller<T>,
+    input: &[Val],
+    _output: &mut [Val],
+    ctx: Arc<Mutex<InstrumentationContext>>,
+) -> Result<()> {
+    let offset = input.get(0).unwrap().i32().unwrap();
+    let len = input.get(1).unwrap().i32().unwrap();
+    let memory = caller.get_export("memory").unwrap().into_memory().unwrap();
+    let mut buffer = vec![0u8; len as usize];
+
+    // let context = caller.as_context_mut();
+    // memory.read(store, offset as usize, &mut buffer);
+
+    if let Ok(mut cont) = ctx.lock() {
+        //cont.write_statsd(, )?;
+    }
+    Ok(())
+}
+
 const MODULE_NAME: &str = "dylibso_observe";
 
 type EventChannel = (Sender<Event>, Receiver<Event>);
@@ -209,11 +229,20 @@ pub fn add_to_linker<T: 'static>(id: usize, linker: &mut Linker<T>) -> Result<Ev
         move |caller, params, results| instrument_exit(caller, params, results, exit_ctx.clone()),
     )?;
 
+    let grow_ctx = ctx.clone();
     linker.func_new(
         MODULE_NAME,
         "instrument_memory_grow",
         FuncType::new([ValType::I32], []),
-        move |caller, params, results| instrument_memory_grow(caller, params, results, ctx.clone()),
+        move |caller, params, results| instrument_memory_grow(caller, params, results, grow_ctx.clone()),
+    )?;
+
+    let write_ctx = ctx.clone();
+    linker.func_new(
+        MODULE_NAME,
+        "statsd_write",
+        FuncType::new([ValType::I32, ValType::I32], []),
+        move |mut caller, params, results| statsd_write(&mut caller, params, results, write_ctx.clone()),
     )?;
 
     Ok((events_tx, events_rx))
