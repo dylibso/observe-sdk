@@ -1,3 +1,4 @@
+use anyhow::Result;
 use std::{time::SystemTime, collections::HashMap};
 
 use rand::Rng;
@@ -48,7 +49,7 @@ impl Span {
         name: String,
         start_time: SystemTime,
         end_time: SystemTime,
-    ) -> Span {
+    ) -> Result<Span> {
         let span_id = new_span_id();
 
         let p_id = match parent_id {
@@ -62,7 +63,7 @@ impl Span {
         meta.insert("http.method".to_string(), "POST".to_string());
         meta.insert("http.url".to_string(), "http://localhost:3000".to_string());
 
-        Span {
+        Ok(Span {
             trace_id,
             span_id,
             parent_id: p_id,
@@ -71,17 +72,13 @@ impl Span {
             metrics: HashMap::new(),
             service: "planktonic".to_string(),
             start: start_time
-                .duration_since(SystemTime::UNIX_EPOCH)
-                .unwrap()
+                .duration_since(SystemTime::UNIX_EPOCH)?
                 .as_nanos() as u64,
-            duration: end_time.duration_since(start_time).unwrap().as_nanos() as u64,
-            // start: 10000000,
-            // duration: 1000,
+            duration: end_time.duration_since(start_time)?.as_nanos() as u64,
             resource: "request".to_string(),
-            typ: "web".to_string(),
+            typ: config.trace_type.to_string(),
             error: 0,
-
-        }
+        })
     }
 }
 

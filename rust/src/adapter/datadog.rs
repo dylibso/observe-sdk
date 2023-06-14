@@ -1,8 +1,10 @@
+use anyhow::Result;
 use crate::{
     adapter::datadog_formatter::DatadogFormatter,
     Event, Metadata,
 };
 use std::{
+    fmt::{Display, Formatter},
     sync::{
         atomic::{AtomicUsize, Ordering},
         Arc,
@@ -28,12 +30,32 @@ pub struct DatadogAdapter {
 }
 
 #[derive(Clone)]
+pub enum DatadogTraceType {
+    Web,
+    Db,
+    Cache,
+    Custom,
+}
+
+impl Display for DatadogTraceType {
+    fn fmt(&self, f: &mut Formatter) -> std::fmt::Result {
+        match self {
+            DatadogTraceType::Web => write!(f, "web"),
+            DatadogTraceType::Db => write!(f, "db"),
+            DatadogTraceType::Cache => write!(f, "cache"),
+            DatadogTraceType::Custom => write!(f, "custom"),
+        }
+    }
+}
+
+#[derive(Clone)]
 pub struct DatadogConfig {
     pub agent_host: String,
     pub service_name: String,
     pub default_tags: HashMap<String, String>,
-    pub trace_type: String,
+    pub trace_type: DatadogTraceType,
 }
+
 
 impl DatadogConfig {
     pub fn new() -> DatadogConfig {
@@ -41,7 +63,7 @@ impl DatadogConfig {
             agent_host: "http://localhost:8126".into(),
             service_name: "my-wasm-service".into(),
             default_tags: HashMap::new(),
-            trace_type: "web".into(),
+            trace_type: DatadogTraceType::Web,
         }
     }
 }
@@ -61,7 +83,7 @@ impl DatadogAdapter {
         next_id()
     }
 
-    fn _handle_event(&mut self, event: Event, parent_id: Option<u64>) -> Option<Vec<Span>> {
+    fn _handle_event(&mut self, event: Event, parent_id: Option<u64>) -> Result<Option<Vec<Span>>> {
         match event {
             Event::Func(_id, f) => {
                 let function_name = &f.name.clone().unwrap_or("unknown-name".to_string());
@@ -69,18 +91,18 @@ impl DatadogAdapter {
 
                 let config = self.config.clone();
                 let span =
-                    Span::new(config, self.trace_id.clone(), parent_id, name, f.start, f.end);
+                    Span::new(config, self.trace_id.clone(), parent_id, name, f.start, f.end)?;
 
                 let span_id = Some(span.span_id.clone());
                 let mut spans = vec![span];
 
                 for e in f.within.iter() {
-                    if let Some(mut s) = self._handle_event(e.to_owned(), span_id.clone()) {
+                    if let Some(mut s) = self._handle_event(e.to_owned(), span_id.clone())? {
                         spans.append(&mut s);
                     };
                 }
 
-                Some(spans)
+                Ok(Some(spans))
             }
             Event::Alloc(_id, a) => {
                 let config = self.config.clone();
@@ -91,21 +113,21 @@ impl DatadogAdapter {
                     "allocation".to_string(),
                     a.ts,
                     a.ts,
-                );
-                Some(vec![span])
+                )?;
+                Ok(Some(vec![span]))
             }
             Event::Metadata(_id, Metadata { key, value }) => {
                 if key == "trace_id" {
                     self.trace_id = value;
                 }
-                None
+                Ok(None)
             }
             Event::Shutdown(_id) => {
                 // when we receive the shutdown
                 // then dump the trace to the agent
-                self.shutdown();
+                self.shutdown()?;
                 self.spans.clear();
-                None
+                Ok(None)
             },
         }
     }
@@ -119,7 +141,7 @@ impl DatadogAdapter {
 
 impl Adapter for DatadogAdapter {
     // flush any remaning spans
-    fn shutdown(&self) {
+    fn shutdown(&self) -> Result<()> {
         let mut dtf = DatadogFormatter::new();
         let mut trace = Trace::new();
         for span in &self.spans {
@@ -128,10 +150,10 @@ impl Adapter for DatadogAdapter {
         dtf.traces.push(trace);
 
 
-        let host = Url::parse(&self.config.agent_host).unwrap();
-        let url = host.join("/v0.3/traces").unwrap().to_string();
+        let host = Url::parse(&self.config.agent_host)?;
+        let url = host.join("/v0.3/traces")?.to_string();
         let j = json!(&dtf.traces);
-        let body = serde_json::to_string(&j).unwrap();
+        let body = serde_json::to_string(&j)?;
 
         let response = ureq::post(&url)
             .set("Content-Type", "application/json")
@@ -139,18 +161,25 @@ impl Adapter for DatadogAdapter {
 
         // Check the response status
         if response.is_ok() {
-            println!("Request was successful!");
+            println!("Request to datadog agent was successful!");
         } else {
-            println!("Request failed with status: {:#?}", response);
+            println!("Request to datadog agent failed with status: {:#?}", response);
         }
+
+        Ok(())
     }
 
     fn handle_event(&mut self, event: Event) {
-        if let Some(spans) = self._handle_event(event, None) {
-            for span in spans {
-                self.spans.push(span);
+        match self._handle_event(event, None) {
+            Ok(result) => {
+                if let Some(spans) = result {
+                    for span in spans {
+                        self.spans.push(span);
+                    }
+                }
             }
-        };
+            Err(e) => println!("{}", e),
+        } 
     }
 }
 

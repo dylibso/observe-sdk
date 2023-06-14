@@ -13,8 +13,8 @@ use tokio::sync::{mpsc::Sender, Mutex};
 use crate::{Event, EventChannel, Metadata};
 
 pub trait Adapter {
-    fn handle_event(&mut self, event: Event);
-    fn shutdown(&self);
+    fn handle_event(&mut self, event: Event); 
+    fn shutdown(&self) -> Result<()>;
 }
 
 pub struct Collector {

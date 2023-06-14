@@ -95,8 +95,9 @@ impl OtelStdoutAdapter {
 
 impl Adapter for OtelStdoutAdapter {
     // flush any remaning spans
-    fn shutdown(&self) {
+    fn shutdown(&self) -> Result<()> {
         thread::sleep(time::Duration::from_millis(5));
+        Ok(())
     }
 
     fn handle_event(&mut self, event: Event) {
