@@ -1,6 +1,3 @@
-use std::thread;
-use std::time;
-
 use dylibso_observe_sdk::adapter::otelstdout::OtelStdoutAdapter;
 use rand::{seq::SliceRandom, thread_rng};
 use tokio::task;
