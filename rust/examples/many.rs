@@ -17,9 +17,9 @@ pub async fn main() -> anyhow::Result<()> {
     // one-per-instance of a wasm module.
     let adapter = OtelStdoutAdapter::new();
 
-    for _ in 0..10 {
+    for _ in 0..5 {
         let mut instances = Vec::new();
-        for _ in 0..10 {
+        for _ in 0..5 {
             // Setup WASI
             let wasi_ctx = wasmtime_wasi::WasiCtxBuilder::new()
                 .inherit_env()?
