@@ -1,6 +1,5 @@
 use dylibso_observe_sdk::{
-    adapter::{datadog::{DatadogAdapter, DatadogConfig}, datadog_formatter::new_trace_id, Collector},
-    add_to_linker,
+    adapter::{datadog::{DatadogAdapter, DatadogConfig}, datadog_formatter::new_trace_id},
 };
 use tokio::task;
 
@@ -33,10 +32,7 @@ pub async fn main() -> anyhow::Result<()> {
     // Provide the observability functions to the `Linker` to be made available
     // to the instrumented guest code. These are safe to add and are a no-op
     // if guest code is uninstrumented.
-    let id = adapter.lock().await.new_collector();
-    let events = add_to_linker(id, &mut linker)?;
-
-    let collector = Collector::new(adapter.clone(), id, events).await?;
+    let mut trace_ctx = adapter.start(&mut linker).await?;
 
     let instance = linker.instantiate(&mut store, &module)?;
 
@@ -47,11 +43,11 @@ pub async fn main() -> anyhow::Result<()> {
         .get_func(&mut store, function_name)
         .expect("function exists");
 
-    DatadogAdapter::set_trace_id(&collector, new_trace_id()).await;
+    trace_ctx.set_trace_id(new_trace_id()).await;
     f.call(&mut store, &[], &mut []).unwrap();
 
     task::yield_now().await;
-    collector.shutdown().await;
+    trace_ctx.shutdown().await;
 
     Ok(())
 }

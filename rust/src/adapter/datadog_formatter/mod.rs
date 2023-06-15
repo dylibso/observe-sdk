@@ -12,6 +12,18 @@ pub struct DatadogFormatter {
 
 pub type Trace = Vec<Span>;
 
+impl DatadogFormatter {
+    pub fn new() -> DatadogFormatter {
+        DatadogFormatter {
+            traces: Vec::new(),
+        }
+    }
+
+    pub fn add_trace(&mut self, trace: Trace) {
+        self.traces.push(trace)
+    }
+}
+
 #[derive(Default, Debug, Clone, PartialEq, Serialize)]
 pub struct Span {
     pub trace_id: u64,
@@ -27,18 +39,6 @@ pub struct Span {
     pub service: String,
     #[serde(rename = "type")]
     pub typ: Option<String>,
-}
-
-impl DatadogFormatter {
-    pub fn new() -> DatadogFormatter {
-        DatadogFormatter {
-            traces: Vec::new(),
-        }
-    }
-
-    pub fn add_trace(&mut self, trace: Trace) {
-        self.traces.push(trace)
-    }
 }
 
 impl Span {
@@ -57,22 +57,28 @@ impl Span {
             None => new_span_id(),
         };
 
-        Ok(Span {
-            trace_id,
-            span_id,
-            parent_id: p_id,
-            name,
-            meta: HashMap::new(),
-            metrics: HashMap::new(),
-            service: config.service_name.to_string(),
-            start: start_time
-                .duration_since(SystemTime::UNIX_EPOCH)?
-                .as_nanos() as u64,
-            duration: end_time.duration_since(start_time)?.as_nanos() as u64,
-            resource: "func".into(),
-            typ: None,
-            error: 0,
-        })
+        Ok(
+            Span {
+                trace_id,
+                span_id,
+                parent_id: p_id,
+                name: name.clone(),
+                meta: HashMap::new(),
+                metrics: HashMap::new(),
+                service: config.service_name.to_string(),
+                start: start_time
+                    .duration_since(SystemTime::UNIX_EPOCH)?
+                    .as_nanos() as u64,
+                duration: end_time.duration_since(start_time)?.as_nanos() as u64,
+                resource: name,
+                typ: None,
+                error: 0,
+            }
+        )
+    }
+
+    pub fn add_allocation(&mut self, amount: u32) {
+        self.meta.insert("allocations".to_string(), amount.to_string());
     }
 }
 

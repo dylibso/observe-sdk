@@ -2,7 +2,7 @@ use anyhow::Result;
 use log::warn;
 use crate::{
     adapter::datadog_formatter::DatadogFormatter,
-    Event, Metadata,
+    Event, Metadata, add_to_linker,
 };
 use std::{
     fmt::{Display, Formatter},
@@ -15,13 +15,36 @@ use serde_json::json;
 use tokio::sync::Mutex;
 use ureq;
 use url::Url;
+use wasmtime::Linker;
 
 use super::{
     datadog_formatter::{self, Trace, Span},
     Adapter, Collector,
 };
 
-pub type DatadogAdapterContainer = Arc<Mutex<DatadogAdapter>>;
+pub struct DatadogAdapterContainer(Arc<Mutex<DatadogAdapter>>);
+
+impl DatadogAdapterContainer {
+    pub async fn start<T: 'static>(&self, linker: &mut Linker<T>) -> Result<DatadogTraceCtx> {
+        let id = next_id();
+        let events = add_to_linker(id, linker)?;
+        let collector = Collector::new(self.0.clone(), id, events).await?;
+
+        Ok(DatadogTraceCtx(collector))
+    }
+}
+
+pub struct DatadogTraceCtx(Collector);
+
+impl DatadogTraceCtx {
+    pub async fn set_trace_id(&mut self, id: u64) {
+        self.0.set_metadata("trace_id".to_string(), id).await;
+    }
+
+    pub async fn shutdown(&self) {
+        self.0.shutdown().await;
+    }
+}
 
 #[derive(Clone)]
 pub struct DatadogAdapter {
@@ -45,6 +68,26 @@ impl Display for DatadogTraceType {
             DatadogTraceType::Db => write!(f, "db"),
             DatadogTraceType::Cache => write!(f, "cache"),
             DatadogTraceType::Custom => write!(f, "custom"),
+        }
+    }
+}
+
+pub enum DatadogSpanKind {
+    Server,
+    Client,
+    Producer,
+    Consumer,
+    Internal,
+}
+
+impl Display for DatadogSpanKind {
+    fn fmt(&self, f: &mut Formatter) -> std::fmt::Result {
+        match self {
+            DatadogSpanKind::Server => write!(f, "server"),
+            DatadogSpanKind::Client => write!(f, "client"),
+            DatadogSpanKind::Producer => write!(f, "producer"),
+            DatadogSpanKind::Consumer => write!(f, "consumer"),
+            DatadogSpanKind::Internal => write!(f, "internal"),
         }
     }
 }
@@ -76,7 +119,7 @@ impl DatadogAdapter {
             config,
         };
 
-        Arc::new(Mutex::new(adapter))
+        DatadogAdapterContainer(Arc::new(Mutex::new(adapter)))
     }
 
     pub fn new_collector(&mut self) -> usize {
@@ -105,16 +148,11 @@ impl DatadogAdapter {
                 Ok(Some(spans))
             }
             Event::Alloc(_id, a) => {
-                let config = self.config.clone();
-                let span = Span::new(
-                    config,
-                    self.trace_id,
-                    parent_id,
-                    "allocation".to_string(),
-                    a.ts,
-                    a.ts,
-                )?;
-                Ok(Some(vec![span]))
+                // TODO i seem to be losing this value
+                if let Some(span) = self.spans.last_mut() {
+                    span.add_allocation(a.amount);
+                }
+                Ok(None)
             }
             Event::Metadata(_id, Metadata { key, value }) => {
                 if key == "trace_id" {
@@ -152,12 +190,14 @@ impl Adapter for DatadogAdapter {
                 meta.insert("http.status_code".to_string(), "200".to_string());
                 meta.insert("http.method".to_string(), "POST".to_string());
                 meta.insert("http.url".to_string(), "http://localhost:3000".to_string());
+                meta.insert("span.kind".to_string(), DatadogSpanKind::Internal.to_string());
+                // TODO don't throw away what be be some existing meta here
                 span.meta = meta;
                 span.resource = "request".into();
                 span.typ = Some(self.config.trace_type.to_string());
                 first_span = false;
             }
-            trace.push(span.clone());
+            trace.push(span);
         }
         dtf.traces.push(trace);
 
@@ -165,6 +205,7 @@ impl Adapter for DatadogAdapter {
         let url = host.join("/v0.3/traces")?.to_string();
         let j = json!(&dtf.traces);
         let body = serde_json::to_string(&j)?;
+        println!("{}", body);
 
         let response = ureq::post(&url)
             .set("Content-Type", "application/json")
