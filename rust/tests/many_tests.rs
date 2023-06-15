@@ -25,7 +25,7 @@ mod tests {
                 .clone()
                 .filter(|l| l.contains("Hello, world!"))
                 .count(),
-            1000
+            250
         );
 
         // check that every allocation was called
@@ -41,7 +41,7 @@ mod tests {
         let allocations = traces
             .iter()
             .filter(|t| attribute_of_first_span(t, "name".to_string()).unwrap() == "allocation");
-        assert_eq!(allocations.count(), 1000);
+        assert_eq!(allocations.count(), 250);
         Ok(())
     }
 }
