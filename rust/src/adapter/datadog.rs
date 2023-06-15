@@ -183,13 +183,19 @@ impl Adapter for DatadogAdapter {
         for span in &self.spans {
             let mut span = span.clone();
             if first_span {
-                let mut meta = self.config.default_tags.clone();
-                meta.insert("http.status_code".to_string(), "200".to_string());
-                meta.insert("http.method".to_string(), "POST".to_string());
-                meta.insert("http.url".to_string(), "http://localhost:3000".to_string());
-                meta.insert("span.kind".to_string(), DatadogSpanKind::Internal.to_string());
-                // TODO don't throw away what be be some existing meta here
-                span.meta = meta;
+                // TODO for the moment i'm going to comment this stuff out until
+                // we come up with a nice API to let the programmer passs it in.
+                // maybe it can come in via shutdown or something?
+                //
+                // let mut meta = self.config.default_tags.clone();
+                // meta.insert("http.status_code".to_string(), "200".to_string());
+                // meta.insert("http.method".to_string(), "POST".to_string());
+                // meta.insert("http.url".to_string(), "http://localhost:3000".to_string());
+                // meta.insert("span.kind".to_string(), DatadogSpanKind::Internal.to_string());
+                // // TODO don't throw away what be be some existing meta here
+                // span.meta = meta;
+
+                // TODO this value should come from programmer
                 span.resource = "request".into();
                 span.typ = Some(self.config.trace_type.to_string());
                 first_span = false;
