@@ -181,12 +181,10 @@ pub fn add_to_linker<T: 'static>(id: usize, linker: &mut Linker<T>, data : &Vec<
     let (ctx, events_tx, events_rx) = InstrumentationContext::new(id);
 
     // Build up a table of function id to name mapping
-    //let mut function_names = Vec::new();
     let mut function_names = FunctionNames::new();
     let parser = wasmparser::Parser::new(0);
     for payload in parser.parse_all(&data) {
-        let payload = payload?;
-        match payload {
+        match payload? {
             wasmparser::Payload::CustomSection(custom) => {
                 if custom.name() == "name" {
                     let name_reader =
