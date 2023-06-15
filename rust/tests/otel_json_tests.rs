@@ -51,7 +51,6 @@ mod tests {
 
         // the first span won't have a parent in our list
         for parent_id in &parent_ids[1..] {
-            println!("--- testing {} ", parent_id);
             assert!(ids.contains(&parent_id));
         }
 
