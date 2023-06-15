@@ -1,8 +1,7 @@
-use std::sync::atomic::{AtomicUsize, Ordering};
 use std::sync::Arc;
 use std::{thread, time};
 
-use crate::adapter::otel_formatter::{self, OtelFormatter, ResourceSpan, Span};
+use crate::adapter::otel_formatter::{OtelFormatter, ResourceSpan, Span};
 use crate::adapter::{Adapter, Collector};
 use crate::{add_to_linker, Event, Metadata};
 
@@ -10,12 +9,14 @@ use anyhow::Result;
 use tokio::sync::Mutex;
 use wasmtime::Linker;
 
+use super::{next_id, TelemetryId, new_trace_id};
+
 pub struct OtelAdapterContainer(Arc<Mutex<OtelStdoutAdapter>>);
 
 pub struct OtelTraceCtx(Collector);
 
 impl OtelTraceCtx {
-    pub async fn set_trace_id(&mut self, id: u64) {
+    pub async fn set_trace_id(&mut self, id: TelemetryId) {
         self.0.set_metadata("trace_id".to_string(), id).await;
     }
 
@@ -43,7 +44,7 @@ impl OtelStdoutAdapter {
     #[allow(clippy::new_ret_no_self)]
     pub fn new() -> OtelAdapterContainer {
         let adapter = Self {
-            trace_id: otel_formatter::new_span_id(),
+            trace_id: new_trace_id().to_string(),
         };
 
         OtelAdapterContainer(Arc::new(Mutex::new(adapter)))
@@ -82,9 +83,9 @@ impl OtelStdoutAdapter {
                 Some(vec![span])
             }
             Event::Metadata(_id, Metadata { key, value }) => {
-                // if key == "trace_id" {
-                //     self.trace_id = value;
-                // }
+                if key == "trace_id" {
+                    self.trace_id = value.to_string();
+                }
 
                 None
             }
@@ -110,10 +111,5 @@ impl Adapter for OtelStdoutAdapter {
             println!("{}", serde_json::to_string(&otf).unwrap());
         };
     }
-}
-
-fn next_id() -> usize {
-    static COUNTER: AtomicUsize = AtomicUsize::new(1);
-    COUNTER.fetch_add(1, Ordering::Relaxed)
 }
 

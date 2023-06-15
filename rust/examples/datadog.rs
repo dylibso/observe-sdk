@@ -1,6 +1,4 @@
-use dylibso_observe_sdk::{
-    adapter::{datadog::{DatadogAdapter, DatadogConfig}, datadog_formatter::new_trace_id},
-};
+use dylibso_observe_sdk::adapter::{datadog::{DatadogAdapter, DatadogConfig}, new_trace_id};
 use tokio::task;
 
 /// You need the datadog agent running on localhost for this example to work

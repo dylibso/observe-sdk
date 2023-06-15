@@ -1,10 +1,9 @@
 use anyhow::Result;
 use std::{time::SystemTime, collections::HashMap};
 
-use rand::Rng;
 use serde::Serialize;
 
-use super::datadog::DatadogConfig;
+use super::{datadog::DatadogConfig, new_span_id};
 
 pub struct DatadogFormatter {
     pub traces: Vec<Trace>
@@ -50,11 +49,11 @@ impl Span {
         start_time: SystemTime,
         end_time: SystemTime,
     ) -> Result<Span> {
-        let span_id = new_span_id();
+        let span_id = new_span_id().into();
 
         let p_id = match parent_id {
             Some(id) => id,
-            None => new_span_id(),
+            None => new_span_id().into(),
         };
 
         Ok(
@@ -80,13 +79,5 @@ impl Span {
     pub fn add_allocation(&mut self, amount: u32) {
         self.meta.insert("allocations".to_string(), amount.to_string());
     }
-}
-
-pub fn new_trace_id() -> u64 {
-    rand::thread_rng().gen::<u64>()
-}
-
-pub fn new_span_id() -> u64 {
-    rand::thread_rng().gen::<u64>()
 }
 

@@ -6,10 +6,7 @@ use crate::{
 };
 use std::{
     fmt::{Display, Formatter},
-    sync::{
-        atomic::{AtomicUsize, Ordering},
-        Arc,
-    }, collections::HashMap
+    sync::Arc, collections::HashMap
 };
 use serde_json::json;
 use tokio::sync::Mutex;
@@ -18,8 +15,8 @@ use url::Url;
 use wasmtime::Linker;
 
 use super::{
-    datadog_formatter::{self, Trace, Span},
-    Adapter, Collector,
+    datadog_formatter::{Trace, Span},
+    Adapter, Collector, next_id, new_trace_id, TelemetryId,
 };
 
 pub struct DatadogAdapterContainer(Arc<Mutex<DatadogAdapter>>);
@@ -37,7 +34,7 @@ impl DatadogAdapterContainer {
 pub struct DatadogTraceCtx(Collector);
 
 impl DatadogTraceCtx {
-    pub async fn set_trace_id(&mut self, id: u64) {
+    pub async fn set_trace_id(&mut self, id: TelemetryId) {
         self.0.set_metadata("trace_id".to_string(), id).await;
     }
 
@@ -114,7 +111,7 @@ impl DatadogConfig {
 impl DatadogAdapter {
     pub fn new(config: DatadogConfig) -> DatadogAdapterContainer {
         let adapter = DatadogAdapter {
-            trace_id: datadog_formatter::new_span_id(),
+            trace_id: new_trace_id().into(),
             spans: vec![],
             config,
         };
@@ -156,7 +153,7 @@ impl DatadogAdapter {
             }
             Event::Metadata(_id, Metadata { key, value }) => {
                 if key == "trace_id" {
-                    self.trace_id = value;
+                    self.trace_id = value.into();
                 }
                 Ok(None)
             }
@@ -170,7 +167,7 @@ impl DatadogAdapter {
         }
     }
 
-    pub async fn set_trace_id(collector: &Collector, trace_id: u64) {
+    pub async fn set_trace_id(collector: &Collector, trace_id: TelemetryId) {
         collector
             .set_metadata("trace_id".to_string(), trace_id)
             .await;
@@ -231,7 +228,3 @@ impl Adapter for DatadogAdapter {
     }
 }
 
-fn next_id() -> usize {
-    static COUNTER: AtomicUsize = AtomicUsize::new(1);
-    COUNTER.fetch_add(1, Ordering::Relaxed)
-}
