@@ -1,18 +1,55 @@
 pub mod otel_formatter;
 pub mod otelstdout;
 pub mod stdout;
+pub mod datadog;
+pub mod datadog_formatter;
 
 use core::time;
 use std::{sync::Arc, thread};
+use std::sync::atomic::{AtomicUsize, Ordering};
+use std::fmt::{Display, Formatter};
 
+use rand::Rng;
 use anyhow::Result;
 use tokio::sync::{mpsc::Sender, Mutex};
 
 use crate::{Event, EventChannel, Metadata};
 
+#[derive(Debug, Clone)]
+pub struct TelemetryId(u128);
+
+impl TelemetryId {
+    fn to_hex_16(&self) -> String {
+       format!("{:016x}", self.0)
+    }
+    fn to_hex_32(&self) -> String {
+       format!("{:032x}", self.0)
+    }
+}
+
+impl From<TelemetryId> for u64 {
+    fn from(v: TelemetryId) -> Self {
+        v.0 as u64
+    }
+}
+
+impl From<TelemetryId> for u128 {
+    fn from(v: TelemetryId) -> Self {
+        v.0
+    }
+}
+
+pub fn new_trace_id() -> TelemetryId {
+    TelemetryId(rand::thread_rng().gen::<u128>())
+}
+
+pub fn new_span_id() -> TelemetryId {
+    TelemetryId(rand::thread_rng().gen::<u128>())
+}
+
 pub trait Adapter {
-    fn handle_event(&mut self, event: Event);
-    fn shutdown(&self);
+    fn handle_event(&mut self, event: Event); 
+    fn shutdown(&self) -> Result<()>;
 }
 
 pub struct Collector {
@@ -49,10 +86,15 @@ impl Collector {
         thread::sleep(time::Duration::from_millis(50));
     }
 
-    pub async fn set_metadata(&self, key: String, value: String) {
+    pub async fn set_metadata(&self, key: String, value: TelemetryId) {
         self.send_events
             .send(Event::Metadata(0, Metadata { key, value }))
             .await
             .unwrap();
     }
+}
+
+fn next_id() -> usize {
+    static COUNTER: AtomicUsize = AtomicUsize::new(1);
+    COUNTER.fetch_add(1, Ordering::Relaxed)
 }

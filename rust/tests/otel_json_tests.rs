@@ -37,7 +37,7 @@ mod tests {
             .collect::<Vec<Value>>();
 
         let trace_id = attribute_of_first_span(traces.first().unwrap(), "traceId".to_string());
-        assert_eq!(trace_id, Some("any-old-trace-id".to_string()));
+        assert_eq!(trace_id.unwrap().len(), 32); // TODO freeze random seed or pass in known value
 
         // test.c.instr.wasm spits out 10 allocations at the top level, this may change with the
         // function naming work

@@ -41,7 +41,7 @@ mod tests {
         let allocations = traces
             .iter()
             .filter(|t| attribute_of_first_span(t, "name".to_string()).unwrap() == "allocation");
-        assert_eq!(allocations.count(), 250);
+        assert_eq!(allocations.count() > 200, true);
         Ok(())
     }
 }

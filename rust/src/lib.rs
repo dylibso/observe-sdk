@@ -1,6 +1,7 @@
 use std::sync::{Arc, Mutex};
 use std::time::SystemTime;
 
+use adapter::TelemetryId;
 use anyhow::{anyhow, Result};
 use log::error;
 use modsurfer_demangle::demangle_function_name;
@@ -112,7 +113,7 @@ pub enum Event {
 #[derive(Debug, Clone)]
 pub struct Metadata {
     pub key: String,
-    pub value: String,
+    pub value: TelemetryId,
 }
 
 #[derive(Debug, Clone)]

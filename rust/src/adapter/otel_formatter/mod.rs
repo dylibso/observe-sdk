@@ -1,7 +1,8 @@
 use std::time::SystemTime;
 
-use rand::Rng;
 use serde::Serialize;
+
+use super::new_span_id;
 
 #[derive(Default, Debug, Clone, PartialEq, Serialize)]
 #[serde(rename_all = "camelCase")]
@@ -128,11 +129,11 @@ impl Span {
         start_time: SystemTime,
         end_time: SystemTime,
     ) -> Span {
-        let span_id = new_span_id();
+        let span_id = new_span_id().to_hex_16();
 
         let p_id = match parent_id {
             Some(id) => id,
-            None => new_span_id(),
+            None => new_span_id().to_hex_16(),
         };
 
         Span {
@@ -175,16 +176,6 @@ impl Span {
             },
         });
     }
-}
-
-pub fn new_trace_id() -> String {
-    // This is how OpenTelemetry does it:
-    // https://docs.rs/opentelemetry_api/0.19.0/src/opentelemetry_api/trace/span_context.rs.html#137
-    format!("{:032x}", rand::thread_rng().gen::<u128>())
-}
-
-pub fn new_span_id() -> String {
-    format!("{:016x}", rand::thread_rng().gen::<u64>())
 }
 
 #[cfg(test)]

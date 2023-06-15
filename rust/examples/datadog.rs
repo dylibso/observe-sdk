@@ -1,7 +1,7 @@
-use dylibso_observe_sdk::adapter::otelstdout::OtelStdoutAdapter;
-use dylibso_observe_sdk::adapter::new_trace_id;
+use dylibso_observe_sdk::adapter::{datadog::{DatadogAdapter, DatadogConfig}, new_trace_id};
 use tokio::task;
 
+/// You need the datadog agent running on localhost for this example to work
 #[tokio::main]
 pub async fn main() -> anyhow::Result<()> {
     let args: Vec<_> = std::env::args().skip(1).collect();
@@ -13,7 +13,8 @@ pub async fn main() -> anyhow::Result<()> {
     let engine = wasmtime::Engine::new(&config)?;
     let module = wasmtime::Module::new(&engine, data)?;
 
-    let adapter = OtelStdoutAdapter::new();
+    let ddconfig = DatadogConfig::new();
+    let adapter = DatadogAdapter::new(ddconfig);
 
     // Setup WASI
     let wasi_ctx = wasmtime_wasi::WasiCtxBuilder::new()
@@ -48,4 +49,3 @@ pub async fn main() -> anyhow::Result<()> {
 
     Ok(())
 }
-
