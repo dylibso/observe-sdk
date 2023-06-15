@@ -4,8 +4,6 @@ mod tests {
     use serde_json::Value;
     use std::convert::identity;
     use std::process::Command;
-    use std::thread;
-    use std::time;
 
     mod helpers;
     use helpers::otel_json::*;

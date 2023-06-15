@@ -1,3 +1,6 @@
+use std::thread;
+use std::time;
+
 use dylibso_observe_sdk::adapter::otelstdout::OtelStdoutAdapter;
 use rand::{seq::SliceRandom, thread_rng};
 use tokio::task;
@@ -57,6 +60,9 @@ pub async fn main() -> anyhow::Result<()> {
             });
         }
     }
+
+    // Github CI is slow, let all of the instances finish running
+    thread::sleep(time::Duration::from_millis(1000));
 
     Ok(())
 }
