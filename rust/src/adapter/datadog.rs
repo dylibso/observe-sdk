@@ -205,7 +205,6 @@ impl Adapter for DatadogAdapter {
         let url = host.join("/v0.3/traces")?.to_string();
         let j = json!(&dtf.traces);
         let body = serde_json::to_string(&j)?;
-        println!("{}", body);
 
         let response = ureq::post(&url)
             .set("Content-Type", "application/json")
