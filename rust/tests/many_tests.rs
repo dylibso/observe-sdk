@@ -17,7 +17,7 @@ mod tests {
             .args(&["run", "--example", "many", "../test/test.c.instr.wasm"])
             .output()
             .expect("Failed to run the example `examples/basic`");
-        thread::sleep(time::Duration::from_millis(150));
+
         let output = String::from_utf8(output.stdout)?;
         let output_lines = output.lines();
 

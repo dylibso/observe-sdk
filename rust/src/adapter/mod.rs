@@ -46,7 +46,7 @@ impl Collector {
             .send(Event::Shutdown(self.id))
             .await
             .unwrap();
-        thread::sleep(time::Duration::from_millis(50));
+        thread::sleep(time::Duration::from_millis(150));
     }
 
     pub async fn set_metadata(&self, key: String, value: String) {
