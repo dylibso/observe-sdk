@@ -7,7 +7,6 @@ pub mod datadog_formatter;
 use core::time;
 use std::{sync::Arc, thread};
 use std::sync::atomic::{AtomicUsize, Ordering};
-use std::fmt::{Display, Formatter};
 
 use rand::Rng;
 use anyhow::Result;
