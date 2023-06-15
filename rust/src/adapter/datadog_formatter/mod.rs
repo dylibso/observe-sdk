@@ -27,7 +27,7 @@ impl DatadogFormatter {
 pub struct Span {
     pub trace_id: u64,
     pub span_id: u64,
-    pub parent_id: u64,
+    pub parent_id: Option<u64>,
     pub name: String,
     pub start: u64,
     pub duration: u64,
@@ -51,16 +51,11 @@ impl Span {
     ) -> Result<Span> {
         let span_id = new_span_id().into();
 
-        let p_id = match parent_id {
-            Some(id) => id,
-            None => new_span_id().into(),
-        };
-
         Ok(
             Span {
                 trace_id,
                 span_id,
-                parent_id: p_id,
+                parent_id,
                 name: name.clone(),
                 meta: HashMap::new(),
                 metrics: HashMap::new(),

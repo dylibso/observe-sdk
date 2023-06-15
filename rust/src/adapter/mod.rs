@@ -16,27 +16,35 @@ use tokio::sync::{mpsc::Sender, Mutex};
 use crate::{Event, EventChannel, Metadata};
 
 #[derive(Debug, Clone)]
-pub struct TelemetryId(u64);
+pub struct TelemetryId(u128);
 
-impl Display for TelemetryId {
-    fn fmt(&self, f: &mut Formatter) -> std::fmt::Result {
-        let hex = format!("{:016x}", self.0);
-        f.write_str(&hex)
+impl TelemetryId {
+    fn to_hex_16(&self) -> String {
+       format!("{:016x}", self.0)
+    }
+    fn to_hex_32(&self) -> String {
+       format!("{:032x}", self.0)
     }
 }
 
 impl From<TelemetryId> for u64 {
+    fn from(v: TelemetryId) -> Self {
+        v.0 as u64
+    }
+}
+
+impl From<TelemetryId> for u128 {
     fn from(v: TelemetryId) -> Self {
         v.0
     }
 }
 
 pub fn new_trace_id() -> TelemetryId {
-    TelemetryId(rand::thread_rng().gen::<u64>())
+    TelemetryId(rand::thread_rng().gen::<u128>())
 }
 
 pub fn new_span_id() -> TelemetryId {
-    TelemetryId(rand::thread_rng().gen::<u64>())
+    TelemetryId(rand::thread_rng().gen::<u128>())
 }
 
 pub trait Adapter {
