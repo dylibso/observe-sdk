@@ -40,7 +40,7 @@ impl InstrumentationContext {
         )
     }
 
-    pub fn enter(&mut self, func_index : u32, func_name : &str) -> Result<()> {
+    pub fn enter(&mut self, func_index : u32, func_name : Option<&String>) -> Result<()> {
         let mut fc = FunctionCall {
             index: func_index,
             start: SystemTime::now(),
@@ -49,8 +49,10 @@ impl InstrumentationContext {
             raw_name: None,
             name: None,
         };
-        fc.name = Some(demangle_function_name(String::from(func_name)));
-        fc.raw_name = Some(String::from(func_name));
+        if let Some(name) = func_name {
+            fc.name = Some(demangle_function_name(String::from(name)));
+            fc.raw_name = Some(String::from(name));
+        }
         self.stack.push(fc);
         Ok(())
     }
@@ -138,10 +140,7 @@ pub(crate) fn instrument_enter(
     function_names: &FunctionNames
 ) -> anyhow::Result<()> {
     let func_id = _input[0].unwrap_i32() as u32;
-    let printname = match function_names.get(&func_id) {
-        Some(s) => s,
-        _ => "placeholder"
-    };
+    let printname = function_names.get(&func_id);
     if let Ok(mut cont) = ctx.lock() {
         cont.enter(func_id, printname)?;
     }
