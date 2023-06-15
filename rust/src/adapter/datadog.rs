@@ -178,7 +178,7 @@ impl DatadogAdapter {
 }
 
 impl Adapter for DatadogAdapter {
-    // flush any remaning spans
+    // flush any remaining spans to Datadog Agent
     fn shutdown(&self) -> Result<()> {
         let mut dtf = DatadogFormatter::new();
         let mut trace = Trace::new();
