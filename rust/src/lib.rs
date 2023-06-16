@@ -134,12 +134,12 @@ pub struct Allocation {
 }
 
 pub(crate) fn instrument_enter(
-    _input: &[Val],
+    input: &[Val],
     _output: &mut [Val],
     ctx: Arc<Mutex<InstrumentationContext>>,
     function_names: &FunctionNames,
 ) -> anyhow::Result<()> {
-    let func_id = _input[0].unwrap_i32() as u32;
+    let func_id = input[0].unwrap_i32() as u32;
     let printname = function_names.get(&func_id);
     if let Ok(mut cont) = ctx.lock() {
         cont.enter(func_id, printname.map(|x| x.as_str()))?;
@@ -148,11 +148,11 @@ pub(crate) fn instrument_enter(
 }
 
 pub(crate) fn instrument_exit(
-    _input: &[Val],
+    input: &[Val],
     _output: &mut [Val],
     ctx: Arc<Mutex<InstrumentationContext>>,
 ) -> Result<()> {
-    let func_id = _input[0].unwrap_i32() as u32;
+    let func_id = input[0].unwrap_i32() as u32;
     if let Ok(mut cont) = ctx.lock() {
         cont.exit(func_id)?;
     }
@@ -187,7 +187,7 @@ pub fn add_to_linker<T: 'static>(
     // Build up a table of function id to name mapping
     let mut function_names = FunctionNames::new();
     let parser = wasmparser::Parser::new(0);
-    for payload in parser.parse_all(&data) {
+    for payload in parser.parse_all(data) {
         if let wasmparser::Payload::CustomSection(custom) = payload? {
             if custom.name() == "name" {
                 let name_reader =
@@ -228,7 +228,7 @@ pub fn add_to_linker<T: 'static>(
     linker.func_new(
         MODULE_NAME,
         "instrument_memory_grow",
-        t.clone(),
+        t,
         move |_caller, params, results| instrument_memory_grow(params, results, ctx.clone()),
     )?;
 

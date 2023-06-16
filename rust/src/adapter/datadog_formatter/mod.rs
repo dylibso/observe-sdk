@@ -1,21 +1,20 @@
 use anyhow::Result;
-use std::{time::SystemTime, collections::HashMap};
+use std::{collections::HashMap, time::SystemTime};
 
 use serde::Serialize;
 
 use super::{datadog::DatadogConfig, new_span_id};
 
+#[derive(Default)]
 pub struct DatadogFormatter {
-    pub traces: Vec<Trace>
+    pub traces: Vec<Trace>,
 }
 
 pub type Trace = Vec<Span>;
 
 impl DatadogFormatter {
     pub fn new() -> DatadogFormatter {
-        DatadogFormatter {
-            traces: Vec::new(),
-        }
+        Default::default()
     }
 
     pub fn add_trace(&mut self, trace: Trace) {
@@ -51,28 +50,26 @@ impl Span {
     ) -> Result<Span> {
         let span_id = new_span_id().into();
 
-        Ok(
-            Span {
-                trace_id,
-                span_id,
-                parent_id,
-                name: name.clone(),
-                meta: HashMap::new(),
-                metrics: HashMap::new(),
-                service: config.service_name.to_string(),
-                start: start_time
-                    .duration_since(SystemTime::UNIX_EPOCH)?
-                    .as_nanos() as u64,
-                duration: end_time.duration_since(start_time)?.as_nanos() as u64,
-                resource: name,
-                typ: None,
-                error: 0,
-            }
-        )
+        Ok(Span {
+            trace_id,
+            span_id,
+            parent_id,
+            name: name.clone(),
+            meta: HashMap::new(),
+            metrics: HashMap::new(),
+            service: config.service_name,
+            start: start_time
+                .duration_since(SystemTime::UNIX_EPOCH)?
+                .as_nanos() as u64,
+            duration: end_time.duration_since(start_time)?.as_nanos() as u64,
+            resource: name,
+            typ: None,
+            error: 0,
+        })
     }
 
     pub fn add_allocation(&mut self, amount: u32) {
-        self.meta.insert("allocations".to_string(), amount.to_string());
+        self.meta
+            .insert("allocations".to_string(), amount.to_string());
     }
 }
-

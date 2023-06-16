@@ -101,6 +101,12 @@ pub struct DatadogConfig {
 
 impl DatadogConfig {
     pub fn new() -> DatadogConfig {
+        Default::default()
+    }
+}
+
+impl Default for DatadogConfig {
+    fn default() -> Self {
         DatadogConfig {
             agent_host: "http://localhost:8126".into(),
             service_name: "my-wasm-service".into(),
@@ -111,6 +117,7 @@ impl DatadogConfig {
 }
 
 impl DatadogAdapter {
+    #[allow(clippy::new_ret_no_self)]
     pub fn new(config: DatadogConfig) -> DatadogAdapterContainer {
         let adapter = DatadogAdapter {
             trace_id: new_trace_id().into(),
@@ -129,23 +136,21 @@ impl DatadogAdapter {
         match event {
             Event::Func(_id, f) => {
                 let function_name = &f.name.clone().unwrap_or("unknown-name".to_string());
-                let name = format!("{}", &function_name);
-
                 let config = self.config.clone();
                 let span = Span::new(
                     config,
-                    self.trace_id.clone(),
+                    self.trace_id,
                     parent_id,
-                    name,
+                    function_name.to_string(),
                     f.start,
                     f.end,
                 )?;
 
-                let span_id = Some(span.span_id.clone());
+                let span_id = Some(span.span_id);
                 let mut spans = vec![span];
 
                 for e in f.within.iter() {
-                    if let Some(mut s) = self._handle_event(e.to_owned(), span_id.clone())? {
+                    if let Some(mut s) = self._handle_event(e.to_owned(), span_id)? {
                         spans.append(&mut s);
                     };
                 }
@@ -221,7 +226,7 @@ impl Adapter for DatadogAdapter {
             .set("Content-Type", "application/json")
             .send_string(&body);
 
-        if !response.is_ok() {
+        if response.is_err() {
             warn!(
                 "Request to datadog agent failed with status: {:#?}",
                 response
