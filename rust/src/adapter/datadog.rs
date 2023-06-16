@@ -1,28 +1,30 @@
+use crate::{adapter::datadog_formatter::DatadogFormatter, add_to_linker, Event, Metadata};
 use anyhow::Result;
 use log::warn;
-use crate::{
-    adapter::datadog_formatter::DatadogFormatter,
-    Event, Metadata, add_to_linker,
-};
-use std::{
-    fmt::{Display, Formatter},
-    sync::Arc, collections::HashMap
-};
 use serde_json::json;
+use std::{
+    collections::HashMap,
+    fmt::{Display, Formatter},
+    sync::Arc,
+};
 use tokio::sync::Mutex;
 use ureq;
 use url::Url;
 use wasmtime::Linker;
 
 use super::{
-    datadog_formatter::{Trace, Span},
-    Adapter, Collector, next_id, new_trace_id, TelemetryId,
+    datadog_formatter::{Span, Trace},
+    new_trace_id, next_id, Adapter, Collector, TelemetryId,
 };
 
 pub struct DatadogAdapterContainer(Arc<Mutex<DatadogAdapter>>);
 
 impl DatadogAdapterContainer {
-    pub async fn start<T: 'static>(&self, linker: &mut Linker<T>, data: &Vec<u8>) -> Result<DatadogTraceCtx> {
+    pub async fn start<T: 'static>(
+        &self,
+        linker: &mut Linker<T>,
+        data: &[u8],
+    ) -> Result<DatadogTraceCtx> {
         let id = next_id();
         let events = add_to_linker(id, linker, data)?;
         let collector = Collector::new(self.0.clone(), id, events).await?;
@@ -99,6 +101,12 @@ pub struct DatadogConfig {
 
 impl DatadogConfig {
     pub fn new() -> DatadogConfig {
+        Default::default()
+    }
+}
+
+impl Default for DatadogConfig {
+    fn default() -> Self {
         DatadogConfig {
             agent_host: "http://localhost:8126".into(),
             service_name: "my-wasm-service".into(),
@@ -109,6 +117,7 @@ impl DatadogConfig {
 }
 
 impl DatadogAdapter {
+    #[allow(clippy::new_ret_no_self)]
     pub fn new(config: DatadogConfig) -> DatadogAdapterContainer {
         let adapter = DatadogAdapter {
             trace_id: new_trace_id().into(),
@@ -127,17 +136,21 @@ impl DatadogAdapter {
         match event {
             Event::Func(_id, f) => {
                 let function_name = &f.name.clone().unwrap_or("unknown-name".to_string());
-                let name = format!("{}", &function_name);
-
                 let config = self.config.clone();
-                let span =
-                    Span::new(config, self.trace_id.clone(), parent_id, name, f.start, f.end)?;
+                let span = Span::new(
+                    config,
+                    self.trace_id,
+                    parent_id,
+                    function_name.to_string(),
+                    f.start,
+                    f.end,
+                )?;
 
-                let span_id = Some(span.span_id.clone());
+                let span_id = Some(span.span_id);
                 let mut spans = vec![span];
 
                 for e in f.within.iter() {
-                    if let Some(mut s) = self._handle_event(e.to_owned(), span_id.clone())? {
+                    if let Some(mut s) = self._handle_event(e.to_owned(), span_id)? {
                         spans.append(&mut s);
                     };
                 }
@@ -163,7 +176,7 @@ impl DatadogAdapter {
                 self.shutdown()?;
                 self.spans.clear();
                 Ok(None)
-            },
+            }
         }
     }
 
@@ -213,8 +226,11 @@ impl Adapter for DatadogAdapter {
             .set("Content-Type", "application/json")
             .send_string(&body);
 
-        if !response.is_ok() {
-            warn!("Request to datadog agent failed with status: {:#?}", response);
+        if response.is_err() {
+            warn!(
+                "Request to datadog agent failed with status: {:#?}",
+                response
+            );
         }
 
         Ok(())
@@ -230,7 +246,6 @@ impl Adapter for DatadogAdapter {
                 }
             }
             Err(e) => warn!("{}", e),
-        } 
+        }
     }
 }
-
