@@ -184,38 +184,19 @@ pub fn add_to_linker<T: 'static>(id: usize, linker: &mut Linker<T>, data : &Vec<
     let mut function_names = FunctionNames::new();
     let parser = wasmparser::Parser::new(0);
     for payload in parser.parse_all(&data) {
-        match payload? {
-            wasmparser::Payload::CustomSection(custom) => {
-                if custom.name() == "name" {
-                    let name_reader =
-                        wasmparser::NameSectionReader::new(custom.data(), custom.data_offset());
-                    for x in name_reader.into_iter() {
-                        let x = x?;
-                        match x {
-                            //wasmparser::Name::Module { name, name_range } => (),
-                            wasmparser::Name::Function(f) => {
-                                for k in f.into_iter() {
-                                    let k = k?;
-                                    function_names.insert(k.index, k.name.to_string());
-                                }
-                            },
-                            _ => ()
-                            //wasmparser::Name::Local(_) => (),
-                            //wasmparser::Name::Label(_) => (),
-                            //wasmparser::Name::Type(_) => (),
-                            //wasmparser::Name::Table(_) => (),
-                            //wasmparser::Name::Memory(_) => (),
-                            //wasmparser::Name::Global(_) => (),
-                            //wasmparser::Name::Element(_) => (),
-                            //wasmparser::Name::Data(_) => (),
-                            //wasmparser::Name::Unknown { ty, data, range } => (),
+        if let wasmparser::Payload::CustomSection(custom) = payload? {
+            if custom.name() == "name" {
+                let name_reader =
+                    wasmparser::NameSectionReader::new(custom.data(), custom.data_offset());
+                for x in name_reader.into_iter() {
+                    if let wasmparser::Name::Function(f) = x? {
+                        for k in f.into_iter() {
+                            let k = k?;
+                            function_names.insert(k.index, k.name.to_string());
                         }
                     }
-                    continue;
                 }
-            },
-            _ => {
-
+                continue;
             }
         }
     }
