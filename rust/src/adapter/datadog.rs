@@ -1,28 +1,30 @@
+use crate::{adapter::datadog_formatter::DatadogFormatter, add_to_linker, Event, Metadata};
 use anyhow::Result;
 use log::warn;
-use crate::{
-    adapter::datadog_formatter::DatadogFormatter,
-    Event, Metadata, add_to_linker,
-};
-use std::{
-    fmt::{Display, Formatter},
-    sync::Arc, collections::HashMap
-};
 use serde_json::json;
+use std::{
+    collections::HashMap,
+    fmt::{Display, Formatter},
+    sync::Arc,
+};
 use tokio::sync::Mutex;
 use ureq;
 use url::Url;
 use wasmtime::Linker;
 
 use super::{
-    datadog_formatter::{Trace, Span},
-    Adapter, Collector, next_id, new_trace_id, TelemetryId,
+    datadog_formatter::{Span, Trace},
+    new_trace_id, next_id, Adapter, Collector, TelemetryId,
 };
 
 pub struct DatadogAdapterContainer(Arc<Mutex<DatadogAdapter>>);
 
 impl DatadogAdapterContainer {
-    pub async fn start<T: 'static>(&self, linker: &mut Linker<T>, data: &Vec<u8>) -> Result<DatadogTraceCtx> {
+    pub async fn start<T: 'static>(
+        &self,
+        linker: &mut Linker<T>,
+        data: &[u8],
+    ) -> Result<DatadogTraceCtx> {
         let id = next_id();
         let events = add_to_linker(id, linker, data)?;
         let collector = Collector::new(self.0.clone(), id, events).await?;
@@ -130,8 +132,14 @@ impl DatadogAdapter {
                 let name = format!("{}", &function_name);
 
                 let config = self.config.clone();
-                let span =
-                    Span::new(config, self.trace_id.clone(), parent_id, name, f.start, f.end)?;
+                let span = Span::new(
+                    config,
+                    self.trace_id.clone(),
+                    parent_id,
+                    name,
+                    f.start,
+                    f.end,
+                )?;
 
                 let span_id = Some(span.span_id.clone());
                 let mut spans = vec![span];
@@ -163,7 +171,7 @@ impl DatadogAdapter {
                 self.shutdown()?;
                 self.spans.clear();
                 Ok(None)
-            },
+            }
         }
     }
 
@@ -214,7 +222,10 @@ impl Adapter for DatadogAdapter {
             .send_string(&body);
 
         if !response.is_ok() {
-            warn!("Request to datadog agent failed with status: {:#?}", response);
+            warn!(
+                "Request to datadog agent failed with status: {:#?}",
+                response
+            );
         }
 
         Ok(())
@@ -230,7 +241,6 @@ impl Adapter for DatadogAdapter {
                 }
             }
             Err(e) => warn!("{}", e),
-        } 
+        }
     }
 }
-

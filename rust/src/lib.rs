@@ -5,9 +5,9 @@ use adapter::TelemetryId;
 use anyhow::{anyhow, Result};
 use log::error;
 use modsurfer_demangle::demangle_function_name;
+use std::collections::HashMap;
 use tokio::sync::mpsc::{channel, Receiver, Sender};
 use wasmtime::{Caller, FuncType, Linker, Val, ValType};
-use std::collections::HashMap;
 
 pub mod adapter;
 
@@ -40,7 +40,7 @@ impl InstrumentationContext {
         )
     }
 
-    pub fn enter(&mut self, func_index : u32, func_name : Option<&String>) -> Result<()> {
+    pub fn enter(&mut self, func_index: u32, func_name: Option<&str>) -> Result<()> {
         let mut fc = FunctionCall {
             index: func_index,
             start: SystemTime::now(),
@@ -57,7 +57,7 @@ impl InstrumentationContext {
         Ok(())
     }
 
-    pub fn exit(&mut self, func_index : u32) -> Result<()> {
+    pub fn exit(&mut self, func_index: u32) -> Result<()> {
         if let Some(mut func) = self.stack.pop() {
             if func.index != func_index {
                 return Err(anyhow!("missed a function exit"));
@@ -137,12 +137,12 @@ pub(crate) fn instrument_enter(
     _input: &[Val],
     _output: &mut [Val],
     ctx: Arc<Mutex<InstrumentationContext>>,
-    function_names: &FunctionNames
+    function_names: &FunctionNames,
 ) -> anyhow::Result<()> {
     let func_id = _input[0].unwrap_i32() as u32;
     let printname = function_names.get(&func_id);
     if let Ok(mut cont) = ctx.lock() {
-        cont.enter(func_id, printname)?;
+        cont.enter(func_id, printname.map(|x| x.as_str()))?;
     }
     Ok(())
 }
@@ -177,7 +177,11 @@ type EventChannel = (Sender<Event>, Receiver<Event>);
 type FunctionNames = HashMap<u32, String>;
 
 /// Link observability import functions required by instrumented wasm code
-pub fn add_to_linker<T: 'static>(id: usize, linker: &mut Linker<T>, data : &Vec<u8>) -> Result<EventChannel> {
+pub fn add_to_linker<T: 'static>(
+    id: usize,
+    linker: &mut Linker<T>,
+    data: &[u8],
+) -> Result<EventChannel> {
     let (ctx, events_tx, events_rx) = InstrumentationContext::new(id);
 
     // Build up a table of function id to name mapping
@@ -208,7 +212,9 @@ pub fn add_to_linker<T: 'static>(id: usize, linker: &mut Linker<T>, data : &Vec<
         MODULE_NAME,
         "instrument_enter",
         t.clone(),
-        move |_caller: Caller<T>, params, results| instrument_enter(params, results, enter_ctx.clone(), &function_names),
+        move |_caller: Caller<T>, params, results| {
+            instrument_enter(params, results, enter_ctx.clone(), &function_names)
+        },
     )?;
 
     let exit_ctx = ctx.clone();
@@ -216,7 +222,7 @@ pub fn add_to_linker<T: 'static>(id: usize, linker: &mut Linker<T>, data : &Vec<
         MODULE_NAME,
         "instrument_exit",
         t.clone(),
-        move |_caller, params, results| instrument_exit( params, results, exit_ctx.clone()),
+        move |_caller, params, results| instrument_exit(params, results, exit_ctx.clone()),
     )?;
 
     linker.func_new(
