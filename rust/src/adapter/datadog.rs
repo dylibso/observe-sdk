@@ -22,9 +22,9 @@ use super::{
 pub struct DatadogAdapterContainer(Arc<Mutex<DatadogAdapter>>);
 
 impl DatadogAdapterContainer {
-    pub async fn start<T: 'static>(&self, linker: &mut Linker<T>) -> Result<DatadogTraceCtx> {
+    pub async fn start<T: 'static>(&self, linker: &mut Linker<T>, data: &Vec<u8>) -> Result<DatadogTraceCtx> {
         let id = next_id();
-        let events = add_to_linker(id, linker)?;
+        let events = add_to_linker(id, linker, data)?;
         let collector = Collector::new(self.0.clone(), id, events).await?;
 
         Ok(DatadogTraceCtx(collector))
