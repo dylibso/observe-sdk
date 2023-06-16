@@ -5,8 +5,9 @@ use adapter::TelemetryId;
 use anyhow::{anyhow, Result};
 use log::error;
 use modsurfer_demangle::demangle_function_name;
+use std::collections::HashMap;
 use tokio::sync::mpsc::{channel, Receiver, Sender};
-use wasmtime::{Caller, FrameInfo, FuncType, Linker, Val, ValType, WasmBacktrace};
+use wasmtime::{Caller, FuncType, Linker, Val, ValType};
 
 pub mod adapter;
 
@@ -39,26 +40,26 @@ impl InstrumentationContext {
         )
     }
 
-    pub fn enter(&mut self, fi: &FrameInfo) -> Result<()> {
+    pub fn enter(&mut self, func_index: u32, func_name: Option<&str>) -> Result<()> {
         let mut fc = FunctionCall {
-            index: fi.func_index(),
+            index: func_index,
             start: SystemTime::now(),
             end: SystemTime::now(),
             within: Vec::new(),
             raw_name: None,
             name: None,
         };
-        if let Some(name) = fi.func_name() {
-            fc.name = Some(demangle_function_name(name.to_string()));
-            fc.raw_name = Some(name.to_string());
-        };
+        if let Some(name) = func_name {
+            fc.name = Some(demangle_function_name(String::from(name)));
+            fc.raw_name = Some(String::from(name));
+        }
         self.stack.push(fc);
         Ok(())
     }
 
-    pub fn exit(&mut self, fi: &FrameInfo) -> Result<()> {
+    pub fn exit(&mut self, func_index: u32) -> Result<()> {
         if let Some(mut func) = self.stack.pop() {
-            if func.index != fi.func_index() {
+            if func.index != func_index {
                 return Err(anyhow!("missed a function exit"));
             }
             func.end = SystemTime::now();
@@ -81,7 +82,7 @@ impl InstrumentationContext {
         Err(anyhow!("empty stack in exit"))
     }
 
-    pub fn allocate(&mut self, _fi: &FrameInfo, amount: u32) -> Result<()> {
+    pub fn allocate(&mut self, amount: u32) -> Result<()> {
         let ev = Event::Alloc(
             self.id,
             Allocation {
@@ -132,54 +133,40 @@ pub struct Allocation {
     pub amount: u32,
 }
 
-pub(crate) fn instrument_enter<T>(
-    caller: Caller<T>,
-    _input: &[Val],
+pub(crate) fn instrument_enter(
+    input: &[Val],
     _output: &mut [Val],
     ctx: Arc<Mutex<InstrumentationContext>>,
+    function_names: &FunctionNames,
 ) -> anyhow::Result<()> {
-    let bt = WasmBacktrace::capture(caller);
-
-    if let Some(frame) = bt.frames().first() {
-        if let Ok(mut cont) = ctx.lock() {
-            cont.enter(frame)?;
-        }
+    let func_id = input[0].unwrap_i32() as u32;
+    let printname = function_names.get(&func_id);
+    if let Ok(mut cont) = ctx.lock() {
+        cont.enter(func_id, printname.map(|x| x.as_str()))?;
     }
-
     Ok(())
 }
 
-pub(crate) fn instrument_exit<T>(
-    caller: Caller<T>,
-    _input: &[Val],
+pub(crate) fn instrument_exit(
+    input: &[Val],
     _output: &mut [Val],
     ctx: Arc<Mutex<InstrumentationContext>>,
 ) -> Result<()> {
-    let bt = WasmBacktrace::capture(caller);
-
-    if let Some(frame) = bt.frames().first() {
-        if let Ok(mut cont) = ctx.lock() {
-            cont.exit(frame)?;
-        }
+    let func_id = input[0].unwrap_i32() as u32;
+    if let Ok(mut cont) = ctx.lock() {
+        cont.exit(func_id)?;
     }
-
     Ok(())
 }
 
-pub(crate) fn instrument_memory_grow<T>(
-    caller: Caller<T>,
+pub(crate) fn instrument_memory_grow(
     input: &[Val],
     _output: &mut [Val],
     ctx: Arc<Mutex<InstrumentationContext>>,
 ) -> Result<()> {
     let amount_in_pages = input[0].unwrap_i32(); // The number of pages requested by `memory.grow` instruction
-    let bt = WasmBacktrace::capture(caller);
-
-    // TODO: this should scream and die loudly if it can't actually get ahold of the frame
-    if let Some(frame) = bt.frames().last() {
-        if let Ok(mut cont) = ctx.lock() {
-            cont.allocate(frame, amount_in_pages as u32)?;
-        }
+    if let Ok(mut cont) = ctx.lock() {
+        cont.allocate(amount_in_pages as u32)?;
     }
     Ok(())
 }
@@ -187,34 +174,62 @@ pub(crate) fn instrument_memory_grow<T>(
 const MODULE_NAME: &str = "dylibso_observe";
 
 type EventChannel = (Sender<Event>, Receiver<Event>);
+type FunctionNames = HashMap<u32, String>;
 
 /// Link observability import functions required by instrumented wasm code
-pub fn add_to_linker<T: 'static>(id: usize, linker: &mut Linker<T>) -> Result<EventChannel> {
+pub fn add_to_linker<T: 'static>(
+    id: usize,
+    linker: &mut Linker<T>,
+    data: &[u8],
+) -> Result<EventChannel> {
     let (ctx, events_tx, events_rx) = InstrumentationContext::new(id);
 
-    let t = FuncType::new([], []);
+    // Build up a table of function id to name mapping
+    let mut function_names = FunctionNames::new();
+    let parser = wasmparser::Parser::new(0);
+    for payload in parser.parse_all(data) {
+        if let wasmparser::Payload::CustomSection(custom) = payload? {
+            if custom.name() == "name" {
+                let name_reader =
+                    wasmparser::NameSectionReader::new(custom.data(), custom.data_offset());
+                for x in name_reader.into_iter() {
+                    if let wasmparser::Name::Function(f) = x? {
+                        for k in f.into_iter() {
+                            let k = k?;
+                            function_names.insert(k.index, k.name.to_string());
+                        }
+                    }
+                }
+                continue;
+            }
+        }
+    }
+
+    let t = FuncType::new([ValType::I32], []);
 
     let enter_ctx = ctx.clone();
     linker.func_new(
         MODULE_NAME,
         "instrument_enter",
         t.clone(),
-        move |caller, params, results| instrument_enter(caller, params, results, enter_ctx.clone()),
+        move |_caller: Caller<T>, params, results| {
+            instrument_enter(params, results, enter_ctx.clone(), &function_names)
+        },
     )?;
 
     let exit_ctx = ctx.clone();
     linker.func_new(
         MODULE_NAME,
         "instrument_exit",
-        t,
-        move |caller, params, results| instrument_exit(caller, params, results, exit_ctx.clone()),
+        t.clone(),
+        move |_caller, params, results| instrument_exit(params, results, exit_ctx.clone()),
     )?;
 
     linker.func_new(
         MODULE_NAME,
         "instrument_memory_grow",
-        FuncType::new([ValType::I32], []),
-        move |caller, params, results| instrument_memory_grow(caller, params, results, ctx.clone()),
+        t,
+        move |_caller, params, results| instrument_memory_grow(params, results, ctx.clone()),
     )?;
 
     Ok((events_tx, events_rx))

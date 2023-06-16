@@ -9,7 +9,7 @@ use anyhow::Result;
 use tokio::sync::Mutex;
 use wasmtime::Linker;
 
-use super::{next_id, TelemetryId, new_trace_id};
+use super::{new_trace_id, next_id, TelemetryId};
 
 pub struct OtelAdapterContainer(Arc<Mutex<OtelStdoutAdapter>>);
 
@@ -26,9 +26,13 @@ impl OtelTraceCtx {
 }
 
 impl OtelAdapterContainer {
-    pub async fn start<T: 'static>(&self, linker: &mut Linker<T>) -> Result<OtelTraceCtx> {
+    pub async fn start<T: 'static>(
+        &self,
+        linker: &mut Linker<T>,
+        data: &[u8],
+    ) -> Result<OtelTraceCtx> {
         let id = next_id();
-        let events = add_to_linker(id, linker)?;
+        let events = add_to_linker(id, linker, data)?;
         let collector = Collector::new(self.0.clone(), id, events).await?;
 
         Ok(OtelTraceCtx(collector))
@@ -112,4 +116,3 @@ impl Adapter for OtelStdoutAdapter {
         };
     }
 }
-

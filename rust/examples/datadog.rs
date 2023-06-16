@@ -11,7 +11,7 @@ pub async fn main() -> anyhow::Result<()> {
 
     // Create instance
     let engine = wasmtime::Engine::new(&config)?;
-    let module = wasmtime::Module::new(&engine, data)?;
+    let module = wasmtime::Module::new(&engine, &data)?;
 
     let ddconfig = DatadogConfig::new();
     let adapter = DatadogAdapter::new(ddconfig);
@@ -30,7 +30,7 @@ pub async fn main() -> anyhow::Result<()> {
     // Provide the observability functions to the `Linker` to be made available
     // to the instrumented guest code. These are safe to add and are a no-op
     // if guest code is uninstrumented.
-    let mut trace_ctx = adapter.start(&mut linker).await?;
+    let mut trace_ctx = adapter.start(&mut linker, &data).await?;
 
     let instance = linker.instantiate(&mut store, &module)?;
 

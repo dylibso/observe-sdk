@@ -13,7 +13,7 @@ pub async fn main() -> anyhow::Result<()> {
 
     // Create instance
     let engine = wasmtime::Engine::new(&config)?;
-    let module = wasmtime::Module::new(&engine, data)?;
+    let module = wasmtime::Module::new(&engine, &data)?;
 
     let adapter = StdoutAdapter::new();
 
@@ -32,7 +32,7 @@ pub async fn main() -> anyhow::Result<()> {
     // to the instrumented guest code. These are safe to add and are a no-op
     // if guest code is uninstrumented.
     let id = adapter.lock().await.new_collector();
-    let events = add_to_linker(id, &mut linker)?;
+    let events = add_to_linker(id, &mut linker, &data)?;
 
     let collector = Collector::new(adapter, id, events).await?;
 
