@@ -115,8 +115,6 @@ impl Adapter for ZipkinAdapter {
         let j = json!(&ztf.spans);
         let body = serde_json::to_string(&j)?;
 
-        println!("{}", &body);
-
         // perhaps this should be an async operation with something
         // like reqwest?
         let response = ureq::post(url)
