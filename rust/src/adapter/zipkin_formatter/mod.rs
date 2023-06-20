@@ -63,37 +63,29 @@ impl Span {
     }
 }
 
-// #[cfg(test)]
-// mod tests {
-//     use std::time::Duration;
+#[cfg(test)]
+mod tests {
+    use std::time::Duration;
 
-//     use super::*;
+    use super::*;
 
-//     #[test]
-//     fn build_resource() {
-//         let rs =
-//             ResourceSpan::new().add_attribute("service.name".to_owned(), "something".to_owned());
-//         let attrib = rs.resource.attributes.first().unwrap();
-//         assert_eq!(attrib.value.string_value.as_ref().unwrap(), "something");
-//     }
+    #[test]
+    fn build_span() {
+        let start = SystemTime::now()
+            .checked_sub(Duration::new(0, 1500))
+            .unwrap();
+        let end = SystemTime::now();
+        let name = "function-call-start".to_string();
 
-//     #[test]
-//     fn build_span() {
-//         let start = SystemTime::now()
-//             .checked_sub(Duration::new(0, 1500))
-//             .unwrap();
-//         let end = SystemTime::now();
-//         let name = "function-call-start".to_string();
+        let span = Span::new(
+            "1234abcd".to_string(),
+            Some("f00df0b0b0".to_string()),
+            name.clone(),
+            start,
+            end,
+        );
 
-//         let span = Span::new(
-//             "1234abcd".to_string(),
-//             Some("f00df0b0b0".to_string()),
-//             name.clone(),
-//             start,
-//             end,
-//         );
-
-//         assert_eq!(span.name, name);
-//     }
-// }
+        assert_eq!(span.name, name);
+    }
+}
 

@@ -1,4 +1,5 @@
 use std::sync::Arc;
+use log::warn;
 use serde_json::json;
 
 use crate::adapter::zipkin_formatter::{ZipkinFormatter, Span};
@@ -58,7 +59,7 @@ impl ZipkinAdapter {
                 let function_name = &f.name.clone().unwrap_or("unknown-name".to_string());
                 let name = format!("function-call-{}", &function_name);
 
-                let mut span =
+                let span =
                     Span::new(self.trace_id.clone(), parent_span_id, name, f.start, f.end);
 
                 let span_id = Some(span.id.clone());
@@ -91,7 +92,9 @@ impl ZipkinAdapter {
                 None
             }
             Event::Shutdown(_id) => {
-                self.shutdown();
+                if let Err(e) = self.shutdown() {
+                    warn!("Failed to shutdown Datadog adapter {}", e);
+                }
                 self.spans.clear();
                 None
             }
