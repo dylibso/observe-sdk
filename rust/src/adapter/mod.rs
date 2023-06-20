@@ -21,12 +21,12 @@ pub struct TelemetryId(u128);
 
 impl TelemetryId {
     /// format as 8-byte zero-prefixed hex string
-    fn to_hex_8(&self) -> String {
+    pub fn to_hex_8(&self) -> String {
         // 8 bytes is 16 chars
         format!("{:016x}", self.0 as u64)
     }
     /// format as 16-byte zero-prefixed hex string
-    fn to_hex_16(&self) -> String {
+    pub fn to_hex_16(&self) -> String {
         // 16 bytes is 32 chars
         format!("{:032x}", self.0)
     }
