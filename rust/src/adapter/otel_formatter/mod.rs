@@ -129,11 +129,11 @@ impl Span {
         start_time: SystemTime,
         end_time: SystemTime,
     ) -> Span {
-        let span_id = new_span_id().to_hex_16();
+        let span_id = new_span_id().to_hex_8();
 
         let p_id = match parent_id {
             Some(id) => id,
-            None => new_span_id().to_hex_16(),
+            None => new_span_id().to_hex_8(),
         };
 
         Span {

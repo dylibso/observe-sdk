@@ -1,7 +1,7 @@
 use std::sync::Arc;
-use std::{thread, time};
+use serde_json::json;
 
-use crate::adapter::otel_formatter::{OtelFormatter, ResourceSpan, Span};
+use crate::adapter::zipkin_formatter::{ZipkinFormatter, Span};
 use crate::adapter::{Adapter, Collector};
 use crate::{add_to_linker, Event, Metadata};
 
@@ -9,13 +9,13 @@ use anyhow::Result;
 use tokio::sync::Mutex;
 use wasmtime::Linker;
 
-use super::{new_trace_id, next_id, TelemetryId};
+use super::{TelemetryId, next_id, new_span_id};
 
-pub struct OtelAdapterContainer(Arc<Mutex<OtelStdoutAdapter>>);
+pub struct ZipkinAdapterContainer(Arc<Mutex<ZipkinAdapter>>);
 
-pub struct OtelTraceCtx(Collector);
+pub struct ZipkinTraceCtx(Collector);
 
-impl OtelTraceCtx {
+impl ZipkinTraceCtx {
     pub async fn set_trace_id(&mut self, id: TelemetryId) {
         self.0.set_metadata("trace_id".to_string(), id).await;
     }
@@ -25,33 +25,31 @@ impl OtelTraceCtx {
     }
 }
 
-impl OtelAdapterContainer {
-    pub async fn start<T: 'static>(
-        &self,
-        linker: &mut Linker<T>,
-        data: &[u8],
-    ) -> Result<OtelTraceCtx> {
+impl ZipkinAdapterContainer {
+    pub async fn start<T: 'static>(&self, linker: &mut Linker<T>, data: &[u8]) -> Result<ZipkinTraceCtx> {
         let id = next_id();
         let events = add_to_linker(id, linker, data)?;
         let collector = Collector::new(self.0.clone(), id, events).await?;
 
-        Ok(OtelTraceCtx(collector))
+        Ok(ZipkinTraceCtx(collector))
     }
 }
 
 #[derive(Clone)]
-pub struct OtelStdoutAdapter {
+pub struct ZipkinAdapter {
     pub trace_id: String,
+    pub spans: Vec<Span>,
 }
 
-impl OtelStdoutAdapter {
+impl ZipkinAdapter {
     #[allow(clippy::new_ret_no_self)]
-    pub fn new() -> OtelAdapterContainer {
+    pub fn new() -> ZipkinAdapterContainer {
         let adapter = Self {
-            trace_id: new_trace_id().to_hex_16(),
+            trace_id: new_span_id().to_hex_8(),
+            spans: vec![],
         };
 
-        OtelAdapterContainer(Arc::new(Mutex::new(adapter)))
+        ZipkinAdapterContainer(Arc::new(Mutex::new(adapter)))
     }
 
     fn _handle_event(&mut self, event: Event, parent_span_id: Option<String>) -> Option<Vec<Span>> {
@@ -62,9 +60,8 @@ impl OtelStdoutAdapter {
 
                 let mut span =
                     Span::new(self.trace_id.clone(), parent_span_id, name, f.start, f.end);
-                span.add_attribute_string("function_name".to_string(), function_name.to_string());
 
-                let span_id = Some(span.span_id.clone());
+                let span_id = Some(span.id.clone());
                 let mut spans = vec![span];
 
                 for e in f.within.iter() {
@@ -83,36 +80,61 @@ impl OtelStdoutAdapter {
                     a.ts,
                     a.ts,
                 );
-                span.add_attribute_i64("amount".to_string(), a.amount.into());
+                span.add_tag_i64("amount".to_string(), a.amount.into());
                 Some(vec![span])
             }
             Event::Metadata(_id, Metadata { key, value }) => {
                 if key == "trace_id" {
-                    self.trace_id = value.to_hex_16();
+                    self.trace_id = value.to_hex_8();
                 }
 
                 None
             }
-            Event::Shutdown(_id) => None,
+            Event::Shutdown(_id) => {
+                self.shutdown();
+                self.spans.clear();
+                None
+            }
         }
     }
 }
 
-impl Adapter for OtelStdoutAdapter {
+impl Adapter for ZipkinAdapter {
     // flush any remaning spans
     fn shutdown(&self) -> Result<()> {
-        thread::sleep(time::Duration::from_millis(5));
+        let mut ztf = ZipkinFormatter::new();
+        ztf.spans = self.spans.clone();
+
+        let url = "http://localhost:9411/api/v2/spans";
+        let j = json!(&ztf.spans);
+        let body = serde_json::to_string(&j)?;
+
+        println!("{}", &body);
+
+        // perhaps this should be an async operation with something
+        // like reqwest?
+        let response = ureq::post(url)
+            .set("Content-Type", "application/json")
+            .send_string(&body);
+
+        // should maybe retry or throw an exception
+        // TODO check default logic of http client
+        if response.is_ok() {
+            println!("Request was successful!");
+        } else {
+            println!("Request failed with status: {:#?}", response);
+        }
+
         Ok(())
     }
 
     fn handle_event(&mut self, event: Event) {
         if let Some(spans) = self._handle_event(event, None) {
-            let mut otf = OtelFormatter::new();
-            let mut rs = ResourceSpan::new();
-            rs.add_spans(spans);
-            otf.add_resource_span(rs);
+            for span in spans {
+                self.spans.push(span);
+            }
 
-            println!("{}", serde_json::to_string(&otf).unwrap());
+            //println!("{}", serde_json::to_string(&otf).unwrap());
         };
     }
 }
