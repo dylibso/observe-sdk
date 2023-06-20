@@ -1,6 +1,6 @@
 use std::time::SystemTime;
 
-use serde::Serialize;
+use serde::{Serialize, Serializer};
 
 use super::new_span_id;
 
@@ -55,7 +55,8 @@ pub struct Scope {
 pub struct Span {
     pub trace_id: String,
     pub span_id: String,
-    pub parent_span_id: String,
+    #[serde(serialize_with = "default_parent_span_id")]
+    pub parent_span_id: Option<String>,
     pub name: String,
     pub kind: i64,
     pub start_time_unix_nano: u128,
@@ -65,6 +66,16 @@ pub struct Span {
     pub dropped_events_count: i64,
     pub dropped_links_count: i64,
     pub status: Status,
+}
+
+fn default_parent_span_id<S>(psi: &Option<String>, s: S) -> Result<S::Ok, S::Error>
+where
+    S: Serializer,
+{
+    match psi {
+        Some(x) => s.serialize_str(x.as_str()),
+        None => s.serialize_str(""),
+    }
 }
 
 #[derive(Default, Debug, Clone, PartialEq, Serialize)]
@@ -129,17 +140,10 @@ impl Span {
         start_time: SystemTime,
         end_time: SystemTime,
     ) -> Span {
-        let span_id = new_span_id().to_hex_8();
-
-        let p_id = match parent_id {
-            Some(id) => id,
-            None => new_span_id().to_hex_8(),
-        };
-
         Span {
             trace_id,
-            span_id,
-            parent_span_id: p_id,
+            span_id: new_span_id().to_hex_8(),
+            parent_span_id: parent_id,
             name,
             kind: 1,
             start_time_unix_nano: start_time
@@ -209,5 +213,24 @@ mod tests {
         );
 
         assert_eq!(span.name, name);
+    }
+
+    #[test]
+    fn new_span_parent_id() {
+        let mut span = Span::new(
+            "trace-id".to_string(),
+            None,
+            "name".to_string(),
+            SystemTime::now(),
+            SystemTime::now(),
+        );
+
+        assert_eq!(span.parent_span_id, None);
+        let json = serde_json::to_string(&span).unwrap();
+        assert!(json.contains("parentSpanId\":\"\""));
+
+        span.parent_span_id = Some("abcd".to_string());
+        let json = serde_json::to_string(&span).unwrap();
+        assert!(json.contains("parentSpanId\":\"abcd\""));
     }
 }
