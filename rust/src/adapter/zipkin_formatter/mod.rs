@@ -49,11 +49,11 @@ impl Span {
             timestamp: start_time
                 .duration_since(SystemTime::UNIX_EPOCH)
                 .unwrap()
-                .as_nanos() as u64,
+                .as_micros() as u64,
             duration: end_time
                 .duration_since(start_time)
                 .unwrap()
-                .as_nanos() as u64,
+                .as_micros() as u64,
             tags: HashMap::new(),
         }
     }
