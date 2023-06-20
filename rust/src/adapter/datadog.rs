@@ -17,6 +17,7 @@ use super::{
     new_trace_id, next_id, Adapter, Collector, TelemetryId,
 };
 
+#[derive(Clone)]
 pub struct DatadogAdapterContainer(Arc<Mutex<DatadogAdapter>>);
 
 impl DatadogAdapterContainer {
