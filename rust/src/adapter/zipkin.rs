@@ -2,7 +2,7 @@ use std::sync::Arc;
 use log::warn;
 use serde_json::json;
 
-use crate::adapter::zipkin_formatter::{ZipkinFormatter, Span};
+use crate::adapter::zipkin_formatter::{ZipkinFormatter, Span, LocalEndpoint};
 use crate::adapter::{Adapter, Collector};
 use crate::{add_to_linker, Event, Metadata};
 
@@ -107,6 +107,9 @@ impl Adapter for ZipkinAdapter {
     fn shutdown(&self) -> Result<()> {
         let mut ztf = ZipkinFormatter::new();
         ztf.spans = self.spans.clone();
+
+        let mut first_span = ztf.spans.first_mut().unwrap();
+        first_span.local_endpoint = Some(LocalEndpoint { service_name: Some("my_service".into()) });
 
         let url = "http://localhost:9411/api/v2/spans";
         let j = json!(&ztf.spans);

@@ -11,6 +11,12 @@ pub struct ZipkinFormatter {
 
 #[derive(Default, Debug, Clone, PartialEq, Serialize)]
 #[serde(rename_all = "camelCase")]
+pub struct LocalEndpoint {
+    pub service_name: Option<String>,
+}
+
+#[derive(Default, Debug, Clone, PartialEq, Serialize)]
+#[serde(rename_all = "camelCase")]
 pub struct Span {
     pub id: String,
     pub trace_id: String,
@@ -20,6 +26,7 @@ pub struct Span {
     pub timestamp: u64,
     pub duration: u64,
     pub tags: HashMap<String, String>,
+    pub local_endpoint: Option<LocalEndpoint>,
 }
 
 impl ZipkinFormatter {
@@ -55,6 +62,7 @@ impl Span {
                 .unwrap()
                 .as_micros() as u64,
             tags: HashMap::new(),
+            local_endpoint: None,
         }
     }
 
