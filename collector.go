@@ -20,7 +20,6 @@ type Collector struct {
 	startedFunctions []startedFunction
 	Events           chan Event
 	Config           *Config
-	// Adapters map[string]Adapter
 }
 
 func (c *Collector) clearEvents() {
@@ -80,14 +79,14 @@ func (c *Collector) InitRuntime() (context.Context, wazero.Runtime, error) {
 	r := wazero.NewRuntimeWithConfig(ctx, c.Config.RuntimeConfig.WithCustomSections(true))
 	observe := r.NewHostModuleBuilder("dylibso_observe")
 	functions := observe.NewFunctionBuilder()
-	functions.WithFunc(func(ctx context.Context, m api.Module) {
+	functions.WithFunc(func(ctx context.Context, m api.Module, i int32) {
 		ev := <-c.raw
 		if ev.Kind != RawEnter {
 			log.Panicln("Expected event", RawEnter, "but got", ev.Kind)
 		}
 		c.pushFunction(ev)
 	}).Export("instrument_enter")
-	functions.WithFunc(func(ctx context.Context) {
+	functions.WithFunc(func(ctx context.Context, i int32) {
 		ev := <-c.raw
 		if ev.Kind != RawExit {
 			log.Panicln("Expected event", RawExit, "but got", ev.Kind)
@@ -98,7 +97,7 @@ func (c *Collector) InitRuntime() (context.Context, wazero.Runtime, error) {
 			return
 		}
 		if ev.FunctionIndex != start.FunctionIndex {
-			log.Panicln("Expected call to", ev.FunctionName, "but found call to", start.FunctionName)
+			log.Panicln("Expected call to", ev.FunctionIndex, "but found call to", start.FunctionIndex)
 		}
 		event := CallEvent{
 			Raw:      []RawEvent{start, ev},
@@ -113,7 +112,8 @@ func (c *Collector) InitRuntime() (context.Context, wazero.Runtime, error) {
 			log.Panicln("Expected event", MemoryGrow, "but got", ev.Kind)
 		}
 		event := MemoryGrowEvent{
-			Raw: ev,
+			Raw:  ev,
+			Time: time.Now(),
 		}
 		c.Events <- event
 	}).Export("instrument_memory_grow")
@@ -124,10 +124,10 @@ func (c *Collector) InitRuntime() (context.Context, wazero.Runtime, error) {
 	return ctx, r, nil
 }
 
-func (c *Collector) ModuleBegin(name string) {
-	c.Events <- ModuleBeginEvent{
-		Name: name,
-	}
+func (c *Collector) CustomEvent(name string, metadata map[string]interface{}) {
+	ev := NewCustomEvent(name)
+	ev.Metadata = metadata
+	c.Events <- ev
 }
 
 func Init(config *Config) (context.Context, wazero.Runtime, Collector, error) {

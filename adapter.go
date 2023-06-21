@@ -1,72 +1,87 @@
 package dylibso_observe
 
 import (
+	"errors"
 	"log"
 	"time"
 
-	"github.com/ianlancetaylor/demangle"
-	"github.com/tetratelabs/wazero"
+	"github.com/tetratelabs/wabin/binary"
+	"github.com/tetratelabs/wabin/wasm"
 )
 
 type Adapter interface {
 	Start(collector Collector)
 	Stop()
 	Event(Event)
+	Names() map[uint32]string
 }
 
 type AdapterBase struct {
-	StopChan  chan bool
+	stop      chan bool
 	Collector Collector
-	Names     map[uint32]string
+	names     map[uint32]string
 }
 
 type StdoutAdapter struct {
 	AdapterBase
 }
 
-func (a *AdapterBase) GetNames(cm wazero.CompiledModule) {
-	d := map[uint32]string{}
-
-	for name, f := range cm.ExportedFunctions() {
-		d[f.Index()] = name
-	}
-
-	for _, f := range cm.ImportedFunctions() {
-		d[f.Index()] = f.Name()
-	}
-
-	a.Names = d
+func (a AdapterBase) Names() map[uint32]string {
+	return a.names
 }
 
-func NewAdataperBase(cm wazero.CompiledModule) AdapterBase {
+func (a *AdapterBase) GetNames(data []byte) error {
+	features := wasm.CoreFeaturesV2
+	m, err := binary.DecodeModule(data, features)
+	if err != nil {
+		return err
+	}
+
+	if m.NameSection == nil {
+		return errors.New("Name section not found")
+	}
+
+	a.names = map[uint32]string{}
+
+	for _, v := range m.NameSection.FunctionNames {
+		a.names[v.Index] = v.Name
+	}
+
+	return nil
+}
+
+func NewAdataperBase(wasm []byte) AdapterBase {
 	a := AdapterBase{
-		StopChan:  make(chan bool, 1),
+		stop:      make(chan bool, 1),
 		Collector: Collector{},
 	}
-	a.GetNames(cm)
+	err := a.GetNames(wasm)
+	if err != nil {
+		log.Println("WARNING name parsing failed", err)
+	}
 	return a
 }
 
-func NewStdoutAdapter(cm wazero.CompiledModule) StdoutAdapter {
-	return StdoutAdapter{AdapterBase: NewAdataperBase(cm)}
+func NewStdoutAdapter(wasm []byte) StdoutAdapter {
+	return StdoutAdapter{AdapterBase: NewAdataperBase(wasm)}
 }
 
 func (s *StdoutAdapter) Event(e Event) {
 	switch event := e.(type) {
+	// TODO: read name from name section instead of printing the function index
 	case CallEvent:
-		name := event.DemangledFunctionName()
+		name := event.FunctionName(s)
 		log.Println("Call to", name, "took", event.Duration)
 	case MemoryGrowEvent:
-		name := event.DemangledFunctionName()
-		name, _ = demangle.ToString(name)
+		name := event.FunctionName(s)
 		log.Println("Allocated", event.MemoryGrowAmount(), "pages of memory in", name)
-	case ModuleBeginEvent:
-		log.Println("Starting module:", event.Name)
+	case CustomEvent:
+		log.Println(event.Name, event.Time)
 	}
 }
 
-func (a *StdoutAdapter) Stop() {
-	a.StopChan <- true
+func (a *AdapterBase) Stop() {
+	a.stop <- true
 }
 
 func (a *StdoutAdapter) Start(collector Collector) {
@@ -75,7 +90,7 @@ func (a *StdoutAdapter) Start(collector Collector) {
 			select {
 			case event := <-collector.Events:
 				a.Event(event)
-			case <-a.StopChan:
+			case <-a.stop:
 				return
 			}
 		}

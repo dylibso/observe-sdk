@@ -21,22 +21,18 @@ func (c Collector) Before(ctx context.Context, _ api.Module, def api.FunctionDef
 	switch name {
 	case "instrument_enter":
 		event.Kind = RawEnter
+		event.FunctionIndex = uint32(inputs[0])
 	case "instrument_exit":
 		event.Kind = RawExit
+		event.FunctionIndex = uint32(inputs[0])
 	case "instrument_memory_grow":
 		event.Kind = RawMemoryGrow
-		event.MemoryGrowAmount = inputs[0]
+		event.MemoryGrowAmount = uint32(inputs[0])
 	default:
 		return ctx
 	}
-	stack.Next()
 	for stack.Next() {
 		f := stack.FunctionDefinition()
-		if len(event.Stack) == 0 {
-			event.FunctionName = f.Name()
-			event.FunctionIndex = f.Index()
-			break
-		}
 		event.Stack = append(event.Stack, f)
 	}
 	go func() {

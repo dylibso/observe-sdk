@@ -20,15 +20,14 @@ type EventKind int
 const (
 	Call EventKind = iota
 	MemoryGrow
-	ModuleBegin
+	Custom
 )
 
 type RawEvent struct {
 	Kind             RawEventKind
 	Stack            []api.FunctionDefinition
 	FunctionIndex    uint32
-	FunctionName     string
-	MemoryGrowAmount uint64
+	MemoryGrowAmount uint32
 }
 
 type Event interface {
@@ -45,12 +44,21 @@ func (e CallEvent) RawEvents() []RawEvent {
 	return e.Raw
 }
 
-type ModuleBeginEvent struct {
-	Time time.Time
-	Name string
+type CustomEvent struct {
+	Time     time.Time
+	Name     string
+	Metadata map[string]interface{}
 }
 
-func (e ModuleBeginEvent) RawEvents() []RawEvent {
+func NewCustomEvent(name string) CustomEvent {
+	return CustomEvent{
+		Time:     time.Now(),
+		Name:     name,
+		Metadata: map[string]interface{}{},
+	}
+}
+
+func (e CustomEvent) RawEvents() []RawEvent {
 	return []RawEvent{}
 }
 
@@ -63,30 +71,26 @@ func (e MemoryGrowEvent) RawEvents() []RawEvent {
 	return []RawEvent{e.Raw}
 }
 
-func (e MemoryGrowEvent) DemangledFunctionName() string {
-	s, err := demangle.ToString(e.Raw.FunctionName)
+func (e MemoryGrowEvent) FunctionName(adapter Adapter) string {
+	names := adapter.Names()
+	name := names[e.Raw.FunctionIndex]
+	s, err := demangle.ToString(name)
 	if err != nil {
-		return e.Raw.FunctionName
+		return name
 	}
 	return s
-}
-
-func (e MemoryGrowEvent) FunctionName() string {
-	return e.Raw.FunctionName
 }
 
 func (e MemoryGrowEvent) FunctionIndex() uint32 {
 	return e.Raw.FunctionIndex
 }
 
-func (e CallEvent) FunctionName() string {
-	return e.Raw[0].FunctionName
-}
-
-func (e CallEvent) DemangledFunctionName() string {
-	s, err := demangle.ToString(e.Raw[0].FunctionName)
+func (e CallEvent) FunctionName(adapter Adapter) string {
+	names := adapter.Names()
+	name := names[e.Raw[0].FunctionIndex]
+	s, err := demangle.ToString(name)
 	if err != nil {
-		return e.Raw[0].FunctionName
+		return name
 	}
 	return s
 }
@@ -95,6 +99,6 @@ func (e CallEvent) FunctionIndex() uint32 {
 	return e.Raw[0].FunctionIndex
 }
 
-func (e MemoryGrowEvent) MemoryGrowAmount() uint64 {
+func (e MemoryGrowEvent) MemoryGrowAmount() uint32 {
 	return e.Raw.MemoryGrowAmount
 }
