@@ -56,8 +56,7 @@ impl ZipkinAdapter {
     fn _handle_event(&mut self, event: Event, parent_span_id: Option<String>) -> Option<Vec<Span>> {
         match event {
             Event::Func(_id, f) => {
-                let function_name = &f.name.clone().unwrap_or("unknown-name".to_string());
-                let name = format!("function-call-{}", &function_name);
+                let name = f.name.clone().unwrap_or("unknown-name".to_string());
 
                 let span =
                     Span::new(self.trace_id.clone(), parent_span_id, name, f.start, f.end);
