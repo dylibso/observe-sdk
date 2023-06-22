@@ -33,7 +33,10 @@ func main() {
 
 	//
 	// Adapter API
-	adapter := observe.NewStdoutAdapter(wasm)
+	adapter, err := observe.NewStdoutAdapter(wasm)
+	if err != nil {
+		log.Panicln(err)
+	}
 	adapter.Start(collector)
 	defer adapter.Wait(collector, time.Millisecond)
 

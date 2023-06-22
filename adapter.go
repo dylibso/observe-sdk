@@ -1,11 +1,14 @@
 package dylibso_observe
 
 import (
+	"bytes"
 	"errors"
+	"fmt"
 	"log"
 	"time"
 
 	"github.com/tetratelabs/wabin/binary"
+	"github.com/tetratelabs/wabin/leb128"
 	"github.com/tetratelabs/wabin/wasm"
 )
 
@@ -30,10 +33,50 @@ func (a AdapterBase) Names() map[uint32]string {
 	return a.names
 }
 
+func checkVersion(m *wasm.Module) error {
+	var minorGlobal *wasm.Export = nil
+	var majorGlobal *wasm.Export = nil
+	for _, export := range m.ExportSection {
+		if export.Type != wasm.ExternTypeGlobal {
+			continue
+		}
+
+		if export.Name == "wasm_instr_version_minor" {
+			minorGlobal = export
+		} else if export.Name == "wasm_instr_version_major" {
+			majorGlobal = export
+		}
+	}
+
+	if minorGlobal == nil || majorGlobal == nil {
+		return errors.New("wasm_instr_version functions not found")
+	}
+
+	minor, _, err := leb128.DecodeUint32(bytes.NewReader(m.GlobalSection[minorGlobal.Index].Init.Data))
+	if err != nil {
+		return err
+	}
+	major, _, err := leb128.DecodeUint32(bytes.NewReader(m.GlobalSection[majorGlobal.Index].Init.Data))
+	if err != nil {
+		return err
+	}
+
+	if major != wasmInstrVersionMajor || minor < wasmInstrVersionMinor {
+		return errors.New(fmt.Sprintf("Expected instrumentation version >= %d.%d but got %d.%d", wasmInstrVersionMajor, wasmInstrVersionMinor, major, minor))
+	}
+
+	return nil
+}
+
 func (a *AdapterBase) GetNames(data []byte) error {
 	features := wasm.CoreFeaturesV2
 	m, err := binary.DecodeModule(data, features)
 	if err != nil {
+		return err
+	}
+
+	// Check for version globals
+	if err := checkVersion(m); err != nil {
 		return err
 	}
 
@@ -50,20 +93,24 @@ func (a *AdapterBase) GetNames(data []byte) error {
 	return nil
 }
 
-func NewAdataperBase(wasm []byte) AdapterBase {
+func NewAdataperBase(wasm []byte) (AdapterBase, error) {
 	a := AdapterBase{
 		stop:      make(chan bool, 1),
 		Collector: Collector{},
 	}
 	err := a.GetNames(wasm)
 	if err != nil {
-		log.Println("WARNING name parsing failed", err)
+		return AdapterBase{}, err
 	}
-	return a
+	return a, nil
 }
 
-func NewStdoutAdapter(wasm []byte) StdoutAdapter {
-	return StdoutAdapter{AdapterBase: NewAdataperBase(wasm)}
+func NewStdoutAdapter(wasm []byte) (StdoutAdapter, error) {
+	base, err := NewAdataperBase(wasm)
+	if err != nil {
+		return StdoutAdapter{}, err
+	}
+	return StdoutAdapter{AdapterBase: base}, nil
 }
 
 func (s *StdoutAdapter) Event(e Event) {
