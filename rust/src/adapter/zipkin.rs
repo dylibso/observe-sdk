@@ -1,9 +1,9 @@
-use std::sync::Arc;
-use std::time::Duration;
 use log::warn;
 use serde_json::json;
+use std::sync::Arc;
+use std::time::Duration;
 
-use crate::adapter::zipkin_formatter::{ZipkinFormatter, Span, LocalEndpoint};
+use crate::adapter::zipkin_formatter::{LocalEndpoint, Span, ZipkinFormatter};
 use crate::adapter::{Adapter, Collector};
 use crate::{add_to_linker, Event, Metadata};
 
@@ -11,7 +11,7 @@ use anyhow::Result;
 use tokio::sync::Mutex;
 use wasmtime::Linker;
 
-use super::{TelemetryId, next_id, new_span_id};
+use super::{new_span_id, next_id, TelemetryId};
 
 pub struct ZipkinAdapterContainer(Arc<Mutex<ZipkinAdapter>>);
 
@@ -22,13 +22,17 @@ impl ZipkinTraceCtx {
         self.0.set_metadata("trace_id".to_string(), id).await;
     }
 
-    pub async fn shutdown(&self) {
-        self.0.shutdown().await;
+    pub async fn shutdown(self) -> Result<()> {
+        self.0.shutdown().await
     }
 }
 
 impl ZipkinAdapterContainer {
-    pub async fn start<T: 'static>(&self, linker: &mut Linker<T>, data: &[u8]) -> Result<ZipkinTraceCtx> {
+    pub async fn start<T: 'static>(
+        &self,
+        linker: &mut Linker<T>,
+        data: &[u8],
+    ) -> Result<ZipkinTraceCtx> {
         let id = next_id();
         let events = add_to_linker(id, linker, data)?;
         let collector = Collector::new(self.0.clone(), id, events).await?;
@@ -59,8 +63,7 @@ impl ZipkinAdapter {
             Event::Func(_id, f) => {
                 let name = f.name.clone().unwrap_or("unknown-name".to_string());
 
-                let span =
-                    Span::new(self.trace_id.clone(), parent_span_id, name, f.start, f.end);
+                let span = Span::new(self.trace_id.clone(), parent_span_id, name, f.start, f.end);
 
                 let span_id = Some(span.id.clone());
                 let mut spans = vec![span];
@@ -109,7 +112,9 @@ impl Adapter for ZipkinAdapter {
         ztf.spans = self.spans.clone();
 
         let mut first_span = ztf.spans.first_mut().unwrap();
-        first_span.local_endpoint = Some(LocalEndpoint { service_name: Some("my_service".into()) });
+        first_span.local_endpoint = Some(LocalEndpoint {
+            service_name: Some("my_service".into()),
+        });
 
         let url = "http://localhost:9411/api/v2/spans";
         let j = json!(&ztf.spans);
