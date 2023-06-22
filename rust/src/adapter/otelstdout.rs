@@ -1,5 +1,4 @@
 use std::sync::Arc;
-use std::{thread, time};
 
 use crate::adapter::otel_formatter::{OtelFormatter, ResourceSpan, Span};
 use crate::adapter::{Adapter, Collector};
@@ -20,8 +19,8 @@ impl OtelTraceCtx {
         self.0.set_metadata("trace_id".to_string(), id).await;
     }
 
-    pub async fn shutdown(&self) {
-        self.0.shutdown().await;
+    pub async fn shutdown(self) -> Result<()> {
+        self.0.shutdown().await
     }
 }
 
@@ -101,7 +100,6 @@ impl OtelStdoutAdapter {
 impl Adapter for OtelStdoutAdapter {
     // flush any remaning spans
     fn shutdown(&self) -> Result<()> {
-        thread::sleep(time::Duration::from_millis(5));
         Ok(())
     }
 

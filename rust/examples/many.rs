@@ -1,6 +1,7 @@
 use dylibso_observe_sdk::adapter::otelstdout::OtelStdoutAdapter;
+use log::error;
 use rand::{seq::SliceRandom, thread_rng};
-use tokio::task;
+use tokio::task::{self, JoinSet};
 
 #[tokio::main]
 pub async fn main() -> anyhow::Result<()> {
@@ -42,10 +43,11 @@ pub async fn main() -> anyhow::Result<()> {
 
         instances.shuffle(&mut thread_rng());
 
+        let mut handles = JoinSet::new();
         for (trace_ctx, instance, mut store) in instances {
             // get the function and run it, the events pop into the queue
             // as the function is running
-            tokio::spawn(async move {
+            handles.spawn(async move {
                 let f = instance
                     .get_func(&mut store, function_name)
                     .expect("function exists");
@@ -53,8 +55,13 @@ pub async fn main() -> anyhow::Result<()> {
                 f.call(&mut store, &[], &mut []).unwrap();
 
                 task::yield_now().await;
-                trace_ctx.shutdown().await;
+                if let Err(e) = trace_ctx.shutdown().await {
+                    error!("problem shutting down trace_ctx: {}", e);
+                };
             });
+        }
+        while let Some(_) = handles.join_next().await {
+            println!("done");
         }
     }
 

@@ -1,9 +1,8 @@
+use anyhow::Result;
 use std::collections::HashMap;
 use std::sync::atomic::{AtomicUsize, Ordering};
 use std::sync::Arc;
-use std::thread;
-use std::time::{self, SystemTime};
-use anyhow::Result;
+use std::time::SystemTime;
 
 use crate::adapter::Adapter;
 use crate::Event;
@@ -67,8 +66,6 @@ impl Adapter for StdoutAdapter {
 
     // flush any remaning spans
     fn shutdown(&self) -> Result<()> {
-        // close event stream and join the thread handle
-        thread::sleep(time::Duration::from_millis(5));
         Ok(())
     }
 }

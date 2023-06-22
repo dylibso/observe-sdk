@@ -1,6 +1,6 @@
 use crate::{adapter::datadog_formatter::DatadogFormatter, add_to_linker, Event, Metadata};
 use anyhow::Result;
-use log::warn;
+use log::{error, warn};
 use serde_json::json;
 use std::{
     collections::HashMap,
@@ -41,8 +41,10 @@ impl DatadogTraceCtx {
         self.0.set_metadata("trace_id".to_string(), id).await;
     }
 
-    pub async fn shutdown(&self) {
-        self.0.shutdown().await;
+    pub async fn shutdown(self) {
+        if let Err(e) = self.0.shutdown().await {
+            error!("error shutting down datadog collector : {}", e);
+        };
     }
 }
 

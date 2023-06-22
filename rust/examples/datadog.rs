@@ -1,5 +1,7 @@
-use dylibso_observe_sdk::adapter::{datadog::{DatadogAdapter, DatadogConfig}, new_trace_id};
-use tokio::task;
+use dylibso_observe_sdk::adapter::{
+    datadog::{DatadogAdapter, DatadogConfig},
+    new_trace_id,
+};
 
 /// You need the datadog agent running on localhost for this example to work
 #[tokio::main]
@@ -44,7 +46,6 @@ pub async fn main() -> anyhow::Result<()> {
     trace_ctx.set_trace_id(new_trace_id()).await;
     f.call(&mut store, &[], &mut []).unwrap();
 
-    task::yield_now().await;
     trace_ctx.shutdown().await;
 
     Ok(())

@@ -2,7 +2,6 @@ use dylibso_observe_sdk::{
     adapter::{stdout::StdoutAdapter, Collector},
     add_to_linker,
 };
-use tokio::task;
 
 #[tokio::main]
 pub async fn main() -> anyhow::Result<()> {
@@ -45,8 +44,8 @@ pub async fn main() -> anyhow::Result<()> {
         .get_func(&mut store, function_name)
         .expect("function exists");
     f.call(&mut store, &[], &mut []).unwrap();
-    task::yield_now().await;
-    collector.shutdown().await;
+
+    collector.shutdown().await?;
 
     Ok(())
 }

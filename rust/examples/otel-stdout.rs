@@ -1,6 +1,5 @@
-use dylibso_observe_sdk::adapter::otelstdout::OtelStdoutAdapter;
 use dylibso_observe_sdk::adapter::new_trace_id;
-use tokio::task;
+use dylibso_observe_sdk::adapter::otelstdout::OtelStdoutAdapter;
 
 #[tokio::main]
 pub async fn main() -> anyhow::Result<()> {
@@ -43,9 +42,7 @@ pub async fn main() -> anyhow::Result<()> {
     trace_ctx.set_trace_id(new_trace_id()).await;
     f.call(&mut store, &[], &mut []).unwrap();
 
-    task::yield_now().await;
-    trace_ctx.shutdown().await;
+    trace_ctx.shutdown().await?;
 
     Ok(())
 }
-

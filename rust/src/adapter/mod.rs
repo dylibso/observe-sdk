@@ -1,18 +1,18 @@
+pub mod datadog;
+pub mod datadog_formatter;
 pub mod otel_formatter;
 pub mod otelstdout;
 pub mod stdout;
-pub mod datadog;
-pub mod datadog_formatter;
-pub mod zipkin_formatter;
 pub mod zipkin;
+pub mod zipkin_formatter;
 
-use core::time;
-use std::{sync::Arc, thread};
 use std::sync::atomic::{AtomicUsize, Ordering};
+use std::sync::Arc;
 
-use rand::Rng;
 use anyhow::Result;
+use rand::Rng;
 use tokio::sync::{mpsc::Sender, Mutex};
+use tokio::task::JoinHandle;
 
 use crate::{Event, EventChannel, Metadata};
 
@@ -55,13 +55,14 @@ pub fn new_span_id() -> TelemetryId {
 }
 
 pub trait Adapter {
-    fn handle_event(&mut self, event: Event); 
+    fn handle_event(&mut self, event: Event);
     fn shutdown(&self) -> Result<()>;
 }
 
 pub struct Collector {
     id: usize,
     send_events: Sender<Event>,
+    join_handle: JoinHandle<()>,
 }
 
 impl Collector {
@@ -71,26 +72,33 @@ impl Collector {
         events: EventChannel,
     ) -> Result<Collector> {
         let (events_tx, mut events_rx) = events;
-        tokio::spawn(async move {
+        let join_handle = tokio::spawn(async move {
             while let Some(event) = events_rx.recv().await {
-                adapter.lock().await.handle_event(event);
+                if let Event::Shutdown(_id) = event {
+                    adapter.lock().await.handle_event(event);
+                    return;
+                } else {
+                    adapter.lock().await.handle_event(event);
+                }
             }
         });
 
         Ok(Collector {
             id,
             send_events: events_tx,
+            join_handle,
         })
     }
 
-    // flush any remaning spans
-    pub async fn shutdown(&self) {
+    // flush any remaining spans
+    pub async fn shutdown(self) -> Result<()> {
         // close event stream and join the thread handle
         self.send_events
             .send(Event::Shutdown(self.id))
             .await
             .unwrap();
-        thread::sleep(time::Duration::from_millis(50));
+        self.join_handle.await?;
+        Ok(())
     }
 
     pub async fn set_metadata(&self, key: String, value: TelemetryId) {
@@ -106,11 +114,9 @@ fn next_id() -> usize {
     COUNTER.fetch_add(1, Ordering::Relaxed)
 }
 
-
 #[cfg(test)]
 mod tests {
     use super::*;
-
 
     #[test]
     fn telemetry_ids() {
@@ -118,5 +124,4 @@ mod tests {
         assert_eq!(id.to_hex_8().len(), 16);
         assert_eq!(id.to_hex_16().len(), 32);
     }
-
 }
