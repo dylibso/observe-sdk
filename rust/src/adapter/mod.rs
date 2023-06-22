@@ -3,6 +3,8 @@ pub mod otelstdout;
 pub mod stdout;
 pub mod datadog;
 pub mod datadog_formatter;
+pub mod zipkin_formatter;
+pub mod zipkin;
 
 use core::time;
 use std::{sync::Arc, thread};
@@ -18,11 +20,15 @@ use crate::{Event, EventChannel, Metadata};
 pub struct TelemetryId(u128);
 
 impl TelemetryId {
-    fn to_hex_16(&self) -> String {
-       format!("{:016x}", self.0)
+    /// format as 8-byte zero-prefixed hex string
+    pub fn to_hex_8(&self) -> String {
+        // 8 bytes is 16 chars
+        format!("{:016x}", self.0 as u64)
     }
-    fn to_hex_32(&self) -> String {
-       format!("{:032x}", self.0)
+    /// format as 16-byte zero-prefixed hex string
+    pub fn to_hex_16(&self) -> String {
+        // 16 bytes is 32 chars
+        format!("{:032x}", self.0)
     }
 }
 
@@ -39,11 +45,13 @@ impl From<TelemetryId> for u128 {
 }
 
 pub fn new_trace_id() -> TelemetryId {
-    TelemetryId(rand::thread_rng().gen::<u128>())
+    let x = rand::thread_rng().gen::<u128>();
+    TelemetryId(x)
 }
 
 pub fn new_span_id() -> TelemetryId {
-    TelemetryId(rand::thread_rng().gen::<u128>())
+    let x = rand::thread_rng().gen::<u128>();
+    TelemetryId(x)
 }
 
 pub trait Adapter {
@@ -96,4 +104,19 @@ impl Collector {
 fn next_id() -> usize {
     static COUNTER: AtomicUsize = AtomicUsize::new(1);
     COUNTER.fetch_add(1, Ordering::Relaxed)
+}
+
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+
+    #[test]
+    fn telemetry_ids() {
+        let id = new_trace_id();
+        assert_eq!(id.to_hex_8().len(), 16);
+        assert_eq!(id.to_hex_16().len(), 32);
+    }
+
 }

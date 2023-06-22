@@ -142,7 +142,7 @@ impl Span {
     ) -> Span {
         Span {
             trace_id,
-            span_id: new_span_id().to_hex_16(),
+            span_id: new_span_id().to_hex_8(),
             parent_span_id: parent_id,
             name,
             kind: 1,

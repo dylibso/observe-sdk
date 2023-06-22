@@ -5,7 +5,7 @@ use serde_json::json;
 use std::{
     collections::HashMap,
     fmt::{Display, Formatter},
-    sync::Arc,
+    sync::Arc, time::Duration,
 };
 use tokio::sync::Mutex;
 use ureq;
@@ -224,6 +224,7 @@ impl Adapter for DatadogAdapter {
         let body = serde_json::to_string(&j)?;
 
         let response = ureq::post(&url)
+            .timeout(Duration::from_secs(1))
             .set("Content-Type", "application/json")
             .send_string(&body);
 

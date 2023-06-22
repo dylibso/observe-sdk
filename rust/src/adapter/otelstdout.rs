@@ -48,7 +48,7 @@ impl OtelStdoutAdapter {
     #[allow(clippy::new_ret_no_self)]
     pub fn new() -> OtelAdapterContainer {
         let adapter = Self {
-            trace_id: new_trace_id().to_hex_32(),
+            trace_id: new_trace_id().to_hex_16(),
         };
 
         OtelAdapterContainer(Arc::new(Mutex::new(adapter)))
@@ -88,7 +88,7 @@ impl OtelStdoutAdapter {
             }
             Event::Metadata(_id, Metadata { key, value }) => {
                 if key == "trace_id" {
-                    self.trace_id = value.to_hex_32();
+                    self.trace_id = value.to_hex_16();
                 }
 
                 None
