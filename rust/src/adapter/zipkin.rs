@@ -92,7 +92,7 @@ impl ZipkinAdapter {
             }
             Event::Shutdown(_id) => {
                 if let Err(e) = self.shutdown() {
-                    warn!("Failed to shutdown Datadog adapter {}", e);
+                    warn!("Failed to shutdown Zipkin adapter {}", e);
                 }
                 self.spans.clear();
                 None
@@ -123,9 +123,7 @@ impl Adapter for ZipkinAdapter {
         // should maybe retry or throw an exception
         // TODO check default logic of http client
         if response.is_ok() {
-            println!("Request was successful!");
-        } else {
-            println!("Request failed with status: {:#?}", response);
+            warn!("Request to Zipkin failed: {:#?}", response);
         }
 
         Ok(())
@@ -136,8 +134,6 @@ impl Adapter for ZipkinAdapter {
             for span in spans {
                 self.spans.push(span);
             }
-
-            //println!("{}", serde_json::to_string(&otf).unwrap());
         };
     }
 }
