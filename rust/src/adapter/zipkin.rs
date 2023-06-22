@@ -1,4 +1,5 @@
 use std::sync::Arc;
+use std::time::Duration;
 use log::warn;
 use serde_json::json;
 
@@ -117,6 +118,7 @@ impl Adapter for ZipkinAdapter {
         // perhaps this should be an async operation with something
         // like reqwest?
         let response = ureq::post(url)
+            .timeout(Duration::from_secs(1))
             .set("Content-Type", "application/json")
             .send_string(&body);
 
