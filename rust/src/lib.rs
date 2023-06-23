@@ -232,5 +232,6 @@ pub fn add_to_linker<T: 'static>(
         move |_caller, params, results| instrument_memory_grow(params, results, ctx.clone()),
     )?;
 
+    linker.allow_unknown_exports(true);
     Ok((events_tx, events_rx))
 }
