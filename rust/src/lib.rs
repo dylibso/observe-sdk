@@ -232,5 +232,9 @@ pub fn add_to_linker<T: 'static>(
         move |_caller, params, results| instrument_memory_grow(params, results, ctx.clone()),
     )?;
 
+    // if the wasm was automatically instrumented using Dylibso's compiler, there will be some
+    // metadata added to enforce compatibility with the SDK. This metadata is stored as a module
+    // global export, which by default can cause wasmtime to return an error during instantiation.
+    linker.allow_unknown_exports(true);
     Ok((events_tx, events_rx))
 }
