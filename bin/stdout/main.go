@@ -6,6 +6,7 @@ import (
 	"time"
 
 	observe "github.com/dylibso/observe-sdk-wazero"
+	"github.com/dylibso/observe-sdk-wazero/adapter/stdout"
 	"github.com/tetratelabs/wazero"
 	"github.com/tetratelabs/wazero/imports/wasi_snapshot_preview1"
 )
@@ -29,18 +30,23 @@ func main() {
 	// Wazero stuff
 	// Instantiate WASI
 	wasi_snapshot_preview1.MustInstantiate(ctx, r)
-	collector.CustomEvent("Start module", map[string]interface{}{"name": "testing"})
+	// collector.CustomEvent("Start module", map[string]interface{}{"name": "testing"})
 
 	//
 	// Adapter API
-	adapter, err := observe.NewStdoutAdapter(wasm)
+	adapter, err := stdout.NewStdoutAdapter(wasm)
 	if err != nil {
 		log.Panicln(err)
 	}
 	adapter.Start(collector)
 	defer adapter.Wait(collector, time.Millisecond)
 
-	config := wazero.NewModuleConfig().WithStdin(os.Stdin).WithStdout(os.Stdout).WithStderr(os.Stderr).WithArgs(os.Args[1:]...).WithStartFunctions("_start")
+	config := wazero.NewModuleConfig().
+		WithStdin(os.Stdin).
+		WithStdout(os.Stdout).
+		WithStderr(os.Stderr).
+		WithArgs(os.Args[1:]...).
+		WithStartFunctions("_start")
 	m, err := r.InstantiateWithConfig(ctx, wasm, config)
 	if err != nil {
 		log.Panicln(err)

@@ -35,14 +35,10 @@ func (c Collector) Before(ctx context.Context, _ api.Module, def api.FunctionDef
 		f := stack.FunctionDefinition()
 		event.Stack = append(event.Stack, f)
 	}
-	go func() {
-		c.raw <- event
-	}()
+	c.raw <- event
 	return ctx
 }
 
-func (c Collector) After(ctx context.Context, _ api.Module, def api.FunctionDefinition, _ error, _ []uint64) {
-}
+func (c Collector) After(context.Context, api.Module, api.FunctionDefinition, error, []uint64) {}
 
-func (c Collector) Abort(_ context.Context, _ api.Module, _ api.FunctionDefinition, _ error) {
-}
+func (c Collector) Abort(context.Context, api.Module, api.FunctionDefinition, error) {}

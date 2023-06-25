@@ -28,6 +28,8 @@ type RawEvent struct {
 	Stack            []api.FunctionDefinition
 	FunctionIndex    uint32
 	MemoryGrowAmount uint32
+	Time             time.Time
+	Duration         time.Duration
 }
 
 type Event interface {
@@ -38,10 +40,19 @@ type CallEvent struct {
 	Raw      []RawEvent
 	Time     time.Time
 	Duration time.Duration
+	within   []Event
+}
+
+func (e *CallEvent) Stop(at time.Time) {
+	e.Duration = at.Sub(e.Time)
 }
 
 func (e CallEvent) RawEvents() []RawEvent {
 	return e.Raw
+}
+
+func (e CallEvent) Within() []Event {
+	return e.within
 }
 
 type CustomEvent struct {

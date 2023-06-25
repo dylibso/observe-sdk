@@ -4,7 +4,7 @@ import (
 	"bytes"
 	"errors"
 	"fmt"
-	"log"
+	"math/rand"
 	"time"
 
 	"github.com/tetratelabs/wabin/binary"
@@ -23,10 +23,6 @@ type AdapterBase struct {
 	stop      chan bool
 	Collector Collector
 	names     map[uint32]string
-}
-
-type StdoutAdapter struct {
-	AdapterBase
 }
 
 func (a AdapterBase) Names() map[uint32]string {
@@ -84,7 +80,7 @@ func (a *AdapterBase) GetNames(data []byte) error {
 		return errors.New("Name section not found")
 	}
 
-	a.names = map[uint32]string{}
+	a.names = make(map[uint32]string, len(m.NameSection.FunctionNames))
 
 	for _, v := range m.NameSection.FunctionNames {
 		a.names[v.Index] = v.Name
@@ -105,52 +101,34 @@ func NewAdataperBase(wasm []byte) (AdapterBase, error) {
 	return a, nil
 }
 
-func NewStdoutAdapter(wasm []byte) (StdoutAdapter, error) {
-	base, err := NewAdataperBase(wasm)
-	if err != nil {
-		return StdoutAdapter{}, err
-	}
-	return StdoutAdapter{AdapterBase: base}, nil
-}
-
-func (s *StdoutAdapter) Event(e Event) {
-	switch event := e.(type) {
-	// TODO: read name from name section instead of printing the function index
-	case CallEvent:
-		name := event.FunctionName(s)
-		log.Println("Call to", name, "took", event.Duration)
-	case MemoryGrowEvent:
-		name := event.FunctionName(s)
-		log.Println("Allocated", event.MemoryGrowAmount(), "pages of memory in", name)
-	case CustomEvent:
-		log.Println(event.Name, event.Time)
-	}
-}
-
 func (a *AdapterBase) Stop() {
 	a.stop <- true
 }
 
-func (a *StdoutAdapter) Start(collector Collector) {
-	go func() {
-		for {
-			select {
-			case event := <-collector.Events:
-				a.Event(event)
-			case <-a.stop:
-				return
-			}
-		}
-	}()
+func (a AdapterBase) StopChan() chan bool {
+	return a.stop
 }
 
-func (a *StdoutAdapter) Wait(collector Collector, timeout time.Duration) {
-	select {
-	case <-time.After(timeout):
-		if len(collector.Events) > 0 {
-			a.Wait(collector, timeout)
-			return
-		}
-		return
-	}
+type TelemetryId uint64
+
+var rng rand.Source
+
+func init() {
+	rng = rand.NewSource(time.Now().UnixNano())
+}
+
+func NewTraceId() TelemetryId {
+	return TelemetryId(rng.Int63())
+}
+
+func NewSpanId() TelemetryId {
+	return TelemetryId(rng.Int63())
+}
+
+func (t TelemetryId) ToHex8() string {
+	return fmt.Sprintf("%016x", t)
+}
+
+func (t TelemetryId) ToHex16() string {
+	return fmt.Sprintf("%032x", t)
 }

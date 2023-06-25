@@ -10,16 +10,11 @@ import (
 	"github.com/tetratelabs/wazero/experimental"
 )
 
-type startedFunction struct {
-	event     RawEvent
-	startTime time.Time
-}
-
 type Collector struct {
-	raw              chan RawEvent
-	startedFunctions []startedFunction
-	Events           chan Event
-	Config           *Config
+	raw    chan RawEvent
+	stack  []CallEvent
+	Events chan Event
+	Config *Config
 }
 
 func (c *Collector) clearEvents() {
@@ -33,22 +28,27 @@ func (c *Collector) clearEvents() {
 	}
 }
 
-func (c *Collector) pushFunction(ev RawEvent) {
-	c.startedFunctions = append(c.startedFunctions, startedFunction{
-		startTime: time.Now(),
-		event:     ev,
-	})
+func (c *Collector) pushFunction(ev CallEvent) {
+	c.stack = append(c.stack, ev)
 }
 
-func (c *Collector) popFunction() (bool, RawEvent, time.Time) {
-	if len(c.startedFunctions) == 0 {
-		return false, RawEvent{}, time.Time{}
+func (c *Collector) popFunction() (CallEvent, bool) {
+	if len(c.stack) == 0 {
+		return CallEvent{}, false
 	}
 
-	event := c.startedFunctions[len(c.startedFunctions)-1]
-	c.startedFunctions = c.startedFunctions[:len(c.startedFunctions)-1]
+	event := c.stack[len(c.stack)-1]
+	c.stack = c.stack[:len(c.stack)-1]
 
-	return true, event.event, event.startTime
+	return event, true
+}
+
+func (c *Collector) peekFunction() (CallEvent, bool) {
+	if len(c.stack) == 0 {
+		return CallEvent{}, false
+	}
+
+	return c.stack[len(c.stack)-1], true
 }
 
 type Config struct {
@@ -74,49 +74,70 @@ func NewCollector(config *Config) Collector {
 	}
 }
 
+// TODO: consider a different initial entrypoint to create the runtime using an provided config and context:
+// func (c *Collector) NewRuntimeWithConfig(ctx context.Context, config wazero.RuntimeConfig)
+
 func (c *Collector) InitRuntime() (context.Context, wazero.Runtime, error) {
 	ctx := context.WithValue(context.Background(), experimental.FunctionListenerFactoryKey{}, *c)
 	r := wazero.NewRuntimeWithConfig(ctx, c.Config.RuntimeConfig.WithCustomSections(true))
 	observe := r.NewHostModuleBuilder("dylibso_observe")
 	functions := observe.NewFunctionBuilder()
+
 	functions.WithFunc(func(ctx context.Context, m api.Module, i int32) {
+		start := time.Now()
 		ev := <-c.raw
 		if ev.Kind != RawEnter {
-			log.Panicln("Expected event", RawEnter, "but got", ev.Kind)
+			log.Println("Expected event", RawEnter, "but got", ev.Kind)
 		}
-		c.pushFunction(ev)
+		c.pushFunction(CallEvent{Raw: []RawEvent{ev}, Time: start})
 	}).Export("instrument_enter")
+
 	functions.WithFunc(func(ctx context.Context, i int32) {
+		end := time.Now()
 		ev := <-c.raw
 		if ev.Kind != RawExit {
-			log.Panicln("Expected event", RawExit, "but got", ev.Kind)
+			log.Println("Expected event", RawExit, "but got", ev.Kind)
+			return
 		}
-		ok, start, startTime := c.popFunction()
+		fn, ok := c.peekFunction()
 		if !ok {
 			log.Println("Expected values on started function stack, but none were found")
 			return
 		}
-		if ev.FunctionIndex != start.FunctionIndex {
-			log.Panicln("Expected call to", ev.FunctionIndex, "but found call to", start.FunctionIndex)
+		if ev.FunctionIndex != fn.FunctionIndex() {
+			log.Println("Expected call to", ev.FunctionIndex, "but found call to", fn.FunctionIndex())
+			return
 		}
-		event := CallEvent{
-			Raw:      []RawEvent{start, ev},
-			Time:     startTime,
-			Duration: time.Now().Sub(startTime),
+
+		fn, _ = c.popFunction()
+		fn.Stop(end)
+		fn.Raw = append(fn.Raw, ev)
+
+		f, ok := c.popFunction()
+		if !ok {
+			c.Events <- fn
+			return
 		}
-		c.Events <- event
+
+		f.within = append(f.within, fn)
+		c.pushFunction(f)
 	}).Export("instrument_exit")
+
 	functions.WithFunc(func(ctx context.Context, amt int32) {
 		ev := <-c.raw
 		if ev.Kind != RawMemoryGrow {
-			log.Panicln("Expected event", MemoryGrow, "but got", ev.Kind)
+			log.Println("Expected event", MemoryGrow, "but got", ev.Kind)
+			return
 		}
+
 		event := MemoryGrowEvent{
 			Raw:  ev,
 			Time: time.Now(),
 		}
+
 		c.Events <- event
 	}).Export("instrument_memory_grow")
+
 	_, err := observe.Instantiate(ctx)
 	if err != nil {
 		return nil, nil, err
