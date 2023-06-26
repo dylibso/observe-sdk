@@ -26,7 +26,7 @@ func NewOtelStdoutAdapter() OtelStdoutAdapter {
 func (o *OtelStdoutAdapter) Event(e observe.Event) {
 	switch event := e.(type) {
 	case observe.CallEvent:
-		spans := o.makeCallSpans(event)
+		spans := o.makeCallSpans(event, nil)
 		if len(spans) > 0 {
 			output := otel.New()
 			resourceSpan := otel.NewResourceSpan()
@@ -85,17 +85,15 @@ func (o *OtelStdoutAdapter) Start(collector *observe.Collector, wasm []byte) err
 	return nil
 }
 
-func (o OtelStdoutAdapter) Stop() {}
-
-func (o *OtelStdoutAdapter) makeCallSpans(event observe.CallEvent) []otel.Span {
+func (o *OtelStdoutAdapter) makeCallSpans(event observe.CallEvent, parentId *string) []otel.Span {
 	name := event.FunctionName()
-	span := otel.NewSpan(o.TraceId, nil, name, event.Time, event.Time.Add(event.Duration))
+	span := otel.NewSpan(o.TraceId, parentId, name, event.Time, event.Time.Add(event.Duration))
 	span.AddAttribute("function_name", fmt.Sprintf("function-call-%s", name))
 
 	spans := []otel.Span{*span}
 	for _, ev := range event.Within() {
 		if call, ok := ev.(observe.CallEvent); ok {
-			spans = append(spans, o.makeCallSpans(call)...)
+			spans = append(spans, o.makeCallSpans(call, &span.SpanId)...)
 		}
 	}
 

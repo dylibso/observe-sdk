@@ -61,7 +61,9 @@ func (a *AdapterBase) Wait(collector *Collector, timeout time.Duration, callback
 		select {
 		case <-time.After(timeout):
 			if len(collector.Events) > 0 {
-				callback()
+				if callback != nil {
+					callback()
+				}
 				continue
 			}
 			a.RemoveCollector(collector)
