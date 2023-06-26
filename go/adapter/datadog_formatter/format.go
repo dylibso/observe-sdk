@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/dylibso/observe-sdk-wazero"
+	"github.com/dylibso/observe-sdk/go"
 )
 
 type DatadogFormatter []Trace
@@ -27,7 +27,7 @@ type Span struct {
 }
 
 func NewSpan(service string, traceId uint64, parentId *uint64, name string, start, end time.Time) *Span {
-	id := dylibso_observe.NewSpanId()
+	id := observe.NewSpanId()
 	span := Span{
 		SpanId:   uint64(id),
 		ParentId: parentId,

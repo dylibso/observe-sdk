@@ -5,8 +5,8 @@ import (
 	"os"
 	"time"
 
-	observe "github.com/dylibso/observe-sdk-wazero"
-	"github.com/dylibso/observe-sdk-wazero/adapter/otel_stdout"
+	observe "github.com/dylibso/observe-sdk/go"
+	"github.com/dylibso/observe-sdk/go/adapter/otel_stdout"
 	"github.com/tetratelabs/wazero"
 	"github.com/tetratelabs/wazero/imports/wasi_snapshot_preview1"
 )

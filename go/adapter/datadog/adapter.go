@@ -9,8 +9,8 @@ import (
 	"strconv"
 	"time"
 
-	observe "github.com/dylibso/observe-sdk-wazero"
-	"github.com/dylibso/observe-sdk-wazero/adapter/datadog_formatter"
+	"github.com/dylibso/observe-sdk/go"
+	"github.com/dylibso/observe-sdk/go/adapter/datadog_formatter"
 )
 
 type DatadogConfig struct {

@@ -5,7 +5,7 @@ import (
 	"strings"
 	"time"
 
-	observe "github.com/dylibso/observe-sdk-wazero"
+	observe "github.com/dylibso/observe-sdk/go"
 )
 
 type StdoutAdapter struct {

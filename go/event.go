@@ -1,4 +1,4 @@
-package dylibso_observe
+package observe
 
 import (
 	"time"

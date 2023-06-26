@@ -3,7 +3,7 @@ package otel_formatter
 import (
 	"time"
 
-	"github.com/dylibso/observe-sdk-wazero"
+	"github.com/dylibso/observe-sdk/go"
 )
 
 type OtelFormatter struct {
@@ -83,7 +83,7 @@ func NewSpan(traceId string, parentId *string, name string, start, end time.Time
 	}
 	return &Span{
 		TraceId:       traceId,
-		SpanId:        dylibso_observe.NewSpanId().ToHex8(),
+		SpanId:        observe.NewSpanId().ToHex8(),
 		ParentSpanId:  *parentId,
 		Name:          name,
 		Kind:          1,

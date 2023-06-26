@@ -6,8 +6,8 @@ import (
 	"log"
 	"time"
 
-	observe "github.com/dylibso/observe-sdk-wazero"
-	otel "github.com/dylibso/observe-sdk-wazero/adapter/otel_formatter"
+	observe "github.com/dylibso/observe-sdk/go"
+	otel "github.com/dylibso/observe-sdk/go/adapter/otel_formatter"
 )
 
 type OtelStdoutAdapter struct {
