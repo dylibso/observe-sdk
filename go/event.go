@@ -4,7 +4,7 @@ import (
 	"time"
 
 	"github.com/ianlancetaylor/demangle"
-	"github.com/tetratelabs/wazero/api"
+	"github.com/tetratelabs/wazero/experimental"
 )
 
 type RawEventKind int
@@ -25,7 +25,7 @@ const (
 
 type RawEvent struct {
 	Kind             RawEventKind
-	Stack            []api.FunctionDefinition
+	Stack            []experimental.InternalFunction
 	FunctionIndex    uint32
 	FunctionName     string
 	MemoryGrowAmount uint32

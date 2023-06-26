@@ -14,7 +14,11 @@ func (c *Collector) NewListener(def api.FunctionDefinition) experimental.Functio
 	return c
 }
 
-func (c *Collector) Before(ctx context.Context, _ api.Module, def api.FunctionDefinition, inputs []uint64, stack experimental.StackIterator) context.Context {
+func (c *Collector) NewFunctionListener(_ api.FunctionDefinition) experimental.FunctionListener {
+	return c
+}
+
+func (c *Collector) Before(ctx context.Context, _ api.Module, def api.FunctionDefinition, inputs []uint64, stack experimental.StackIterator) {
 	var event RawEvent
 	name := def.Name()
 
@@ -31,16 +35,15 @@ func (c *Collector) Before(ctx context.Context, _ api.Module, def api.FunctionDe
 		event.Kind = RawMemoryGrow
 		event.MemoryGrowAmount = uint32(inputs[0])
 	default:
-		return ctx
+		return
 	}
 	for stack.Next() {
-		f := stack.FunctionDefinition()
+		f := stack.Function()
 		event.Stack = append(event.Stack, f)
 	}
 	c.raw <- event
-	return ctx
 }
 
-func (c *Collector) After(context.Context, api.Module, api.FunctionDefinition, error, []uint64) {}
+func (c *Collector) After(context.Context, api.Module, api.FunctionDefinition, []uint64) {}
 
 func (c *Collector) Abort(context.Context, api.Module, api.FunctionDefinition, error) {}
