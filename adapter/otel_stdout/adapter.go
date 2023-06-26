@@ -15,16 +15,12 @@ type OtelStdoutAdapter struct {
 	TraceId string
 }
 
-func NewOtelStdoutAdapter(wasm []byte) (OtelStdoutAdapter, error) {
-	base, err := observe.NewAdataperBase(wasm)
-	if err != nil {
-		return OtelStdoutAdapter{}, err
-	}
-
+func NewOtelStdoutAdapter() OtelStdoutAdapter {
+	base := observe.NewAdapterBase()
 	return OtelStdoutAdapter{
 		AdapterBase: base,
 		TraceId:     observe.NewTraceId().ToHex16(),
-	}, nil
+	}
 }
 
 func (o *OtelStdoutAdapter) Event(e observe.Event) {
@@ -65,18 +61,14 @@ func (o *OtelStdoutAdapter) Event(e observe.Event) {
 	}
 }
 
-func (o *OtelStdoutAdapter) Wait(collector observe.Collector, timeout time.Duration) {
-	select {
-	case <-time.After(timeout):
-		if len(collector.Events) > 0 {
-			o.Wait(collector, timeout)
-			return
-		}
-		return
-	}
+func (o *OtelStdoutAdapter) Wait(timeout time.Duration) {
+	o.AdapterBase.Wait(timeout, func() {})
 }
 
-func (o *OtelStdoutAdapter) Start(collector observe.Collector) {
+func (o *OtelStdoutAdapter) Start(collector *observe.Collector, wasm []byte) error {
+	if err := o.AdapterBase.Start(collector, wasm); err != nil {
+		return err
+	}
 	go func() {
 		for {
 			select {
@@ -87,6 +79,7 @@ func (o *OtelStdoutAdapter) Start(collector observe.Collector) {
 			}
 		}
 	}()
+	return nil
 }
 
 func (o OtelStdoutAdapter) Stop() {}

@@ -34,12 +34,11 @@ func main() {
 
 	//
 	// Adapter API
-	adapter, err := otel_stdout.NewOtelStdoutAdapter(wasm)
-	if err != nil {
+	adapter := otel_stdout.NewOtelStdoutAdapter()
+	if err = adapter.Start(&collector, wasm); err != nil {
 		log.Panicln(err)
 	}
-	adapter.Start(collector)
-	defer adapter.Wait(collector, time.Millisecond)
+	defer adapter.Wait(time.Millisecond)
 
 	config := wazero.NewModuleConfig().
 		WithStdin(os.Stdin).

@@ -12,13 +12,9 @@ type StdoutAdapter struct {
 	observe.AdapterBase
 }
 
-func NewStdoutAdapter(wasm []byte) (StdoutAdapter, error) {
-	base, err := observe.NewAdataperBase(wasm)
-	if err != nil {
-		return StdoutAdapter{}, err
-	}
-
-	return StdoutAdapter{AdapterBase: base}, nil
+func NewStdoutAdapter() StdoutAdapter {
+	base := observe.NewAdapterBase()
+	return StdoutAdapter{AdapterBase: base}
 }
 
 func (s *StdoutAdapter) printEvents(event observe.CallEvent, indentation int) {
@@ -44,7 +40,11 @@ func (s *StdoutAdapter) Event(e observe.Event) {
 	}
 }
 
-func (a *StdoutAdapter) Start(collector observe.Collector) {
+func (a *StdoutAdapter) Start(collector *observe.Collector, wasm []byte) error {
+	if err := a.AdapterBase.Start(collector, wasm); err != nil {
+		return err
+	}
+
 	go func() {
 		for {
 			select {
@@ -55,15 +55,10 @@ func (a *StdoutAdapter) Start(collector observe.Collector) {
 			}
 		}
 	}()
+
+	return nil
 }
 
-func (a *StdoutAdapter) Wait(collector observe.Collector, timeout time.Duration) {
-	select {
-	case <-time.After(timeout):
-		if len(collector.Events) > 0 {
-			a.Wait(collector, timeout)
-			return
-		}
-		return
-	}
+func (a *StdoutAdapter) Wait(timeout time.Duration) {
+	a.AdapterBase.Wait(timeout, func() {})
 }

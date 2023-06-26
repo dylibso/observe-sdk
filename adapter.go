@@ -13,7 +13,7 @@ import (
 )
 
 type Adapter interface {
-	Start(collector Collector)
+	Start(collector *Collector, wasm []byte) error
 	Stop()
 	Event(Event)
 	Names() map[uint32]string
@@ -21,7 +21,7 @@ type Adapter interface {
 
 type AdapterBase struct {
 	stop      chan bool
-	Collector Collector
+	Collector *Collector
 	names     map[uint32]string
 }
 
@@ -89,16 +89,32 @@ func (a *AdapterBase) GetNames(data []byte) error {
 	return nil
 }
 
-func NewAdataperBase(wasm []byte) (AdapterBase, error) {
+func (a *AdapterBase) Wait(timeout time.Duration, callback func()) {
+	if a.Collector == nil {
+		return
+	}
+	select {
+	case <-time.After(timeout):
+		if len(a.Collector.Events) > 0 {
+			callback()
+			a.Wait(timeout, callback)
+			return
+		}
+		return
+	}
+}
+
+func NewAdapterBase() AdapterBase {
 	a := AdapterBase{
 		stop:      make(chan bool, 1),
-		Collector: Collector{},
+		Collector: nil,
 	}
-	err := a.GetNames(wasm)
-	if err != nil {
-		return AdapterBase{}, err
-	}
-	return a, nil
+	return a
+}
+
+func (a *AdapterBase) Start(collector *Collector, wasm []byte) error {
+	a.Collector = collector
+	return a.GetNames(wasm)
 }
 
 func (a *AdapterBase) Stop() {

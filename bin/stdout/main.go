@@ -34,12 +34,11 @@ func main() {
 
 	//
 	// Adapter API
-	adapter, err := stdout.NewStdoutAdapter(wasm)
-	if err != nil {
+	adapter := stdout.NewStdoutAdapter()
+	if err = adapter.Start(&collector, wasm); err != nil {
 		log.Panicln(err)
 	}
-	adapter.Start(collector)
-	defer adapter.Wait(collector, time.Millisecond)
+	defer adapter.Wait(time.Millisecond)
 
 	config := wazero.NewModuleConfig().
 		WithStdin(os.Stdin).
