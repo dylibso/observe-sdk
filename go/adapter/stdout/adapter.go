@@ -29,7 +29,6 @@ func (s *StdoutAdapter) printEvents(event observe.CallEvent, indentation int) {
 
 func (s *StdoutAdapter) Event(e observe.Event) {
 	switch event := e.(type) {
-	// TODO: read name from name section instead of printing the function index
 	case observe.CallEvent:
 		s.printEvents(event, 0)
 	case observe.MemoryGrowEvent:
