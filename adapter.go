@@ -7,26 +7,18 @@ import (
 	"math/rand"
 	"time"
 
-	"github.com/tetratelabs/wabin/binary"
 	"github.com/tetratelabs/wabin/leb128"
 	"github.com/tetratelabs/wabin/wasm"
 )
 
 type Adapter interface {
 	Start(collector *Collector, wasm []byte) error
-	Stop()
+	Stop(collector *Collector)
 	Event(Event)
-	Names() map[uint32]string
 }
 
 type AdapterBase struct {
-	stop      chan bool
-	Collector *Collector
-	names     map[uint32]string
-}
-
-func (a AdapterBase) Names() map[uint32]string {
-	return a.names
+	Collectors map[*Collector]chan bool
 }
 
 func checkVersion(m *wasm.Module) error {
@@ -64,65 +56,46 @@ func checkVersion(m *wasm.Module) error {
 	return nil
 }
 
-func (a *AdapterBase) GetNames(data []byte) error {
-	features := wasm.CoreFeaturesV2
-	m, err := binary.DecodeModule(data, features)
-	if err != nil {
-		return err
-	}
-
-	// Check for version globals
-	if err := checkVersion(m); err != nil {
-		return err
-	}
-
-	if m.NameSection == nil {
-		return errors.New("Name section not found")
-	}
-
-	a.names = make(map[uint32]string, len(m.NameSection.FunctionNames))
-
-	for _, v := range m.NameSection.FunctionNames {
-		a.names[v.Index] = v.Name
-	}
-
-	return nil
-}
-
-func (a *AdapterBase) Wait(timeout time.Duration, callback func()) {
-	if a.Collector == nil {
-		return
-	}
-	select {
-	case <-time.After(timeout):
-		if len(a.Collector.Events) > 0 {
-			callback()
-			a.Wait(timeout, callback)
+func (a *AdapterBase) Wait(collector *Collector, timeout time.Duration, callback func()) {
+	for {
+		select {
+		case <-time.After(timeout):
+			if len(collector.Events) > 0 {
+				callback()
+				continue
+			}
+			a.RemoveCollector(collector)
 			return
 		}
-		return
 	}
 }
 
 func NewAdapterBase() AdapterBase {
 	a := AdapterBase{
-		stop:      make(chan bool, 1),
-		Collector: nil,
+		Collectors: map[*Collector]chan bool{},
 	}
 	return a
 }
 
 func (a *AdapterBase) Start(collector *Collector, wasm []byte) error {
-	a.Collector = collector
-	return a.GetNames(wasm)
+	a.Collectors[collector] = make(chan bool, 1)
+	return collector.GetNames(wasm)
 }
 
-func (a *AdapterBase) Stop() {
-	a.stop <- true
+func (a *AdapterBase) RemoveCollector(collector *Collector) {
+	delete(a.Collectors, collector)
 }
 
-func (a AdapterBase) StopChan() chan bool {
-	return a.stop
+func (a *AdapterBase) Stop(collector *Collector) {
+	stop, ok := a.Collectors[collector]
+	if ok {
+		stop <- true
+		a.RemoveCollector(collector)
+	}
+}
+
+func (a AdapterBase) StopChan(collector *Collector) chan bool {
+	return a.Collectors[collector]
 }
 
 type TelemetryId uint64

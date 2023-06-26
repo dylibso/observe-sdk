@@ -2,9 +2,12 @@ package dylibso_observe
 
 import (
 	"context"
+	"errors"
 	"log"
 	"time"
 
+	"github.com/tetratelabs/wabin/binary"
+	"github.com/tetratelabs/wabin/wasm"
 	"github.com/tetratelabs/wazero"
 	"github.com/tetratelabs/wazero/api"
 	"github.com/tetratelabs/wazero/experimental"
@@ -15,6 +18,36 @@ type Collector struct {
 	stack  []CallEvent
 	Events chan Event
 	Config *Config
+	names  map[uint32]string
+}
+
+func (c *Collector) Names() map[uint32]string {
+	return c.names
+}
+
+func (c *Collector) GetNames(data []byte) error {
+	features := wasm.CoreFeaturesV2
+	m, err := binary.DecodeModule(data, features)
+	if err != nil {
+		return err
+	}
+
+	// Check for version globals
+	if err := checkVersion(m); err != nil {
+		return err
+	}
+
+	if m.NameSection == nil {
+		return errors.New("Name section not found")
+	}
+
+	c.names = make(map[uint32]string, len(m.NameSection.FunctionNames))
+
+	for _, v := range m.NameSection.FunctionNames {
+		c.names[v.Index] = v.Name
+	}
+
+	return nil
 }
 
 func (c *Collector) clearEvents() {
@@ -63,14 +96,15 @@ func NewDefaultConfig() *Config {
 	}
 }
 
-func NewCollector(config *Config) Collector {
+func NewCollector(config *Config) *Collector {
 	if config == nil {
 		config = NewDefaultConfig()
 	}
-	return Collector{
+	return &Collector{
 		raw:    make(chan RawEvent, config.ChannelBufferSize),
 		Events: make(chan Event, config.ChannelBufferSize),
 		Config: config,
+		names:  nil,
 	}
 }
 
@@ -78,7 +112,7 @@ func NewCollector(config *Config) Collector {
 // func (c *Collector) NewRuntimeWithConfig(ctx context.Context, config wazero.RuntimeConfig)
 
 func (c *Collector) InitRuntime() (context.Context, wazero.Runtime, error) {
-	ctx := context.WithValue(context.Background(), experimental.FunctionListenerFactoryKey{}, *c)
+	ctx := context.WithValue(context.Background(), experimental.FunctionListenerFactoryKey{}, c)
 	r := wazero.NewRuntimeWithConfig(ctx, c.Config.RuntimeConfig.WithCustomSections(true))
 	observe := r.NewHostModuleBuilder("dylibso_observe")
 	functions := observe.NewFunctionBuilder()
@@ -130,6 +164,12 @@ func (c *Collector) InitRuntime() (context.Context, wazero.Runtime, error) {
 			return
 		}
 
+		if len(c.stack) > 0 {
+			f := c.stack[len(c.stack)-1]
+			ev.FunctionIndex = f.FunctionIndex()
+			ev.FunctionName = f.FunctionName()
+		}
+
 		event := MemoryGrowEvent{
 			Raw:  ev,
 			Time: time.Now(),
@@ -151,11 +191,11 @@ func (c *Collector) CustomEvent(name string, metadata map[string]interface{}) {
 	c.Events <- ev
 }
 
-func Init(config *Config) (context.Context, wazero.Runtime, Collector, error) {
+func Init(config *Config) (context.Context, wazero.Runtime, *Collector, error) {
 	c := NewCollector(config)
 	ctx, r, err := c.InitRuntime()
 	if err != nil {
-		return nil, nil, Collector{}, err
+		return nil, nil, nil, err
 	}
 
 	return ctx, r, c, nil

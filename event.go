@@ -27,6 +27,7 @@ type RawEvent struct {
 	Kind             RawEventKind
 	Stack            []api.FunctionDefinition
 	FunctionIndex    uint32
+	FunctionName     string
 	MemoryGrowAmount uint32
 	Time             time.Time
 	Duration         time.Duration
@@ -82,12 +83,10 @@ func (e MemoryGrowEvent) RawEvents() []RawEvent {
 	return []RawEvent{e.Raw}
 }
 
-func (e MemoryGrowEvent) FunctionName(adapter Adapter) string {
-	names := adapter.Names()
-	name := names[e.Raw.FunctionIndex]
-	s, err := demangle.ToString(name)
+func (e MemoryGrowEvent) FunctionName() string {
+	s, err := demangle.ToString(e.Raw.FunctionName)
 	if err != nil {
-		return name
+		return e.Raw.FunctionName
 	}
 	return s
 }
@@ -96,12 +95,10 @@ func (e MemoryGrowEvent) FunctionIndex() uint32 {
 	return e.Raw.FunctionIndex
 }
 
-func (e CallEvent) FunctionName(adapter Adapter) string {
-	names := adapter.Names()
-	name := names[e.Raw[0].FunctionIndex]
-	s, err := demangle.ToString(name)
+func (e CallEvent) FunctionName() string {
+	s, err := demangle.ToString(e.Raw[0].FunctionName)
 	if err != nil {
-		return name
+		return e.Raw[0].FunctionName
 	}
 	return s
 }

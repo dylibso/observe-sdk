@@ -18,7 +18,7 @@ func NewStdoutAdapter() StdoutAdapter {
 }
 
 func (s *StdoutAdapter) printEvents(event observe.CallEvent, indentation int) {
-	name := event.FunctionName(s)
+	name := event.FunctionName()
 	log.Println(strings.Repeat("  ", indentation), "Call to", name, "took", event.Duration)
 	for _, event := range event.Within() {
 		if call, ok := event.(observe.CallEvent); ok {
@@ -33,7 +33,7 @@ func (s *StdoutAdapter) Event(e observe.Event) {
 	case observe.CallEvent:
 		s.printEvents(event, 0)
 	case observe.MemoryGrowEvent:
-		name := event.FunctionName(s)
+		name := event.FunctionName()
 		log.Println("Allocated", event.MemoryGrowAmount(), "pages of memory in", name)
 	case observe.CustomEvent:
 		log.Println(event.Name, event.Time)
@@ -45,12 +45,14 @@ func (a *StdoutAdapter) Start(collector *observe.Collector, wasm []byte) error {
 		return err
 	}
 
+	stop := a.StopChan(collector)
+
 	go func() {
 		for {
 			select {
 			case event := <-collector.Events:
 				a.Event(event)
-			case <-a.StopChan():
+			case <-stop:
 				return
 			}
 		}
@@ -59,6 +61,6 @@ func (a *StdoutAdapter) Start(collector *observe.Collector, wasm []byte) error {
 	return nil
 }
 
-func (a *StdoutAdapter) Wait(timeout time.Duration) {
-	a.AdapterBase.Wait(timeout, func() {})
+func (a *StdoutAdapter) Wait(collector *observe.Collector, timeout time.Duration) {
+	a.AdapterBase.Wait(collector, timeout, func() {})
 }

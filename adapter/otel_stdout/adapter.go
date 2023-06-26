@@ -61,20 +61,23 @@ func (o *OtelStdoutAdapter) Event(e observe.Event) {
 	}
 }
 
-func (o *OtelStdoutAdapter) Wait(timeout time.Duration) {
-	o.AdapterBase.Wait(timeout, func() {})
+func (o *OtelStdoutAdapter) Wait(collector *observe.Collector, timeout time.Duration) {
+	o.AdapterBase.Wait(collector, timeout, func() {})
 }
 
 func (o *OtelStdoutAdapter) Start(collector *observe.Collector, wasm []byte) error {
 	if err := o.AdapterBase.Start(collector, wasm); err != nil {
 		return err
 	}
+
+	stop := o.StopChan(collector)
+
 	go func() {
 		for {
 			select {
 			case event := <-collector.Events:
 				o.Event(event)
-			case <-o.StopChan():
+			case <-stop:
 				return
 			}
 		}
@@ -85,7 +88,7 @@ func (o *OtelStdoutAdapter) Start(collector *observe.Collector, wasm []byte) err
 func (o OtelStdoutAdapter) Stop() {}
 
 func (o *OtelStdoutAdapter) makeCallSpans(event observe.CallEvent) []otel.Span {
-	name := event.FunctionName(o)
+	name := event.FunctionName()
 	span := otel.NewSpan(o.TraceId, nil, name, event.Time, event.Time.Add(event.Duration))
 	span.AddAttribute("function_name", fmt.Sprintf("function-call-%s", name))
 
