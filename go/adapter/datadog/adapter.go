@@ -64,7 +64,7 @@ func (d *DatadogAdapter) Event(e observe.Event) {
 		if value, ok := event.Metadata["trace_id"]; ok {
 			traceId, err := strconv.ParseUint(value.(string), 10, 64)
 			if err != nil {
-				log.Println("failed to parse traceId from event metadata")
+				log.Println("failed to parse traceId from event metadata:", err)
 				return
 			}
 
@@ -116,7 +116,7 @@ func (d *DatadogAdapter) Stop(collector *observe.Collector) {
 
 		b, err := json.Marshal(output)
 		if err != nil {
-			log.Println("failed to encode trace data to json")
+			log.Println("failed to encode trace data to json", err)
 			return
 		}
 
@@ -124,13 +124,13 @@ func (d *DatadogAdapter) Stop(collector *observe.Collector) {
 
 		host, err := url.JoinPath(d.Config.AgentHost, "v0.3", "traces")
 		if err != nil {
-			log.Println("failed to create datadog agent endpoint url")
+			log.Println("failed to create datadog agent endpoint url:", err)
 			return
 		}
 
 		resp, err := http.Post(host, "application/json", data)
 		if err != nil {
-			log.Println("failed to send trace request to datadog")
+			log.Println("failed to send trace request to datadog:", err)
 			return
 		}
 
