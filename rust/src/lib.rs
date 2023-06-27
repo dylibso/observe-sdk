@@ -7,9 +7,11 @@ use log::error;
 use modsurfer_demangle::demangle_function_name;
 use std::collections::HashMap;
 use tokio::sync::mpsc::{channel, Receiver, Sender};
+use version::{WASM_INSTR_VERSION_MAJOR, WASM_INSTR_VERSION_MINOR};
 use wasmtime::{Caller, FuncType, Linker, Val, ValType};
 
 pub mod adapter;
+mod version;
 
 #[derive(Clone)]
 pub struct InstrumentationContext {
@@ -184,24 +186,85 @@ pub fn add_to_linker<T: 'static>(
 ) -> Result<EventChannel> {
     let (ctx, events_tx, events_rx) = InstrumentationContext::new(id);
 
-    // Build up a table of function id to name mapping
+    // Parse the wasm to build up a table of function id to name mapping and check version compat
     let mut function_names = FunctionNames::new();
+    let mut maj_index: Option<u32> = None;
+    let mut min_index: Option<u32> = None;
+    let mut globals = HashMap::<u32, u32>::new();
     let parser = wasmparser::Parser::new(0);
     for payload in parser.parse_all(data) {
-        if let wasmparser::Payload::CustomSection(custom) = payload? {
-            if custom.name() == "name" {
-                let name_reader =
-                    wasmparser::NameSectionReader::new(custom.data(), custom.data_offset());
-                for x in name_reader.into_iter() {
-                    if let wasmparser::Name::Function(f) = x? {
-                        for k in f.into_iter() {
-                            let k = k?;
-                            function_names.insert(k.index, k.name.to_string());
+        match payload? {
+            wasmparser::Payload::CustomSection(custom) => {
+                if custom.name() == "name" {
+                    let name_reader =
+                        wasmparser::NameSectionReader::new(custom.data(), custom.data_offset());
+                    for x in name_reader.into_iter() {
+                        if let wasmparser::Name::Function(f) = x? {
+                            for k in f.into_iter() {
+                                let k = k?;
+                                function_names.insert(k.index, k.name.to_string());
+                            }
                         }
                     }
+                    continue;
                 }
-                continue;
             }
+            wasmparser::Payload::GlobalSection(globalsec) => {
+                for (i, aglob) in globalsec.into_iter().enumerate() {
+                    let glob = aglob.unwrap();
+                    if glob.ty.content_type != wasmparser::ValType::I32 {
+                        continue;
+                    }
+                    let mut reader = glob.init_expr.get_binary_reader();
+                    let opcode = match reader.read_u8() {
+                        Ok(opcode) => opcode,
+                        Err(_) => continue,
+                    };
+                    // i32.const
+                    if opcode != 0x41 {
+                        continue;
+                    }
+                    // due to binaryen limitations u32 version values are encoded as a signed LEB128
+                    // integers so they must be casted back to unsigned
+                    let iv = reader.read_var_i32().unwrap();
+                    let uv = iv as u32;
+                    globals.insert(i as u32, uv);
+                }
+            }
+            wasmparser::Payload::ExportSection(exportsec) => {
+                for export in exportsec.into_iter() {
+                    let export = export?;
+                    if export.kind != wasmparser::ExternalKind::Global {
+                        continue;
+                    }
+                    match export.name {
+                        "wasm_instr_version_major" => {
+                            maj_index = Some(export.index);
+                        }
+                        "wasm_instr_version_minor" => {
+                            min_index = Some(export.index);
+                        }
+                        _ => {}
+                    }
+                }
+            }
+            _ => (),
+        }
+    }
+    // For now tolerate version info not being present
+    let version_info_present = maj_index.is_some() || min_index.is_some();
+    if version_info_present {
+        let maj_index = maj_index.unwrap();
+        let min_index = min_index.unwrap();
+        let maj_num: u32 = *globals.get(&maj_index).unwrap();
+        let min_num: u32 = *globals.get(&min_index).unwrap();
+        if maj_num != WASM_INSTR_VERSION_MAJOR {
+            panic!("wasm wasm-instr major version {maj_num} is not equal to {WASM_INSTR_VERSION_MAJOR}!")
+        }
+        if maj_num < WASM_INSTR_VERSION_MINOR {
+            panic!(
+                "wasm wasm-instr minor version {min_num} is less than {WASM_INSTR_VERSION_MINOR}!"
+            )
         }
     }
 
