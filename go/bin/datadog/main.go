@@ -34,11 +34,11 @@ func main() {
 
 	//
 	// Adapter API
-	adapter, err := datadog.NewDatadogAdapter(nil, wasm)
+	adapter, err := datadog.NewDatadogAdapter(nil)
 	if err != nil {
 		log.Panicln(err)
 	}
-	adapter.Start(collector)
+	adapter.Start(collector, wasm)
 	defer adapter.Wait(collector, time.Millisecond*100)
 	defer adapter.Stop(collector)
 

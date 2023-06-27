@@ -36,7 +36,7 @@ type DatadogAdapter struct {
 	Config  *DatadogConfig
 }
 
-func NewDatadogAdapter(config *DatadogConfig, wasm []byte) (DatadogAdapter, error) {
+func NewDatadogAdapter(config *DatadogConfig) (DatadogAdapter, error) {
 	if config == nil {
 		config = DefaultDatadogConfig()
 	}
@@ -77,17 +77,25 @@ func (d *DatadogAdapter) Wait(collector *observe.Collector, timeout time.Duratio
 	d.AdapterBase.Wait(collector, timeout, nil)
 }
 
-func (d *DatadogAdapter) Start(collector *observe.Collector) {
+func (d *DatadogAdapter) Start(collector *observe.Collector, wasm []byte) error {
+	if err := d.AdapterBase.Start(collector, wasm); err != nil {
+		return err
+	}
+
+	stop := d.StopChan(collector)
+
 	go func() {
 		for {
 			select {
 			case event := <-collector.Events:
 				d.Event(event)
-			case <-d.StopChan(collector):
+			case <-stop:
 				return
 			}
 		}
 	}()
+
+	return nil
 }
 
 func (d *DatadogAdapter) Stop(collector *observe.Collector) {
