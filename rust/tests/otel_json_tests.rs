@@ -47,7 +47,7 @@ mod tests {
         assert_eq!(allocations.count(), 10);
 
         // We know the 11th trace emitted is the first function call
-        let (ids, parent_ids) = ids_and_parent_span_ids(traces.get(11).unwrap());
+        let (ids, parent_ids) = ids_and_parent_span_ids(traces.get(10).unwrap());
 
         // the first span won't have a parent in our list
         for parent_id in &parent_ids[1..] {
