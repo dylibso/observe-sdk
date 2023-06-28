@@ -279,7 +279,14 @@ pub fn add_to_linker<T: 'static>(
     let wasm_instr_info = WasmInstrInfo::new(data)?;
 
     // For now tolerate version info not being present
-    if let WasmInstrInfo {maj_version: Some(maj_num), min_version: Some(min_num), ..} = &wasm_instr_info {
+    if let WasmInstrInfo {
+        maj_version: Some(maj_num),
+        min_version: Some(min_num),
+        ..
+    } = &wasm_instr_info
+    {
+        let maj_num = *maj_num;
+        let min_num = *min_num;
         if maj_num != WASM_INSTR_VERSION_MAJOR {
             anyhow::bail!("wasm wasm-instr major version {maj_num} is not equal to {WASM_INSTR_VERSION_MAJOR}!")
         }
