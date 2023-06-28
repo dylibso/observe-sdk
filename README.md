@@ -1,8 +1,23 @@
 # Observe
 
-Observe is an observability SDK for WebAssembly. At the moment we support `wasmtime` hosts and we output opentelemetry
-data to stdout. We plan to support more adapters and wasm runtimes in the near future. If there is a configuration you are interested in
-reach out to [support@dylibso.com](mailto:support@dylibso.com).
+Observe provides observability SDKs for WebAssembly, enabling continuous monitoring of WebAssembly code as it executes within a runtime. 
+
+This repository contains the Runtime SDKs and the Adapters necessary to have live profiling & tracing, and over time will include a complete observability stack for WebAssembly.
+
+## SDKs and Official Adapters
+
+The table below tracks the supported Runtime SDKs and Adapters for the host application language that is running a WebAssembly module. The Runtime SDKs link to a particular WebAssembly runtime, and the Adapter formats the raw telemetry data to be emitted to a particular output/sink. If you need support for another Adapter, please open an issue here or email [support@dylibso.com](mailto:support@dylibso.com).
+
+**Note:** Any supported Runtime SDK can be paired with any Adapter from the same language. 
+
+| Language | Runtime SDKs | Adapters |
+| -------- | ------------ | -------- |
+| Rust | [Wasmtime](/rust) | [Datadog](/rust/src/adapter/datadog.rs), [OpenTelemetry (STDOUT)](/rust/src/adapter/otelstdout.rs), [Zipkin](/rust/src/adapter/zipkin.rs) |
+| Go | [Wazero](/go) | [Datadog](/go/adapter/datadog/), [OpenTelemetry (STDOUT)](/go/adapter/otel_stdout/) | 
+
+
+_More languages, SDKs, and adapters are coming soon! Reach out to help us prioritize these additional components ([support@dylibso.com](mailto:support@dylibso.com))._
+
 
 ## Overview
 
