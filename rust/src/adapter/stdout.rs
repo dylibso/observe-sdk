@@ -10,6 +10,8 @@ use crate::Event;
 
 use tokio::sync::Mutex;
 
+use super::next_id;
+
 pub type StdoutAdapterContainer = Arc<Mutex<StdoutAdapter>>;
 
 pub struct StdoutAdapter {
@@ -60,8 +62,8 @@ impl Adapter for StdoutAdapter {
         match event {
             Event::Func(id, _) => self._handle_event(id, event),
             Event::Alloc(id, _) => self._handle_event(id, event),
-            Event::Metadata(id, _) => self._handle_event(id, event),
             Event::Shutdown(id) => self.remove_collector(id),
+            _ => {}
         };
     }
 
@@ -90,13 +92,8 @@ impl Collector {
             Event::Alloc(_id, a) => {
                 println!("{:?} Alloc: {}", a.ts.duration_since(self.start), a.amount)
             }
-            Event::Metadata(_id, _) => todo!(),
-            Event::Shutdown(_id) => {} //noop for now
+            _ => {}
         }
     }
 }
 
-fn next_id() -> usize {
-    static COUNTER: AtomicUsize = AtomicUsize::new(1);
-    COUNTER.fetch_add(1, Ordering::Relaxed)
-}

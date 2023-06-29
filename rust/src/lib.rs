@@ -1,7 +1,10 @@
+#[macro_use]
+extern crate derive_builder;
+
 use std::sync::{Arc, Mutex};
 use std::time::SystemTime;
 
-use adapter::TelemetryId;
+use adapter::{TelemetryId, AdapterMetadata};
 use anyhow::{anyhow, Result};
 use log::error;
 use modsurfer_demangle::demangle_function_name;
@@ -109,7 +112,8 @@ impl InstrumentationContext {
 pub enum Event {
     Func(usize, FunctionCall),
     Alloc(usize, Allocation),
-    Metadata(usize, Metadata),
+    TelemetryId(TelemetryId),
+    Metadata(AdapterMetadata),
     Shutdown(usize),
 }
 

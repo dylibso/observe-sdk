@@ -14,7 +14,7 @@ use wasmtime::Linker;
 
 use super::{
     datadog_formatter::{Span, Trace},
-    new_trace_id, next_id, Adapter, Collector, TelemetryId,
+    new_trace_id, next_id, Adapter, Collector, AdapterMetadata, TelemetryId,
 };
 
 #[derive(Clone)]
@@ -36,9 +36,23 @@ impl DatadogAdapterContainer {
 
 pub struct DatadogTraceCtx(Collector);
 
+#[derive(Builder, Default, Debug, Clone)]
+#[builder(setter(into))]
+#[builder(default)]
+pub struct DatadogMetadata {
+    resource_name: String,
+    http_status_code: u16,
+    http_url: String,
+    http_method: String,
+}
+
 impl DatadogTraceCtx {
+    pub async fn set_metadata(&mut self, meta: DatadogMetadata) {
+        self.0.set_metadata(AdapterMetadata::Datadog(meta)).await;
+    }
+
     pub async fn set_trace_id(&mut self, id: TelemetryId) {
-        self.0.set_metadata("trace_id".to_string(), id).await;
+        self.0.set_telemetry_id(id).await;
     }
 
     pub async fn shutdown(&self) {
@@ -49,11 +63,12 @@ impl DatadogTraceCtx {
 #[derive(Clone)]
 pub struct DatadogAdapter {
     pub trace_id: u64,
+    pub meta: Option<DatadogMetadata>,
     pub spans: Vec<Span>,
     pub config: DatadogConfig,
 }
 
-#[derive(Clone)]
+#[derive(Debug, Clone)]
 pub enum DatadogTraceType {
     Web,
     Db,
@@ -92,7 +107,8 @@ impl Display for DatadogSpanKind {
     }
 }
 
-#[derive(Clone)]
+#[derive(Builder, Debug, Clone)]
+#[builder(default)]
 pub struct DatadogConfig {
     pub agent_host: String,
     pub service_name: String,
@@ -108,12 +124,12 @@ impl DatadogConfig {
 
 impl Default for DatadogConfig {
     fn default() -> Self {
-        DatadogConfig {
-            agent_host: "http://localhost:8126".into(),
-            service_name: "my-wasm-service".into(),
-            default_tags: HashMap::new(),
-            trace_type: DatadogTraceType::Web,
-        }
+        DatadogConfigBuilder::default()
+            .agent_host("http://localhost:8126".into())
+            .service_name("my-wasm-service".into())
+            .default_tags(HashMap::new())
+            .trace_type(DatadogTraceType::Web)
+            .build().unwrap()
     }
 }
 
@@ -122,6 +138,7 @@ impl DatadogAdapter {
     pub fn new(config: DatadogConfig) -> DatadogAdapterContainer {
         let adapter = DatadogAdapter {
             trace_id: new_trace_id().into(),
+            meta: None,
             spans: vec![],
             config,
         };
@@ -140,7 +157,7 @@ impl DatadogAdapter {
                 let config = self.config.clone();
                 let span = Span::new(
                     config,
-                    self.trace_id,
+                    self.trace_id.into(),
                     parent_id,
                     function_name.to_string(),
                     f.start,
@@ -165,10 +182,12 @@ impl DatadogAdapter {
                 }
                 Ok(None)
             }
-            Event::Metadata(_id, Metadata { key, value }) => {
-                if key == "trace_id" {
-                    self.trace_id = value.into();
-                }
+            Event::TelemetryId(id) => {
+                self.trace_id = id.into();
+                Ok(None)
+            }
+            Event::Metadata(AdapterMetadata::Datadog(meta)) => {
+                self.meta = Some(meta);
                 Ok(None)
             }
             Event::Shutdown(_id) => {
@@ -178,13 +197,11 @@ impl DatadogAdapter {
                 self.spans.clear();
                 Ok(None)
             }
+            Event::Metadata(_) => {
+                log::warn!("Received a non Datadog metadata object");
+                Ok(None)
+            }
         }
-    }
-
-    pub async fn set_trace_id(collector: &Collector, trace_id: TelemetryId) {
-        collector
-            .set_metadata("trace_id".to_string(), trace_id)
-            .await;
     }
 }
 

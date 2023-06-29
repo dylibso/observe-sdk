@@ -4,22 +4,22 @@ use log::warn;
 use serde_json::json;
 
 use crate::adapter::zipkin_formatter::{ZipkinFormatter, Span, LocalEndpoint};
-use crate::adapter::{Adapter, Collector};
-use crate::{add_to_linker, Event, Metadata};
+use crate::adapter::{Adapter, Collector, new_trace_id};
+use crate::{add_to_linker, Event};
 
 use anyhow::Result;
 use tokio::sync::Mutex;
 use wasmtime::Linker;
 
-use super::{TelemetryId, next_id, new_span_id};
+use super::{next_id, new_span_id, AdapterMetadata, TelemetryId};
 
 pub struct ZipkinAdapterContainer(Arc<Mutex<ZipkinAdapter>>);
 
 pub struct ZipkinTraceCtx(Collector);
 
 impl ZipkinTraceCtx {
-    pub async fn set_trace_id(&mut self, id: TelemetryId) {
-        self.0.set_metadata("trace_id".to_string(), id).await;
+    pub async fn set_metadata(&mut self, meta: ZipkinMetadata) {
+        self.0.set_metadata(AdapterMetadata::Zipkin(meta)).await;
     }
 
     pub async fn shutdown(&self) {
@@ -37,9 +37,16 @@ impl ZipkinAdapterContainer {
     }
 }
 
+
+#[derive(Builder, Debug, Clone)]
+pub struct ZipkinMetadata {
+    pub trace_id: String,
+}
+
 #[derive(Clone)]
 pub struct ZipkinAdapter {
     pub trace_id: String,
+    pub meta: Option<ZipkinMetadata>,
     pub spans: Vec<Span>,
 }
 
@@ -47,7 +54,8 @@ impl ZipkinAdapter {
     #[allow(clippy::new_ret_no_self)]
     pub fn new() -> ZipkinAdapterContainer {
         let adapter = Self {
-            trace_id: new_span_id().to_hex_8(),
+            trace_id: new_trace_id().to_hex_16(),
+            meta: None,
             spans: vec![],
         };
 
@@ -84,11 +92,12 @@ impl ZipkinAdapter {
                 span.add_tag_i64("amount".to_string(), a.amount.into());
                 Some(vec![span])
             }
-            Event::Metadata(_id, Metadata { key, value }) => {
-                if key == "trace_id" {
-                    self.trace_id = value.to_hex_8();
-                }
-
+            Event::Metadata(AdapterMetadata::Zipkin(meta)) => {
+                self.meta = Some(meta);
+                None
+            }
+            Event::TelemetryId(id) => {
+                self.trace_id = id.to_hex_16();
                 None
             }
             Event::Shutdown(_id) => {
@@ -96,6 +105,10 @@ impl ZipkinAdapter {
                     warn!("Failed to shutdown Zipkin adapter {}", e);
                 }
                 self.spans.clear();
+                None
+            }
+            Event::Metadata(_) => {
+                log::warn!("Received non Zipkin metadata event");
                 None
             }
         }

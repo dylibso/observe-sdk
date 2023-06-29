@@ -9,15 +9,19 @@ use anyhow::Result;
 use tokio::sync::Mutex;
 use wasmtime::Linker;
 
-use super::{new_trace_id, next_id, TelemetryId};
+use super::{new_trace_id, next_id, TelemetryId, AdapterMetadata};
 
 pub struct OtelAdapterContainer(Arc<Mutex<OtelStdoutAdapter>>);
 
 pub struct OtelTraceCtx(Collector);
 
 impl OtelTraceCtx {
+    pub async fn set_metadata(&mut self, meta: OtelMetadata) {
+        self.0.set_metadata(AdapterMetadata::Otel(meta)).await;
+    }
+
     pub async fn set_trace_id(&mut self, id: TelemetryId) {
-        self.0.set_metadata("trace_id".to_string(), id).await;
+        self.0.set_telemetry_id(id).await;
     }
 
     pub async fn shutdown(&self) {
@@ -39,9 +43,15 @@ impl OtelAdapterContainer {
     }
 }
 
+#[derive(Builder, Debug, Clone)]
+pub struct OtelMetadata {
+    trace_id: String,
+}
+
 #[derive(Clone)]
 pub struct OtelStdoutAdapter {
     pub trace_id: String,
+    pub metadata: Option<OtelMetadata>,
 }
 
 impl OtelStdoutAdapter {
@@ -49,6 +59,7 @@ impl OtelStdoutAdapter {
     pub fn new() -> OtelAdapterContainer {
         let adapter = Self {
             trace_id: new_trace_id().to_hex_16(),
+            metadata: None,
         };
 
         OtelAdapterContainer(Arc::new(Mutex::new(adapter)))
@@ -86,14 +97,19 @@ impl OtelStdoutAdapter {
                 span.add_attribute_i64("amount".to_string(), a.amount.into());
                 Some(vec![span])
             }
-            Event::Metadata(_id, Metadata { key, value }) => {
-                if key == "trace_id" {
-                    self.trace_id = value.to_hex_16();
-                }
-
+            Event::Metadata(AdapterMetadata::Otel(meta)) => {
+                self.metadata = Some(meta);
+                None
+            }
+            Event::TelemetryId(id) => {
+                self.trace_id = id.to_hex_16();
                 None
             }
             Event::Shutdown(_id) => None,
+            Event::Metadata(_) => {
+                log::warn!("Received a non otel metadata object");
+                None
+            }
         }
     }
 }

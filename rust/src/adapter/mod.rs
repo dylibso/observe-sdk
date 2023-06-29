@@ -14,10 +14,21 @@ use rand::Rng;
 use anyhow::Result;
 use tokio::sync::{mpsc::Sender, Mutex};
 
-use crate::{Event, EventChannel, Metadata};
+use crate::{Event, EventChannel};
+
+use self::datadog::DatadogMetadata;
+use self::otelstdout::OtelMetadata;
+use self::zipkin::ZipkinMetadata;
 
 #[derive(Debug, Clone)]
 pub struct TelemetryId(u128);
+
+#[derive(Debug, Clone)]
+pub enum AdapterMetadata {
+    Datadog(DatadogMetadata),
+    Otel(OtelMetadata),
+    Zipkin(ZipkinMetadata),
+}
 
 impl TelemetryId {
     /// format as 8-byte zero-prefixed hex string
@@ -93,9 +104,16 @@ impl Collector {
         thread::sleep(time::Duration::from_millis(50));
     }
 
-    pub async fn set_metadata(&self, key: String, value: TelemetryId) {
+    pub async fn set_metadata(&self, meta: AdapterMetadata) {
         self.send_events
-            .send(Event::Metadata(0, Metadata { key, value }))
+            .send(Event::Metadata(meta))
+            .await
+            .unwrap();
+    }
+
+    pub async fn set_telemetry_id(&self, id: TelemetryId) {
+        self.send_events
+            .send(Event::TelemetryId(id))
             .await
             .unwrap();
     }

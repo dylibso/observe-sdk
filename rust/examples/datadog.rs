@@ -1,4 +1,4 @@
-use dylibso_observe_sdk::adapter::{datadog::{DatadogAdapter, DatadogConfig}, new_trace_id};
+use dylibso_observe_sdk::adapter::{datadog::{DatadogAdapter, DatadogConfigBuilder, DatadogMetadataBuilder}, new_trace_id};
 use tokio::task;
 
 /// You need the datadog agent running on localhost for this example to work
@@ -13,7 +13,7 @@ pub async fn main() -> anyhow::Result<()> {
     let engine = wasmtime::Engine::new(&config)?;
     let module = wasmtime::Module::new(&engine, &data)?;
 
-    let ddconfig = DatadogConfig::new();
+    let ddconfig = DatadogConfigBuilder::default().build()?;
     let adapter = DatadogAdapter::new(ddconfig);
 
     // Setup WASI
@@ -37,14 +37,26 @@ pub async fn main() -> anyhow::Result<()> {
     // get the function and run it, the events pop into the queue
     // as the function is running
 
+    trace_ctx.set_trace_id(new_trace_id()).await;
+
     let f = instance
         .get_func(&mut store, function_name)
         .expect("function exists");
 
-    trace_ctx.set_trace_id(new_trace_id()).await;
+
     f.call(&mut store, &[], &mut []).unwrap();
 
-    task::yield_now().await;
+    // optionally set metadata
+    // this can be set anytime before calling shutdown, but overwrites
+    // the whole meta object each time
+    let meta = DatadogMetadataBuilder::default()
+        .http_url("https://planktonic.com/run?name=mymodule")
+        .http_status_code(201u16)
+        .http_method("POST")
+        .build()?;
+    trace_ctx.set_metadata(meta).await;
+
+    // call shutdown to mark the end of the trace
     trace_ctx.shutdown().await;
 
     Ok(())

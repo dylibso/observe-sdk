@@ -1,5 +1,4 @@
-use dylibso_observe_sdk::adapter::otelstdout::OtelStdoutAdapter;
-use dylibso_observe_sdk::adapter::new_trace_id;
+use dylibso_observe_sdk::adapter::otelstdout::{OtelStdoutAdapter, OtelMetadataBuilder};
 use tokio::task;
 
 #[tokio::main]
@@ -40,7 +39,8 @@ pub async fn main() -> anyhow::Result<()> {
         .get_func(&mut store, function_name)
         .expect("function exists");
 
-    trace_ctx.set_trace_id(new_trace_id()).await;
+    let meta = OtelMetadataBuilder::default().build()?;
+    trace_ctx.set_metadata(meta).await;
     f.call(&mut store, &[], &mut []).unwrap();
 
     task::yield_now().await;
