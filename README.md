@@ -129,4 +129,3 @@ make instrument WASM_INSTR_API_KEY=<your-api-key>
 One of the test adapters will output to Zipkin, defaulting to one running on localhost.
 
     docker run -d -p 9411:9411 openzipkin/zipkin
-
