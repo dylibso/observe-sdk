@@ -1,122 +1,99 @@
-pub mod otel_formatter;
+use tokio::sync::mpsc::{Sender, channel};
+use anyhow::Result;
+use log::warn;
+use wasmtime::Linker;
+
+use crate::{
+    Event,
+    TelemetryId,
+    context::add_to_linker,
+    collector::{Collector, CollectorHandle}, TraceEvent
+};
+
 pub mod otelstdout;
-pub mod stdout;
+pub mod otel_formatter;
 pub mod datadog;
 pub mod datadog_formatter;
-pub mod zipkin_formatter;
 pub mod zipkin;
+pub mod zipkin_formatter;
+pub mod stdout;
 
-use core::time;
-use std::{sync::Arc, thread};
-use std::sync::atomic::{AtomicUsize, Ordering};
 
-use rand::Rng;
-use anyhow::Result;
-use tokio::sync::{mpsc::Sender, Mutex};
-
-use crate::{Event, EventChannel, Metadata};
-
-#[derive(Debug, Clone)]
-pub struct TelemetryId(u128);
-
-impl TelemetryId {
-    /// format as 8-byte zero-prefixed hex string
-    pub fn to_hex_8(&self) -> String {
-        // 8 bytes is 16 chars
-        format!("{:016x}", self.0 as u64)
-    }
-    /// format as 16-byte zero-prefixed hex string
-    pub fn to_hex_16(&self) -> String {
-        // 16 bytes is 32 chars
-        format!("{:032x}", self.0)
-    }
-}
-
-impl From<TelemetryId> for u64 {
-    fn from(v: TelemetryId) -> Self {
-        v.0 as u64
-    }
-}
-
-impl From<TelemetryId> for u128 {
-    fn from(v: TelemetryId) -> Self {
-        v.0
-    }
-}
-
-pub fn new_trace_id() -> TelemetryId {
-    let x = rand::thread_rng().gen::<u128>();
-    TelemetryId(x)
-}
-
-pub fn new_span_id() -> TelemetryId {
-    let x = rand::thread_rng().gen::<u128>();
-    TelemetryId(x)
-}
-
+/// An adapter represents a sink for events and is mostly implementation specific
+/// to the sink that the data is being sent to and the format that the data is in.
+/// Collectors batch up events and metadata into a TraceEvent and then sends this
+/// payload to the Adapter when the module is done running. When implementing an adapter,
+/// your job is to handle this event by implementing the function handle_trace_event.
+///
+/// ┌────────────────┐               ┌──────────────┐                ┌────────────────┐
+/// │   Collector    │               │    Adapter   │                │   Collector    │
+/// │                │               │              │                │                │
+/// │                │               │              │                │                │
+/// ├────────────────┤  <TraceEvent> ├──────────────┤  <TraceEvent>  ├────────────────┤
+/// │  adapter_tx    ├──────────────►│ adapter_rx   │◄───────────────┤  adapter_tx    │
+/// └────────────────┘               └──────────────┘                └────────────────┘
 pub trait Adapter {
-    fn handle_event(&mut self, event: Event); 
-    fn shutdown(&self) -> Result<()>;
-}
+    /// Callback which is used when a TraceEvent is sent from the Collector
+    /// This must be implemented by an Adapter
+    fn handle_trace_event(&mut self, evt: TraceEvent) -> Result<()>;
 
-pub struct Collector {
-    id: usize,
-    send_events: Sender<Event>,
-}
-
-impl Collector {
-    pub async fn new<A: Adapter + Send + Sync + 'static>(
-        adapter: Arc<Mutex<A>>,
-        id: usize,
-        events: EventChannel,
-    ) -> Result<Collector> {
-        let (events_tx, mut events_rx) = events;
+    /// Spawns the tokio task and returns a cloneable handle to this adapter
+    fn spawn(mut adapter: impl Adapter + Send + 'static) -> AdapterHandle {
+        let (adapter_tx, mut adapter_rx) = channel(128);
         tokio::spawn(async move {
-            while let Some(event) = events_rx.recv().await {
-                adapter.lock().await.handle_event(event);
+            while let Some(evt) = adapter_rx.recv().await {
+                if let Err(e) = adapter.handle_trace_event(evt) {
+                    warn!("Error handling events in adapter {e}");
+                }
             }
         });
-
-        Ok(Collector {
-            id,
-            send_events: events_tx,
-        })
-    }
-
-    // flush any remaning spans
-    pub async fn shutdown(&self) {
-        // close event stream and join the thread handle
-        self.send_events
-            .send(Event::Shutdown(self.id))
-            .await
-            .unwrap();
-        thread::sleep(time::Duration::from_millis(50));
-    }
-
-    pub async fn set_metadata(&self, key: String, value: TelemetryId) {
-        self.send_events
-            .send(Event::Metadata(0, Metadata { key, value }))
-            .await
-            .unwrap();
+        AdapterHandle { adapter_tx }
     }
 }
 
-fn next_id() -> usize {
-    static COUNTER: AtomicUsize = AtomicUsize::new(1);
-    COUNTER.fetch_add(1, Ordering::Relaxed)
+
+/// Represents handle into the trace that is currently executing.
+#[derive(Clone, Debug)]
+pub struct TraceContext {
+    collector: CollectorHandle,
 }
 
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-
-    #[test]
-    fn telemetry_ids() {
-        let id = new_trace_id();
-        assert_eq!(id.to_hex_8().len(), 16);
-        assert_eq!(id.to_hex_16().len(), 32);
+impl TraceContext {
+    pub async fn set_trace_id(&self, id: TelemetryId) -> Result<()> {
+        self.collector.send(Event::TraceId(id)).await?;
+        Ok(())
     }
 
+    pub async fn shutdown(&self) -> Result<()> {
+        self.collector.send(Event::Shutdown).await?;
+        Ok(())
+    }
+}
+
+/// Represents a cloneable handle to the Adapter. Calling start gives
+/// you a TraceContext that is linked to the Wasm module.
+#[derive(Clone, Debug)]
+pub struct AdapterHandle {
+    adapter_tx: Sender<TraceEvent>
+}
+
+impl AdapterHandle {
+    pub fn start<T: 'static>(
+        &self,
+        linker: &mut Linker<T>,
+        data: &[u8]
+    ) -> Result<TraceContext> {
+        let (collector, collector_rx) = add_to_linker(linker, data)?;
+        Collector::start(collector_rx, self.clone());
+        Ok(
+            TraceContext {
+                collector,
+            }
+        )
+    }
+
+    pub fn try_send(&self, event: TraceEvent) -> Result<()> {
+        self.adapter_tx.try_send(event)?;
+        Ok(())
+    }
 }

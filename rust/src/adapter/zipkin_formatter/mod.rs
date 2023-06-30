@@ -1,7 +1,8 @@
 use std::time::SystemTime;
 use std::collections::HashMap;
 use serde::Serialize;
-use super::new_span_id;
+
+use crate::new_span_id;
 
 #[derive(Default, Debug, Clone, PartialEq, Serialize)]
 #[serde(rename_all = "camelCase")]
@@ -96,4 +97,3 @@ mod tests {
         assert_eq!(span.name, name);
     }
 }
-

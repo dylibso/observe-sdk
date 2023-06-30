@@ -1,9 +1,8 @@
 use anyhow::Result;
 use std::{collections::HashMap, time::SystemTime};
-
 use serde::Serialize;
-
-use super::{datadog::DatadogConfig, new_span_id};
+use crate::new_span_id;
+use super::datadog::DatadogConfig;
 
 #[derive(Default)]
 pub struct DatadogFormatter {

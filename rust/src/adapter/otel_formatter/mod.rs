@@ -1,8 +1,6 @@
+use crate::new_span_id;
 use std::time::SystemTime;
-
 use serde::{Serialize, Serializer};
-
-use super::new_span_id;
 
 #[derive(Default, Debug, Clone, PartialEq, Serialize)]
 #[serde(rename_all = "camelCase")]
@@ -234,3 +232,4 @@ mod tests {
         assert!(json.contains("parentSpanId\":\"abcd\""));
     }
 }
+

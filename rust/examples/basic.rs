@@ -1,8 +1,4 @@
-use dylibso_observe_sdk::{
-    adapter::{stdout::StdoutAdapter, Collector},
-    add_to_linker,
-};
-use tokio::task;
+use dylibso_observe_sdk::adapter::stdout::StdoutAdapter;
 
 #[tokio::main]
 pub async fn main() -> anyhow::Result<()> {
@@ -15,7 +11,7 @@ pub async fn main() -> anyhow::Result<()> {
     let engine = wasmtime::Engine::new(&config)?;
     let module = wasmtime::Module::new(&engine, &data)?;
 
-    let adapter = StdoutAdapter::new();
+    let adapter = StdoutAdapter::create();
 
     // Setup WASI
     let wasi_ctx = wasmtime_wasi::WasiCtxBuilder::new()
@@ -31,10 +27,7 @@ pub async fn main() -> anyhow::Result<()> {
     // Provide the observability functions to the `Linker` to be made available
     // to the instrumented guest code. These are safe to add and are a no-op
     // if guest code is uninstrumented.
-    let id = adapter.lock().await.new_collector();
-    let events = add_to_linker(id, &mut linker, &data)?;
-
-    let collector = Collector::new(adapter, id, events).await?;
+    let trace_ctx = adapter.start(&mut linker, &data)?;
 
     let instance = linker.instantiate(&mut store, &module)?;
 
@@ -45,8 +38,7 @@ pub async fn main() -> anyhow::Result<()> {
         .get_func(&mut store, function_name)
         .expect("function exists");
     f.call(&mut store, &[], &mut []).unwrap();
-    task::yield_now().await;
-    collector.shutdown().await;
+    trace_ctx.shutdown().await?;
 
     Ok(())
 }

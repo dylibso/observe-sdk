@@ -1,57 +1,19 @@
-use crate::{adapter::datadog_formatter::DatadogFormatter, add_to_linker, Event, Metadata};
-use anyhow::Result;
+use anyhow::{Result, Context};
 use log::warn;
 use serde_json::json;
 use std::{
     collections::HashMap,
     fmt::{Display, Formatter},
-    sync::Arc, time::Duration,
+    time::Duration,
 };
-use tokio::sync::Mutex;
 use ureq;
 use url::Url;
-use wasmtime::Linker;
+
+use crate::{Event, TraceEvent};
 
 use super::{
-    datadog_formatter::{Span, Trace},
-    new_trace_id, next_id, Adapter, Collector, TelemetryId,
+    datadog_formatter::{Span, Trace, DatadogFormatter}, AdapterHandle, Adapter
 };
-
-#[derive(Clone)]
-pub struct DatadogAdapterContainer(Arc<Mutex<DatadogAdapter>>);
-
-impl DatadogAdapterContainer {
-    pub async fn start<T: 'static>(
-        &self,
-        linker: &mut Linker<T>,
-        data: &[u8],
-    ) -> Result<DatadogTraceCtx> {
-        let id = next_id();
-        let events = add_to_linker(id, linker, data)?;
-        let collector = Collector::new(self.0.clone(), id, events).await?;
-
-        Ok(DatadogTraceCtx(collector))
-    }
-}
-
-pub struct DatadogTraceCtx(Collector);
-
-impl DatadogTraceCtx {
-    pub async fn set_trace_id(&mut self, id: TelemetryId) {
-        self.0.set_metadata("trace_id".to_string(), id).await;
-    }
-
-    pub async fn shutdown(&self) {
-        self.0.shutdown().await;
-    }
-}
-
-#[derive(Clone)]
-pub struct DatadogAdapter {
-    pub trace_id: u64,
-    pub spans: Vec<Span>,
-    pub config: DatadogConfig,
-}
 
 #[derive(Clone)]
 pub enum DatadogTraceType {
@@ -92,6 +54,7 @@ impl Display for DatadogSpanKind {
     }
 }
 
+/// Config options for DatadogAdapter
 #[derive(Clone)]
 pub struct DatadogConfig {
     pub agent_host: String,
@@ -117,30 +80,57 @@ impl Default for DatadogConfig {
     }
 }
 
+/// An adapter to send events from your module to a [Datadog Agent](https://docs.datadoghq.com/agent/).
+pub struct DatadogAdapter {
+    traces: Vec<Vec<Span>>,
+    config: DatadogConfig,
+    // TODO add bucketing / flushing implementation
+    //delay: Delay,
+    //handle: AdapterHandle,
+    //triggered_flush: bool,
+}
+
+impl Adapter for DatadogAdapter {
+    fn handle_trace_event(&mut self, trace_evt: TraceEvent) -> Result<()> {
+        let mut spans = vec![];
+        let trace_id = trace_evt.telemetry_id.context("Datadog expects a trace id to be set")?.into();
+        for span in trace_evt.events {
+            self.event_to_spans(&mut spans, span, None, trace_id)?;
+        }
+        self.traces.push(spans);
+        // TODO add flush logic here instead of dumping
+        // we should check if a flush is triggered, if not 
+        // then we should kick off a flush at some point in the future
+        self.dump_traces()?;
+
+        Ok(())
+    }
+}
+
 impl DatadogAdapter {
-    #[allow(clippy::new_ret_no_self)]
-    pub fn new(config: DatadogConfig) -> DatadogAdapterContainer {
-        let adapter = DatadogAdapter {
-            trace_id: new_trace_id().into(),
-            spans: vec![],
+    fn new(config: DatadogConfig) -> Self {
+        Self {
             config,
-        };
-
-        DatadogAdapterContainer(Arc::new(Mutex::new(adapter)))
+            traces: vec![]
+        }
     }
 
-    pub fn new_collector(&mut self) -> usize {
-        next_id()
+    /// Creates the Datadog adapter and spawns a task for it.
+    /// This should ideally be created once per process of
+    /// your rust application.
+    pub fn create(config: DatadogConfig) -> AdapterHandle {
+        let adapter = Self::new(config);
+        Self::spawn(adapter)
     }
 
-    fn _handle_event(&mut self, event: Event, parent_id: Option<u64>) -> Result<Option<Vec<Span>>> {
+    fn event_to_spans(&self, spans: &mut Vec<Span>, event: Event, parent_id: Option<u64>, trace_id: u64) -> Result<()> {
         match event {
-            Event::Func(_id, f) => {
+            Event::Func(f) => {
                 let function_name = &f.name.clone().unwrap_or("unknown-name".to_string());
                 let config = self.config.clone();
                 let span = Span::new(
                     config,
-                    self.trace_id,
+                    trace_id,
                     parent_id,
                     function_name.to_string(),
                     f.start,
@@ -148,77 +138,55 @@ impl DatadogAdapter {
                 )?;
 
                 let span_id = Some(span.span_id);
-                let mut spans = vec![span];
+
+                spans.push(span);
 
                 for e in f.within.iter() {
-                    if let Some(mut s) = self._handle_event(e.to_owned(), span_id)? {
-                        spans.append(&mut s);
-                    };
+                    self.event_to_spans(spans, e.to_owned(), span_id, trace_id)?
                 }
-
-                Ok(Some(spans))
             }
-            Event::Alloc(_id, a) => {
+            Event::Alloc(a) => {
                 // TODO i seem to be losing this value
-                if let Some(span) = self.spans.last_mut() {
+                if let Some(span) = spans.last_mut() {
                     span.add_allocation(a.amount);
                 }
-                Ok(None)
             }
-            Event::Metadata(_id, Metadata { key, value }) => {
-                if key == "trace_id" {
-                    self.trace_id = value.into();
-                }
-                Ok(None)
-            }
-            Event::Shutdown(_id) => {
-                // when we receive the shutdown
-                // then dump the trace to the agent
-                self.shutdown()?;
-                self.spans.clear();
-                Ok(None)
-            }
+            _ => {}
         }
+        Ok(())
     }
 
-    pub async fn set_trace_id(collector: &Collector, trace_id: TelemetryId) {
-        collector
-            .set_metadata("trace_id".to_string(), trace_id)
-            .await;
-    }
-}
-
-impl Adapter for DatadogAdapter {
-    // flush any remaining spans to Datadog Agent
-    fn shutdown(&self) -> Result<()> {
+    fn dump_traces(&mut self) -> Result<()> {
         let mut dtf = DatadogFormatter::new();
-        let mut trace = Trace::new();
-        let mut first_span = true;
-        for span in &self.spans {
-            let mut span = span.clone();
-            if first_span {
-                // TODO for the moment i'm going to comment this stuff out until
-                // we come up with a nice API to let the programmer passs it in.
-                // maybe it can come in via shutdown or something?
-                //
-                // let mut meta = self.config.default_tags.clone();
-                // meta.insert("http.status_code".to_string(), "200".to_string());
-                // meta.insert("http.method".to_string(), "POST".to_string());
-                // meta.insert("http.url".to_string(), "http://localhost:3000".to_string());
-                // meta.insert("span.kind".to_string(), DatadogSpanKind::Internal.to_string());
-                // // TODO don't throw away what be be some existing meta here
-                // span.meta = meta;
+        for trace_spans in &self.traces {
+            let mut trace = Trace::new();
+            let mut first_span = true;
+            for span in trace_spans {
+                let mut span = span.clone();
+                if first_span {
+                    // TODO for the moment i'm going to comment this stuff out until
+                    // we come up with a nice API to let the programmer passs it in.
+                    // maybe it can come in via shutdown or something?
+                    //
+                    // let mut meta = self.config.default_tags.clone();
+                    // meta.insert("http.status_code".to_string(), "200".to_string());
+                    // meta.insert("http.method".to_string(), "POST".to_string());
+                    // meta.insert("http.url".to_string(), "http://localhost:3000".to_string());
+                    // meta.insert("span.kind".to_string(), DatadogSpanKind::Internal.to_string());
+                    // // TODO don't throw away what be be some existing meta here
+                    // span.meta = meta;
 
-                // TODO this value should come from programmer
-                span.resource = "request".into();
-                span.typ = Some(self.config.trace_type.to_string());
-                first_span = false;
+                    // TODO this value should come from programmer
+                    span.resource = "request".into();
+                    span.typ = Some(DatadogTraceType::Web.to_string());
+                    first_span = false;
+                }
+                trace.push(span);
             }
-            trace.push(span);
+            dtf.traces.push(trace);
         }
-        dtf.traces.push(trace);
 
-        let host = Url::parse(&self.config.agent_host)?;
+        let host = Url::parse("http://localhost:8126")?;
         let url = host.join("/v0.3/traces")?.to_string();
         let j = json!(&dtf.traces);
         let body = serde_json::to_string(&j)?;
@@ -233,21 +201,11 @@ impl Adapter for DatadogAdapter {
                 "Request to datadog agent failed with status: {:#?}",
                 response
             );
+        } else {
+            // clear the traces because we've successfully submitted them
+            self.traces.clear();
         }
 
         Ok(())
-    }
-
-    fn handle_event(&mut self, event: Event) {
-        match self._handle_event(event, None) {
-            Ok(result) => {
-                if let Some(spans) = result {
-                    for span in spans {
-                        self.spans.push(span);
-                    }
-                }
-            }
-            Err(e) => warn!("{}", e),
-        }
     }
 }

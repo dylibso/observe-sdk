@@ -1,114 +1,75 @@
-use std::sync::Arc;
-use std::time::Duration;
+use anyhow::{Result, Context};
 use log::warn;
 use serde_json::json;
+use std::time::Duration;
+use ureq;
 
-use crate::adapter::zipkin_formatter::{ZipkinFormatter, Span, LocalEndpoint};
-use crate::adapter::{Adapter, Collector};
-use crate::{add_to_linker, Event, Metadata};
+use crate::{Event, TraceEvent};
 
-use anyhow::Result;
-use tokio::sync::Mutex;
-use wasmtime::Linker;
+use super::{
+    zipkin_formatter::{Span, ZipkinFormatter, LocalEndpoint}, AdapterHandle, Adapter
+};
 
-use super::{TelemetryId, next_id, new_span_id};
-
-pub struct ZipkinAdapterContainer(Arc<Mutex<ZipkinAdapter>>);
-
-pub struct ZipkinTraceCtx(Collector);
-
-impl ZipkinTraceCtx {
-    pub async fn set_trace_id(&mut self, id: TelemetryId) {
-        self.0.set_metadata("trace_id".to_string(), id).await;
-    }
-
-    pub async fn shutdown(&self) {
-        self.0.shutdown().await;
-    }
-}
-
-impl ZipkinAdapterContainer {
-    pub async fn start<T: 'static>(&self, linker: &mut Linker<T>, data: &[u8]) -> Result<ZipkinTraceCtx> {
-        let id = next_id();
-        let events = add_to_linker(id, linker, data)?;
-        let collector = Collector::new(self.0.clone(), id, events).await?;
-
-        Ok(ZipkinTraceCtx(collector))
-    }
-}
-
-#[derive(Clone)]
+/// An adapter to send events from your module to a [Zipkin Instance](https://zipkin.io/).
 pub struct ZipkinAdapter {
-    pub trace_id: String,
-    pub spans: Vec<Span>,
+}
+
+impl Adapter for ZipkinAdapter {
+    fn handle_trace_event(&mut self, trace_evt: TraceEvent) -> Result<()> {
+        let mut spans = vec![];
+        let trace_id = trace_evt.telemetry_id.context("Zipkin expects a trace id to be set")?.to_hex_16();
+        for span in trace_evt.events {
+            self.event_to_spans(&mut spans, span, None, trace_id.clone())?;
+        }
+        self.dump_trace(spans)?;
+        Ok(())
+    }
 }
 
 impl ZipkinAdapter {
-    #[allow(clippy::new_ret_no_self)]
-    pub fn new() -> ZipkinAdapterContainer {
-        let adapter = Self {
-            trace_id: new_span_id().to_hex_8(),
-            spans: vec![],
-        };
 
-        ZipkinAdapterContainer(Arc::new(Mutex::new(adapter)))
+    /// Creates the Zipkin adapter and spawns a task for it.
+    /// This should ideally be created once per process of
+    /// your rust application.
+    pub fn create() -> AdapterHandle {
+        Self::spawn(Self {})
     }
 
-    fn _handle_event(&mut self, event: Event, parent_span_id: Option<String>) -> Option<Vec<Span>> {
+    fn event_to_spans(&self, spans: &mut Vec<Span>, event: Event, parent_id: Option<String>, trace_id: String) -> Result<()> {
         match event {
-            Event::Func(_id, f) => {
+            Event::Func(f) => {
                 let name = f.name.clone().unwrap_or("unknown-name".to_string());
 
                 let span =
-                    Span::new(self.trace_id.clone(), parent_span_id, name, f.start, f.end);
-
+                    Span::new(trace_id.clone(), parent_id, name, f.start, f.end);
                 let span_id = Some(span.id.clone());
-                let mut spans = vec![span];
+                spans.push(span);
 
                 for e in f.within.iter() {
-                    if let Some(mut s) = self._handle_event(e.to_owned(), span_id.clone()) {
-                        spans.append(&mut s);
-                    };
+                    self.event_to_spans(spans, e.to_owned(), span_id.clone(), trace_id.clone())?;
                 }
-
-                Some(spans)
             }
-            Event::Alloc(_id, a) => {
+            Event::Alloc(a) => {
                 let mut span = Span::new(
-                    self.trace_id.clone(),
-                    parent_span_id,
+                    trace_id,
+                    parent_id,
                     "allocation".to_string(),
                     a.ts,
                     a.ts,
                 );
                 span.add_tag_i64("amount".to_string(), a.amount.into());
-                Some(vec![span])
+                spans.push(span);
             }
-            Event::Metadata(_id, Metadata { key, value }) => {
-                if key == "trace_id" {
-                    self.trace_id = value.to_hex_8();
-                }
-
-                None
-            }
-            Event::Shutdown(_id) => {
-                if let Err(e) = self.shutdown() {
-                    warn!("Failed to shutdown Zipkin adapter {}", e);
-                }
-                self.spans.clear();
-                None
-            }
+            _ => {}
         }
+        Ok(())
     }
-}
 
-impl Adapter for ZipkinAdapter {
-    // flush any remaning spans
-    fn shutdown(&self) -> Result<()> {
+    fn dump_trace(&mut self, spans: Vec<Span>) -> Result<()> {
         let mut ztf = ZipkinFormatter::new();
-        ztf.spans = self.spans.clone();
+        ztf.spans = spans;
 
-        let mut first_span = ztf.spans.first_mut().unwrap();
+        let mut first_span = ztf.spans.first_mut().context("No spans to send to zipkin")?;
         first_span.local_endpoint = Some(LocalEndpoint { service_name: Some("my_service".into()) });
 
         let url = "http://localhost:9411/api/v2/spans";
@@ -129,13 +90,5 @@ impl Adapter for ZipkinAdapter {
         }
 
         Ok(())
-    }
-
-    fn handle_event(&mut self, event: Event) {
-        if let Some(spans) = self._handle_event(event, None) {
-            for span in spans {
-                self.spans.push(span);
-            }
-        };
     }
 }
