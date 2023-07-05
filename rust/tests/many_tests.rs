@@ -22,8 +22,8 @@ mod tests {
 
         // First test that the modules ran the expected number of times
         assert_eq!(
-            hellos > 200,
-            true
+            hellos,
+            250
         );
 
         // check that every allocation was called
@@ -39,7 +39,7 @@ mod tests {
         let allocations = traces
             .iter()
             .filter(|t| attribute_of_first_span(t, "name".to_string()).unwrap() == "allocation").count();
-        assert_eq!(allocations >= 1, true);
+        assert_eq!(allocations, 25);
         Ok(())
     }
 }
