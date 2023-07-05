@@ -1,4 +1,4 @@
-use dylibso_observe_sdk::{adapter::zipkin::ZipkinAdapter, new_trace_id};
+use dylibso_observe_sdk::adapter::zipkin::ZipkinAdapter;
 
 #[tokio::main]
 pub async fn main() -> anyhow::Result<()> {
@@ -38,7 +38,6 @@ pub async fn main() -> anyhow::Result<()> {
         .get_func(&mut store, function_name)
         .expect("function exists");
 
-    trace_ctx.set_trace_id(new_trace_id()).await;
     f.call(&mut store, &[], &mut []).unwrap();
 
     trace_ctx.shutdown().await;

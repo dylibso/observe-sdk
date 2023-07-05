@@ -1,4 +1,4 @@
-use anyhow::{Result, Context};
+use anyhow::Result;
 use log::warn;
 use serde_json::json;
 use std::{
@@ -93,7 +93,7 @@ pub struct DatadogAdapter {
 impl Adapter for DatadogAdapter {
     fn handle_trace_event(&mut self, trace_evt: TraceEvent) -> Result<()> {
         let mut spans = vec![];
-        let trace_id = trace_evt.telemetry_id.context("Datadog expects a trace id to be set")?.into();
+        let trace_id = trace_evt.telemetry_id.into();
         for span in trace_evt.events {
             self.event_to_spans(&mut spans, span, None, trace_id)?;
         }

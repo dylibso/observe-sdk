@@ -17,7 +17,7 @@ pub struct ZipkinAdapter {
 impl Adapter for ZipkinAdapter {
     fn handle_trace_event(&mut self, trace_evt: TraceEvent) -> Result<()> {
         let mut spans = vec![];
-        let trace_id = trace_evt.telemetry_id.context("Zipkin expects a trace id to be set")?.to_hex_16();
+        let trace_id = trace_evt.telemetry_id.to_hex_16();
         for span in trace_evt.events {
             self.event_to_spans(&mut spans, span, None, trace_id.clone())?;
         }

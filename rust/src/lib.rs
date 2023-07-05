@@ -56,7 +56,7 @@ pub enum Event {
 #[derive(Debug, Clone)]
 pub struct TraceEvent {
     events: Vec<Event>,
-    telemetry_id: Option<TelemetryId>,
+    telemetry_id: TelemetryId,
 }
 
 #[derive(Debug, Clone)]

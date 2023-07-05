@@ -14,7 +14,7 @@ impl Adapter for OtelStdoutAdapter {
         let mut otf = OtelFormatter::new();
         let mut rs = ResourceSpan::new();
         let mut spans = vec![];
-        let trace_id = trace_evt.telemetry_id.context("Otel Formatter expects a trace id to be set")?.to_hex_16();
+        let trace_id = trace_evt.telemetry_id.to_hex_16();
         for span in trace_evt.events {
             self.event_to_spans(&mut spans, span, None, trace_id.clone())?;
         }

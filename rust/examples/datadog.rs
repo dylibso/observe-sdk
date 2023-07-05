@@ -1,4 +1,4 @@
-use dylibso_observe_sdk::{adapter::datadog::{DatadogAdapter, DatadogConfig}, new_trace_id};
+use dylibso_observe_sdk::adapter::datadog::{DatadogAdapter, DatadogConfig};
 
 /// You need the datadog agent running on localhost for this example to work
 #[tokio::main]
@@ -32,9 +32,6 @@ pub async fn main() -> anyhow::Result<()> {
     let trace_ctx = adapter.start(&mut linker, &data)?;
 
     let instance = linker.instantiate(&mut store, &module)?;
-
-    let trace_id = new_trace_id();
-    trace_ctx.set_trace_id(trace_id).await;
 
     let f = instance
         .get_func(&mut store, function_name)
