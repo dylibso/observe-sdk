@@ -1,6 +1,5 @@
-use dylibso_observe_sdk::adapter::otelstdout::OtelStdoutAdapter;
+use dylibso_observe_sdk::{adapter::otelstdout::OtelStdoutAdapter, new_trace_id};
 use rand::{seq::SliceRandom, thread_rng};
-use tokio::task;
 
 #[tokio::main]
 pub async fn main() -> anyhow::Result<()> {
@@ -43,6 +42,7 @@ pub async fn main() -> anyhow::Result<()> {
         instances.shuffle(&mut thread_rng());
 
         for (trace_ctx, instance, mut store) in instances {
+            trace_ctx.set_trace_id(new_trace_id()).await?;
             // get the function and run it, the events pop into the queue
             // as the function is running
             tokio::spawn(async move {
