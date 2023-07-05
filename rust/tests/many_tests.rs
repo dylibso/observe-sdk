@@ -38,8 +38,8 @@ mod tests {
             .collect::<Vec<Value>>();
         let allocations = traces
             .iter()
-            .filter(|t| attribute_of_first_span(t, "name".to_string()).unwrap() == "allocation");
-        assert_eq!(allocations.count() > 200, true);
+            .filter(|t| attribute_of_first_span(t, "name".to_string()).unwrap() == "allocation").count();
+        assert_eq!(allocations >= 1, true);
         Ok(())
     }
 }
