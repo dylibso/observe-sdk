@@ -59,14 +59,16 @@ pub struct TraceContext {
 }
 
 impl TraceContext {
-    pub async fn set_trace_id(&self, id: TelemetryId) -> Result<()> {
-        self.collector.send(Event::TraceId(id)).await?;
-        Ok(())
+    pub async fn set_trace_id(&self, id: TelemetryId) {
+        if let Err(e) = self.collector.send(Event::TraceId(id)).await {
+            warn!("Failed to set the trace id {}", e);
+        }
     }
 
-    pub async fn shutdown(&self) -> Result<()> {
-        self.collector.send(Event::Shutdown).await?;
-        Ok(())
+    pub async fn shutdown(&self) {
+        if let Err(e) = self.collector.send(Event::Shutdown).await {
+            warn!("Failed to shutdown collector {}", e);
+        }
     }
 }
 

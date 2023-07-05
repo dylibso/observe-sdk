@@ -38,7 +38,7 @@ pub async fn main() -> anyhow::Result<()> {
         .get_func(&mut store, function_name)
         .expect("function exists");
     f.call(&mut store, &[], &mut []).unwrap();
-    trace_ctx.shutdown().await?;
+    trace_ctx.shutdown().await;
 
     Ok(())
 }

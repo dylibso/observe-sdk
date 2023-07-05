@@ -43,7 +43,7 @@ pub async fn main() -> anyhow::Result<()> {
 
         let mut tasks = vec![];
         for (trace_ctx, instance, mut store) in instances {
-            trace_ctx.set_trace_id(new_trace_id()).await?;
+            trace_ctx.set_trace_id(new_trace_id()).await;
             // get the function and run it, the events pop into the queue
             // as the function is running
             let t = tokio::spawn(async move {
@@ -53,9 +53,7 @@ pub async fn main() -> anyhow::Result<()> {
 
                 f.call(&mut store, &[], &mut []).unwrap();
 
-                if let Err(e) = trace_ctx.shutdown().await {
-                    eprintln!("{}", e);
-                }
+                trace_ctx.shutdown().await;
             });
             tasks.push(t);
         }

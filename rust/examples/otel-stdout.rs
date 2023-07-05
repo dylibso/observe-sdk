@@ -38,10 +38,10 @@ pub async fn main() -> anyhow::Result<()> {
         .get_func(&mut store, function_name)
         .expect("function exists");
 
-    trace_ctx.set_trace_id(new_trace_id()).await?;
+    trace_ctx.set_trace_id(new_trace_id()).await;
     f.call(&mut store, &[], &mut []).unwrap();
 
-    trace_ctx.shutdown().await?;
+    trace_ctx.shutdown().await;
 
     Ok(())
 }

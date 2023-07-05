@@ -34,7 +34,7 @@ pub async fn main() -> anyhow::Result<()> {
     let instance = linker.instantiate(&mut store, &module)?;
 
     let trace_id = new_trace_id();
-    trace_ctx.set_trace_id(trace_id).await?;
+    trace_ctx.set_trace_id(trace_id).await;
 
     let f = instance
         .get_func(&mut store, function_name)
@@ -43,7 +43,7 @@ pub async fn main() -> anyhow::Result<()> {
     //trace_ctx.set_trace_id(new_trace_id()).await?;
     f.call(&mut store, &[], &mut []).unwrap();
 
-    trace_ctx.shutdown().await?;
+    trace_ctx.shutdown().await;
 
     Ok(())
 }
