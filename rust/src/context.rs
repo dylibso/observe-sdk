@@ -2,7 +2,7 @@ use std::{time::SystemTime, sync::{Arc, Mutex}, collections::HashMap};
 use modsurfer_demangle::demangle_function_name;
 use tokio::sync::mpsc::{Sender, Receiver, channel};
 use anyhow::{anyhow, Result};
-use log::error;
+use log::{error, warn};
 use wasmtime::{Caller, FuncType, Linker, Val, ValType};
 
 use crate::{wasm_instr::WasmInstrInfo, Event, FunctionCall, Allocation, collector::CollectorHandle};
@@ -160,7 +160,10 @@ pub fn add_to_linker<T: 'static>(
     let wasm_instr_info = WasmInstrInfo::new(data)?;
 
     // check that the version number is supported with this SDK
-    wasm_instr_info.check_version()?;
+    // TODO decide what to do about this error?
+    if let Err(e) = wasm_instr_info.check_version() {
+        warn!("{}", e);
+    }
 
     let t = FuncType::new([ValType::I32], []);
 
