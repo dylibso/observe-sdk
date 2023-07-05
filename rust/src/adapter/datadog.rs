@@ -186,7 +186,7 @@ impl DatadogAdapter {
             dtf.traces.push(trace);
         }
 
-        let host = Url::parse("http://localhost:8126")?;
+        let host = Url::parse(&self.config.agent_host)?;
         let url = host.join("/v0.3/traces")?.to_string();
         let j = json!(&dtf.traces);
         let body = serde_json::to_string(&j)?;
