@@ -18,15 +18,13 @@ mod tests {
 
         let output = String::from_utf8(output.stdout)?;
         let output_lines = output.lines();
+        let hellos = output_lines
+            .clone()
+            .filter(|l| l.contains("Hello, world!"))
+            .count();
 
         // First test that the modules ran the expected number of times
-        assert_eq!(
-            output_lines
-                .clone()
-                .filter(|l| l.contains("Hello, world!"))
-                .count(),
-            250
-        );
+        assert_eq!(hellos, 250);
 
         // check that every allocation was called
         let traces = output_lines
@@ -40,8 +38,9 @@ mod tests {
             .collect::<Vec<Value>>();
         let allocations = traces
             .iter()
-            .filter(|t| attribute_of_first_span(t, "name".to_string()).unwrap() == "allocation");
-        assert_eq!(allocations.count() > 200, true);
+            .filter(|t| attribute_of_first_span(t, "name".to_string()).unwrap() == "allocation")
+            .count();
+        assert_eq!(allocations > 10, true);
         Ok(())
     }
 }

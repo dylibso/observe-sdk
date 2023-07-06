@@ -1,8 +1,6 @@
-use std::time::SystemTime;
-
+use crate::new_span_id;
 use serde::{Serialize, Serializer};
-
-use super::new_span_id;
+use std::time::SystemTime;
 
 #[derive(Default, Debug, Clone, PartialEq, Serialize)]
 #[serde(rename_all = "camelCase")]

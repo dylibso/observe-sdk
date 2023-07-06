@@ -1,5 +1,4 @@
-use dylibso_observe_sdk::adapter::{zipkin::{ZipkinAdapter}, new_trace_id};
-use tokio::task;
+use dylibso_observe_sdk::adapter::zipkin::ZipkinAdapter;
 
 #[tokio::main]
 pub async fn main() -> anyhow::Result<()> {
@@ -12,7 +11,7 @@ pub async fn main() -> anyhow::Result<()> {
     let engine = wasmtime::Engine::new(&config)?;
     let module = wasmtime::Module::new(&engine, &data)?;
 
-    let adapter = ZipkinAdapter::new();
+    let adapter = ZipkinAdapter::create();
 
     // Setup WASI
     let wasi_ctx = wasmtime_wasi::WasiCtxBuilder::new()
@@ -28,7 +27,7 @@ pub async fn main() -> anyhow::Result<()> {
     // Provide the observability functions to the `Linker` to be made available
     // to the instrumented guest code. These are safe to add and are a no-op
     // if guest code is uninstrumented.
-    let mut trace_ctx = adapter.start(&mut linker, &data).await?;
+    let trace_ctx = adapter.start(&mut linker, &data)?;
 
     let instance = linker.instantiate(&mut store, &module)?;
 
@@ -39,12 +38,9 @@ pub async fn main() -> anyhow::Result<()> {
         .get_func(&mut store, function_name)
         .expect("function exists");
 
-    trace_ctx.set_trace_id(new_trace_id()).await;
     f.call(&mut store, &[], &mut []).unwrap();
 
-    task::yield_now().await;
     trace_ctx.shutdown().await;
 
     Ok(())
 }
-

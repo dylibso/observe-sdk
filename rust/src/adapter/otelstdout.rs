@@ -1,118 +1,67 @@
-use std::sync::Arc;
-use std::{thread, time};
+use crate::{Event, TraceEvent};
+use anyhow::{Context, Result};
 
-use crate::adapter::otel_formatter::{OtelFormatter, ResourceSpan, Span};
-use crate::adapter::{Adapter, Collector};
-use crate::{add_to_linker, Event, Metadata};
+use super::{
+    otel_formatter::{OtelFormatter, ResourceSpan, Span},
+    Adapter, AdapterHandle,
+};
 
-use anyhow::Result;
-use tokio::sync::Mutex;
-use wasmtime::Linker;
+/// An adapter to send events from your module to stdout using OpenTelemetry json format.
+pub struct OtelStdoutAdapter {}
 
-use super::{new_trace_id, next_id, TelemetryId};
-
-pub struct OtelAdapterContainer(Arc<Mutex<OtelStdoutAdapter>>);
-
-pub struct OtelTraceCtx(Collector);
-
-impl OtelTraceCtx {
-    pub async fn set_trace_id(&mut self, id: TelemetryId) {
-        self.0.set_metadata("trace_id".to_string(), id).await;
+impl Adapter for OtelStdoutAdapter {
+    fn handle_trace_event(&mut self, trace_evt: TraceEvent) -> Result<()> {
+        let mut otf = OtelFormatter::new();
+        let mut rs = ResourceSpan::new();
+        let mut spans = vec![];
+        let trace_id = trace_evt.telemetry_id.to_hex_16();
+        for span in trace_evt.events {
+            self.event_to_spans(&mut spans, span, None, trace_id.clone())?;
+        }
+        rs.add_spans(spans);
+        otf.add_resource_span(rs);
+        println!(
+            "{}",
+            serde_json::to_string(&otf).context("Otel formatter could not create json")?
+        );
+        Ok(())
     }
-
-    pub async fn shutdown(&self) {
-        self.0.shutdown().await;
-    }
-}
-
-impl OtelAdapterContainer {
-    pub async fn start<T: 'static>(
-        &self,
-        linker: &mut Linker<T>,
-        data: &[u8],
-    ) -> Result<OtelTraceCtx> {
-        let id = next_id();
-        let events = add_to_linker(id, linker, data)?;
-        let collector = Collector::new(self.0.clone(), id, events).await?;
-
-        Ok(OtelTraceCtx(collector))
-    }
-}
-
-#[derive(Clone)]
-pub struct OtelStdoutAdapter {
-    pub trace_id: String,
 }
 
 impl OtelStdoutAdapter {
-    #[allow(clippy::new_ret_no_self)]
-    pub fn new() -> OtelAdapterContainer {
-        let adapter = Self {
-            trace_id: new_trace_id().to_hex_16(),
-        };
-
-        OtelAdapterContainer(Arc::new(Mutex::new(adapter)))
+    /// Creates the Otel Stdout adapter and spawns a task for it.
+    /// This should ideally be created once per process of
+    /// your rust application.
+    pub fn create() -> AdapterHandle {
+        Self::spawn(Self {})
     }
 
-    fn _handle_event(&mut self, event: Event, parent_span_id: Option<String>) -> Option<Vec<Span>> {
+    fn event_to_spans(
+        &self,
+        spans: &mut Vec<Span>,
+        event: Event,
+        parent_id: Option<String>,
+        trace_id: String,
+    ) -> Result<()> {
         match event {
-            Event::Func(_id, f) => {
-                let function_name = &f.name.clone().unwrap_or("unknown-name".to_string());
-                let name = format!("function-call-{}", &function_name);
+            Event::Func(f) => {
+                let name = f.name.clone().unwrap_or("unknown-name".to_string());
 
-                let mut span =
-                    Span::new(self.trace_id.clone(), parent_span_id, name, f.start, f.end);
-                span.add_attribute_string("function_name".to_string(), function_name.to_string());
-
+                let span = Span::new(trace_id.clone(), parent_id, name, f.start, f.end);
                 let span_id = Some(span.span_id.clone());
-                let mut spans = vec![span];
+                spans.push(span);
 
                 for e in f.within.iter() {
-                    if let Some(mut s) = self._handle_event(e.to_owned(), span_id.clone()) {
-                        spans.append(&mut s);
-                    };
+                    self.event_to_spans(spans, e.to_owned(), span_id.clone(), trace_id.clone())?;
                 }
-
-                Some(spans)
             }
-            Event::Alloc(_id, a) => {
-                let mut span = Span::new(
-                    self.trace_id.clone(),
-                    parent_span_id,
-                    "allocation".to_string(),
-                    a.ts,
-                    a.ts,
-                );
+            Event::Alloc(a) => {
+                let mut span = Span::new(trace_id, parent_id, "allocation".to_string(), a.ts, a.ts);
                 span.add_attribute_i64("amount".to_string(), a.amount.into());
-                Some(vec![span])
+                spans.push(span);
             }
-            Event::Metadata(_id, Metadata { key, value }) => {
-                if key == "trace_id" {
-                    self.trace_id = value.to_hex_16();
-                }
-
-                None
-            }
-            Event::Shutdown(_id) => None,
+            _ => {}
         }
-    }
-}
-
-impl Adapter for OtelStdoutAdapter {
-    // flush any remaning spans
-    fn shutdown(&self) -> Result<()> {
-        thread::sleep(time::Duration::from_millis(5));
         Ok(())
-    }
-
-    fn handle_event(&mut self, event: Event) {
-        if let Some(spans) = self._handle_event(event, None) {
-            let mut otf = OtelFormatter::new();
-            let mut rs = ResourceSpan::new();
-            rs.add_spans(spans);
-            otf.add_resource_span(rs);
-
-            println!("{}", serde_json::to_string(&otf).unwrap());
-        };
     }
 }

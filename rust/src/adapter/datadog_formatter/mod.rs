@@ -1,9 +1,8 @@
+use super::datadog::DatadogConfig;
+use crate::new_span_id;
 use anyhow::Result;
-use std::{collections::HashMap, time::SystemTime};
-
 use serde::Serialize;
-
-use super::{datadog::DatadogConfig, new_span_id};
+use std::{collections::HashMap, time::SystemTime};
 
 #[derive(Default)]
 pub struct DatadogFormatter {

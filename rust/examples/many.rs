@@ -1,6 +1,5 @@
-use dylibso_observe_sdk::adapter::otelstdout::OtelStdoutAdapter;
+use dylibso_observe_sdk::{adapter::otelstdout::OtelStdoutAdapter, new_trace_id};
 use rand::{seq::SliceRandom, thread_rng};
-use tokio::task;
 
 #[tokio::main]
 pub async fn main() -> anyhow::Result<()> {
@@ -15,7 +14,7 @@ pub async fn main() -> anyhow::Result<()> {
 
     // create a thread-safe adapter container, which is used to create trace contexts,
     // one-per-instance of a wasm module.
-    let adapter = OtelStdoutAdapter::new();
+    let adapter = OtelStdoutAdapter::create();
 
     for _ in 0..5 {
         let mut instances = Vec::new();
@@ -34,7 +33,7 @@ pub async fn main() -> anyhow::Result<()> {
             // Provide the observability functions to the `Linker` to be made
             // available to the instrumented guest code. These are safe to add
             // and are a no-op if guest code is uninstrumented.
-            let trace_ctx = adapter.start(&mut linker, &data).await?;
+            let trace_ctx = adapter.start(&mut linker, &data)?;
 
             let instance = linker.instantiate(&mut store, &module)?;
             instances.push((trace_ctx, instance, store));
@@ -42,19 +41,26 @@ pub async fn main() -> anyhow::Result<()> {
 
         instances.shuffle(&mut thread_rng());
 
+        let mut tasks = vec![];
         for (trace_ctx, instance, mut store) in instances {
+            trace_ctx.set_trace_id(new_trace_id()).await;
             // get the function and run it, the events pop into the queue
             // as the function is running
-            tokio::spawn(async move {
+            let t = tokio::spawn(async move {
                 let f = instance
                     .get_func(&mut store, function_name)
                     .expect("function exists");
 
                 f.call(&mut store, &[], &mut []).unwrap();
 
-                task::yield_now().await;
                 trace_ctx.shutdown().await;
             });
+            tasks.push(t);
+        }
+
+        // we need to actually await the tasks to make sure they are done
+        for t in tasks {
+            t.await?;
         }
     }
 

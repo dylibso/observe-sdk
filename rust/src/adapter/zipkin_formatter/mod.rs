@@ -1,7 +1,8 @@
-use std::time::SystemTime;
-use std::collections::HashMap;
 use serde::Serialize;
-use super::new_span_id;
+use std::collections::HashMap;
+use std::time::SystemTime;
+
+use crate::new_span_id;
 
 #[derive(Default, Debug, Clone, PartialEq, Serialize)]
 #[serde(rename_all = "camelCase")]
@@ -31,9 +32,7 @@ pub struct Span {
 
 impl ZipkinFormatter {
     pub fn new() -> ZipkinFormatter {
-        ZipkinFormatter {
-            spans: vec![],
-        }
+        ZipkinFormatter { spans: vec![] }
     }
 }
 
@@ -57,10 +56,7 @@ impl Span {
                 .duration_since(SystemTime::UNIX_EPOCH)
                 .unwrap()
                 .as_micros() as u64,
-            duration: end_time
-                .duration_since(start_time)
-                .unwrap()
-                .as_micros() as u64,
+            duration: end_time.duration_since(start_time).unwrap().as_micros() as u64,
             tags: HashMap::new(),
             local_endpoint: None,
         }
@@ -96,4 +92,3 @@ mod tests {
         assert_eq!(span.name, name);
     }
 }
-
