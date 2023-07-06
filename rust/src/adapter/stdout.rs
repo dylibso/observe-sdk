@@ -1,21 +1,24 @@
 use std::time::SystemTime;
 
-use anyhow::{Result, Context, bail};
 use crate::{Event, TraceEvent};
+use anyhow::{bail, Context, Result};
 
-use super::{AdapterHandle, Adapter};
+use super::{Adapter, AdapterHandle};
 
-/// An adapter to send events from your module to stdout in our own format. 
+/// An adapter to send events from your module to stdout in our own format.
 /// Mostly useful for debugging.
-pub struct StdoutAdapter {
-}
+pub struct StdoutAdapter {}
 
 impl Adapter for StdoutAdapter {
     fn handle_trace_event(&mut self, trace_evt: TraceEvent) -> Result<()> {
-        let first = trace_evt.events.iter().find(|&e| matches!(e, Event::Func(_f))).context("Stdout adapter did not get any events")?;
+        let first = trace_evt
+            .events
+            .iter()
+            .find(|&e| matches!(e, Event::Func(_f)))
+            .context("Stdout adapter did not get any events")?;
         let start = match first {
             Event::Func(f) => f.start,
-            _ => bail!("Stdout adapter is expecting at least one function")
+            _ => bail!("Stdout adapter is expecting at least one function"),
         };
         for span in trace_evt.events {
             self.handle_event(span, start, 0 as usize)?;
@@ -25,7 +28,6 @@ impl Adapter for StdoutAdapter {
 }
 
 impl StdoutAdapter {
-
     /// Creates the Otel Stdout adapter and spawns a task for it.
     /// This should ideally be created once per process of
     /// your rust application.

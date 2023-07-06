@@ -18,7 +18,7 @@ mod tests {
                 "--example",
                 "otel-stdout",
                 "../test/test.c.instr.wasm",
-                "'Test'"
+                "'Test'",
             ])
             .output()
             .expect("Failed to run the example `examples/otel-stdout`");

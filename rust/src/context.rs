@@ -1,11 +1,17 @@
-use std::{time::SystemTime, sync::{Arc, Mutex}, collections::HashMap};
-use modsurfer_demangle::demangle_function_name;
-use tokio::sync::mpsc::{Sender, Receiver, channel};
 use anyhow::{anyhow, Result};
 use log::{error, warn};
+use modsurfer_demangle::demangle_function_name;
+use std::{
+    collections::HashMap,
+    sync::{Arc, Mutex},
+    time::SystemTime,
+};
+use tokio::sync::mpsc::{channel, Receiver, Sender};
 use wasmtime::{Caller, FuncType, Linker, Val, ValType};
 
-use crate::{wasm_instr::WasmInstrInfo, Event, FunctionCall, Allocation, collector::CollectorHandle};
+use crate::{
+    collector::CollectorHandle, wasm_instr::WasmInstrInfo, Allocation, Event, FunctionCall,
+};
 
 /// The InstrumentationContext holds the implementations
 /// of the Observe Wasm host functions. As these are triggered,
@@ -38,7 +44,7 @@ impl InstrumentationContext {
         (
             Arc::new(Mutex::new(InstrumentationContext {
                 collector: events_tx.clone(),
-                stack: Vec::new()
+                stack: Vec::new(),
             })),
             events_tx,
             events_rx,
@@ -52,7 +58,7 @@ impl InstrumentationContext {
             end: SystemTime::now(),
             within: Vec::new(),
             raw_name: None,
-            name: None
+            name: None,
         };
         if let Some(name) = func_name {
             fc.name = Some(demangle_function_name(String::from(name)));
@@ -88,12 +94,10 @@ impl InstrumentationContext {
     }
 
     fn allocate(&mut self, amount: u32) -> Result<()> {
-        let ev = Event::Alloc(
-            Allocation {
-                ts: SystemTime::now(),
-                amount,
-            },
-        );
+        let ev = Event::Alloc(Allocation {
+            ts: SystemTime::now(),
+            amount,
+        });
 
         if let Some(mut f) = self.stack.pop() {
             f.within.push(ev.clone());
@@ -150,10 +154,7 @@ const MODULE_NAME: &str = "dylibso_observe";
 type EventChannel = (Sender<Event>, Receiver<Event>);
 
 /// Link observability import functions required by instrumented wasm code
-pub fn add_to_linker<T: 'static>(
-    linker: &mut Linker<T>,
-    data: &[u8],
-) -> Result<EventChannel> {
+pub fn add_to_linker<T: 'static>(linker: &mut Linker<T>, data: &[u8]) -> Result<EventChannel> {
     let (ctx, events_tx, events_rx) = InstrumentationContext::new();
 
     // load the static wasm-instr info

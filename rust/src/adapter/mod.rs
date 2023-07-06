@@ -1,23 +1,21 @@
-use tokio::sync::mpsc::{Sender, channel};
 use anyhow::Result;
 use log::warn;
+use tokio::sync::mpsc::{channel, Sender};
 use wasmtime::Linker;
 
 use crate::{
-    Event,
-    TelemetryId,
+    collector::{Collector, CollectorHandle},
     context::add_to_linker,
-    collector::{Collector, CollectorHandle}, TraceEvent
+    Event, TelemetryId, TraceEvent,
 };
 
-pub mod otelstdout;
-pub mod otel_formatter;
 pub mod datadog;
 pub mod datadog_formatter;
+pub mod otel_formatter;
+pub mod otelstdout;
+pub mod stdout;
 pub mod zipkin;
 pub mod zipkin_formatter;
-pub mod stdout;
-
 
 /// An adapter represents a sink for events and is mostly implementation specific
 /// to the sink that the data is being sent to and the format that the data is in.
@@ -51,7 +49,6 @@ pub trait Adapter {
     }
 }
 
-
 /// Represents handle into the trace that is currently executing.
 #[derive(Clone, Debug)]
 pub struct TraceContext {
@@ -76,22 +73,14 @@ impl TraceContext {
 /// you a TraceContext that is linked to the Wasm module.
 #[derive(Clone, Debug)]
 pub struct AdapterHandle {
-    adapter_tx: Sender<TraceEvent>
+    adapter_tx: Sender<TraceEvent>,
 }
 
 impl AdapterHandle {
-    pub fn start<T: 'static>(
-        &self,
-        linker: &mut Linker<T>,
-        data: &[u8]
-    ) -> Result<TraceContext> {
+    pub fn start<T: 'static>(&self, linker: &mut Linker<T>, data: &[u8]) -> Result<TraceContext> {
         let (collector, collector_rx) = add_to_linker(linker, data)?;
         Collector::start(collector_rx, self.clone());
-        Ok(
-            TraceContext {
-                collector,
-            }
-        )
+        Ok(TraceContext { collector })
     }
 
     pub fn try_send(&self, event: TraceEvent) -> Result<()> {

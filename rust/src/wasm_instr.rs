@@ -1,12 +1,12 @@
 use std::collections::HashMap;
 
-use anyhow::{bail, Result, Context};
+use anyhow::{bail, Context, Result};
 
 // these control the versions of instrumented wasm supported
 // WASM_INSTR_VERSION_MAJOR must match the instrumented wasm
 // wasmInstrVersionMinor must be <= the value in instrumented wasm
-pub const WASM_INSTR_VERSION_MAJOR : u32 = 0;
-pub const WASM_INSTR_VERSION_MINOR : u32 = 0; // TODO: bump this to match compiler when ready
+pub const WASM_INSTR_VERSION_MAJOR: u32 = 0;
+pub const WASM_INSTR_VERSION_MINOR: u32 = 0; // TODO: bump this to match compiler when ready
 
 // Static info from instrumentation
 pub struct WasmInstrInfo {
@@ -17,8 +17,12 @@ pub struct WasmInstrInfo {
 
 impl WasmInstrInfo {
     pub fn check_version(&self) -> Result<()> {
-        let maj_num = self.maj_version.context("wasm-instr missing major version")?;
-        let min_num = self.min_version.context("wasm-instr missing minor version")?;
+        let maj_num = self
+            .maj_version
+            .context("wasm-instr missing major version")?;
+        let min_num = self
+            .min_version
+            .context("wasm-instr missing minor version")?;
 
         if maj_num != WASM_INSTR_VERSION_MAJOR {
             bail!("wasm wasm-instr major version {maj_num} is not equal to {WASM_INSTR_VERSION_MAJOR}!")

@@ -12,7 +12,8 @@ use url::Url;
 use crate::{Event, TraceEvent};
 
 use super::{
-    datadog_formatter::{Span, Trace, DatadogFormatter}, AdapterHandle, Adapter
+    datadog_formatter::{DatadogFormatter, Span, Trace},
+    Adapter, AdapterHandle,
 };
 
 #[derive(Clone)]
@@ -99,7 +100,7 @@ impl Adapter for DatadogAdapter {
         }
         self.traces.push(spans);
         // TODO add flush logic here instead of dumping
-        // we should check if a flush is triggered, if not 
+        // we should check if a flush is triggered, if not
         // then we should kick off a flush at some point in the future
         self.dump_traces()?;
 
@@ -111,7 +112,7 @@ impl DatadogAdapter {
     fn new(config: DatadogConfig) -> Self {
         Self {
             config,
-            traces: vec![]
+            traces: vec![],
         }
     }
 
@@ -123,7 +124,13 @@ impl DatadogAdapter {
         Self::spawn(adapter)
     }
 
-    fn event_to_spans(&self, spans: &mut Vec<Span>, event: Event, parent_id: Option<u64>, trace_id: u64) -> Result<()> {
+    fn event_to_spans(
+        &self,
+        spans: &mut Vec<Span>,
+        event: Event,
+        parent_id: Option<u64>,
+        trace_id: u64,
+    ) -> Result<()> {
         match event {
             Event::Func(f) => {
                 let function_name = &f.name.clone().unwrap_or("unknown-name".to_string());

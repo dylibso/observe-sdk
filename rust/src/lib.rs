@@ -1,5 +1,5 @@
-use std::time::SystemTime;
 use rand::Rng;
+use std::time::SystemTime;
 
 pub mod adapter;
 pub mod collector;

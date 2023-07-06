@@ -2,7 +2,7 @@ use anyhow::Result;
 use log::warn;
 use tokio::sync::mpsc::{Receiver, Sender};
 
-use crate::{Event, adapter::AdapterHandle, TelemetryId, TraceEvent, new_trace_id};
+use crate::{adapter::AdapterHandle, new_trace_id, Event, TelemetryId, TraceEvent};
 
 pub type CollectorHandle = Sender<Event>;
 
@@ -60,7 +60,7 @@ impl Collector {
             }
             Event::Shutdown => {
                 let trace = TraceEvent {
-                    events: self.events.clone(),
+                    events: self.events.drain(..).collect(),
                     telemetry_id: self.telemetry_id.clone(),
                 };
                 self.adapter.try_send(trace)?;
@@ -72,5 +72,3 @@ impl Collector {
         Ok(())
     }
 }
-
-

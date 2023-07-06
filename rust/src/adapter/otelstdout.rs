@@ -1,13 +1,13 @@
-use anyhow::{Result, Context};
 use crate::{Event, TraceEvent};
+use anyhow::{Context, Result};
 
 use super::{
-    otel_formatter::{Span, OtelFormatter, ResourceSpan}, AdapterHandle, Adapter
+    otel_formatter::{OtelFormatter, ResourceSpan, Span},
+    Adapter, AdapterHandle,
 };
 
 /// An adapter to send events from your module to stdout using OpenTelemetry json format.
-pub struct OtelStdoutAdapter {
-}
+pub struct OtelStdoutAdapter {}
 
 impl Adapter for OtelStdoutAdapter {
     fn handle_trace_event(&mut self, trace_evt: TraceEvent) -> Result<()> {
@@ -20,13 +20,15 @@ impl Adapter for OtelStdoutAdapter {
         }
         rs.add_spans(spans);
         otf.add_resource_span(rs);
-        println!("{}", serde_json::to_string(&otf).context("Otel formatter could not create json")?);
+        println!(
+            "{}",
+            serde_json::to_string(&otf).context("Otel formatter could not create json")?
+        );
         Ok(())
     }
 }
 
 impl OtelStdoutAdapter {
-
     /// Creates the Otel Stdout adapter and spawns a task for it.
     /// This should ideally be created once per process of
     /// your rust application.
@@ -34,13 +36,18 @@ impl OtelStdoutAdapter {
         Self::spawn(Self {})
     }
 
-    fn event_to_spans(&self, spans: &mut Vec<Span>, event: Event, parent_id: Option<String>, trace_id: String) -> Result<()> {
+    fn event_to_spans(
+        &self,
+        spans: &mut Vec<Span>,
+        event: Event,
+        parent_id: Option<String>,
+        trace_id: String,
+    ) -> Result<()> {
         match event {
             Event::Func(f) => {
                 let name = f.name.clone().unwrap_or("unknown-name".to_string());
 
-                let span =
-                    Span::new(trace_id.clone(), parent_id, name, f.start, f.end);
+                let span = Span::new(trace_id.clone(), parent_id, name, f.start, f.end);
                 let span_id = Some(span.span_id.clone());
                 spans.push(span);
 
@@ -49,13 +56,7 @@ impl OtelStdoutAdapter {
                 }
             }
             Event::Alloc(a) => {
-                let mut span = Span::new(
-                    trace_id,
-                    parent_id,
-                    "allocation".to_string(),
-                    a.ts,
-                    a.ts,
-                );
+                let mut span = Span::new(trace_id, parent_id, "allocation".to_string(), a.ts, a.ts);
                 span.add_attribute_i64("amount".to_string(), a.amount.into());
                 spans.push(span);
             }
