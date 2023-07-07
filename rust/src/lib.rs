@@ -1,6 +1,3 @@
-#[macro_use]
-extern crate derive_builder;
-
 use adapter::AdapterMetadata;
 use rand::Rng;
 use std::time::SystemTime;

@@ -119,8 +119,7 @@ impl Default for DatadogMetadata {
 }
 
 /// Config options for DatadogAdapter
-#[derive(Builder, Debug, Clone)]
-#[builder(default)]
+#[derive(Debug, Clone)]
 pub struct DatadogConfig {
     pub agent_host: String,
     pub service_name: String,
@@ -130,7 +129,7 @@ pub struct DatadogConfig {
 
 impl Default for DatadogConfig {
     fn default() -> Self {
-        DatadogConfig {
+        Self {
             agent_host: "http://localhost:8126".into(),
             service_name: "my-wasm-service".into(),
             default_tags: HashMap::new(),
