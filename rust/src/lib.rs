@@ -1,3 +1,7 @@
+#[macro_use]
+extern crate derive_builder;
+
+use adapter::AdapterMetadata;
 use rand::Rng;
 use std::time::SystemTime;
 
@@ -48,8 +52,8 @@ pub fn new_span_id() -> TelemetryId {
 pub enum Event {
     Func(FunctionCall),
     Alloc(Allocation),
-    Metadata(Metadata),
     TraceId(TelemetryId),
+    Metadata(AdapterMetadata),
     Shutdown,
 }
 
@@ -57,12 +61,7 @@ pub enum Event {
 pub struct TraceEvent {
     events: Vec<Event>,
     telemetry_id: TelemetryId,
-}
-
-#[derive(Debug, Clone)]
-pub struct Metadata {
-    pub key: String,
-    pub value: TelemetryId,
+    metadata: Option<AdapterMetadata>,
 }
 
 #[derive(Debug, Clone)]

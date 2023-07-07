@@ -13,10 +13,10 @@ use crate::{Event, TraceEvent};
 
 use super::{
     datadog_formatter::{DatadogFormatter, Span, Trace},
-    Adapter, AdapterHandle,
+    Adapter, AdapterHandle, AdapterMetadata,
 };
 
-#[derive(Clone)]
+#[derive(Debug, Clone)]
 pub enum DatadogTraceType {
     Web,
     Db,
@@ -35,6 +35,7 @@ impl Display for DatadogTraceType {
     }
 }
 
+#[derive(Debug, Clone)]
 pub enum DatadogSpanKind {
     Server,
     Client,
@@ -55,19 +56,76 @@ impl Display for DatadogSpanKind {
     }
 }
 
+#[derive(Debug, Clone)]
+pub enum DatadogLanguage {
+    Cpp,
+    Dotnet,
+    Go,
+    Jvm,
+    Javascript,
+    Php,
+    Ruby,
+    Python,
+}
+
+impl Display for DatadogLanguage {
+    fn fmt(&self, f: &mut Formatter) -> std::fmt::Result {
+        match self {
+            DatadogLanguage::Cpp => write!(f, "cpp"),
+            DatadogLanguage::Dotnet => write!(f, "dotnet"),
+            DatadogLanguage::Go => write!(f, "go"),
+            DatadogLanguage::Jvm => write!(f, "jvm"),
+            DatadogLanguage::Javascript => write!(f, "javascript"),
+            DatadogLanguage::Php => write!(f, "php"),
+            DatadogLanguage::Python => write!(f, "python"),
+            DatadogLanguage::Ruby => write!(f, "ruby"),
+        }
+    }
+}
+
+#[derive(Debug, Clone)]
+pub struct DatadogMetadata {
+    pub resource_name: Option<String>,
+    pub http_status_code: Option<u16>,
+    pub http_url: Option<String>,
+    pub http_method: Option<String>,
+    pub http_client_ip: Option<String>,
+    pub http_request_content_length: Option<u64>,
+    pub http_request_content_length_uncompressed: Option<u64>,
+    pub http_response_content_length: Option<u64>,
+    pub http_response_content_length_uncompressed: Option<u64>,
+    pub span_kind: Option<DatadogSpanKind>,
+    pub language: Option<DatadogLanguage>,
+    pub component: Option<String>,
+}
+
+impl Default for DatadogMetadata {
+    fn default() -> Self {
+        Self {
+            resource_name: None,
+            http_status_code: None,
+            http_url: None,
+            http_method: None,
+            http_client_ip: None,
+            http_request_content_length: None,
+            http_request_content_length_uncompressed: None,
+            http_response_content_length: None,
+            http_response_content_length_uncompressed: None,
+            span_kind: None,
+            language: None,
+            component: None,
+        }
+    }
+}
+
 /// Config options for DatadogAdapter
-#[derive(Clone)]
+#[derive(Builder, Debug, Clone)]
+#[builder(default)]
 pub struct DatadogConfig {
     pub agent_host: String,
     pub service_name: String,
     pub default_tags: HashMap<String, String>,
     pub trace_type: DatadogTraceType,
-}
-
-impl DatadogConfig {
-    pub fn new() -> DatadogConfig {
-        Default::default()
-    }
 }
 
 impl Default for DatadogConfig {
@@ -83,7 +141,7 @@ impl Default for DatadogConfig {
 
 /// An adapter to send events from your module to a [Datadog Agent](https://docs.datadoghq.com/agent/).
 pub struct DatadogAdapter {
-    traces: Vec<Vec<Span>>,
+    trace_events: Vec<TraceEvent>,
     config: DatadogConfig,
     // TODO add bucketing / flushing implementation
     //delay: Delay,
@@ -93,12 +151,7 @@ pub struct DatadogAdapter {
 
 impl Adapter for DatadogAdapter {
     fn handle_trace_event(&mut self, trace_evt: TraceEvent) -> Result<()> {
-        let mut spans = vec![];
-        let trace_id = trace_evt.telemetry_id.into();
-        for span in trace_evt.events {
-            self.event_to_spans(&mut spans, span, None, trace_id)?;
-        }
-        self.traces.push(spans);
+        self.trace_events.push(trace_evt);
         // TODO add flush logic here instead of dumping
         // we should check if a flush is triggered, if not
         // then we should kick off a flush at some point in the future
@@ -112,7 +165,7 @@ impl DatadogAdapter {
     fn new(config: DatadogConfig) -> Self {
         Self {
             config,
-            traces: vec![],
+            trace_events: vec![],
         }
     }
 
@@ -165,27 +218,56 @@ impl DatadogAdapter {
 
     fn dump_traces(&mut self) -> Result<()> {
         let mut dtf = DatadogFormatter::new();
-        for trace_spans in &self.traces {
+        for trace_evt in &self.trace_events {
+            let mut spans = vec![];
+            let trace_id = &trace_evt.telemetry_id;
+            for span in &trace_evt.events {
+                let tid = trace_id.clone().into();
+                self.event_to_spans(&mut spans, span.to_owned(), None, tid)?;
+            }
             let mut trace = Trace::new();
             let mut first_span = true;
-            for span in trace_spans {
+            for span in spans {
                 let mut span = span.clone();
                 if first_span {
-                    // TODO for the moment i'm going to comment this stuff out until
-                    // we come up with a nice API to let the programmer passs it in.
-                    // maybe it can come in via shutdown or something?
-                    //
-                    // let mut meta = self.config.default_tags.clone();
-                    // meta.insert("http.status_code".to_string(), "200".to_string());
-                    // meta.insert("http.method".to_string(), "POST".to_string());
-                    // meta.insert("http.url".to_string(), "http://localhost:3000".to_string());
-                    // meta.insert("span.kind".to_string(), DatadogSpanKind::Internal.to_string());
-                    // // TODO don't throw away what be be some existing meta here
-                    // span.meta = meta;
-
-                    // TODO this value should come from programmer
+                    let mut dd_meta = self.config.default_tags.clone();
                     span.resource = "request".into();
                     span.typ = Some(DatadogTraceType::Web.to_string());
+
+                    if let Some(AdapterMetadata::Datadog(meta)) = trace_evt.metadata.to_owned() {
+                        if let Some(resource) = meta.resource_name {
+                            span.resource = resource;
+                        }
+                        if let Some(status) = meta.http_status_code {
+                            dd_meta.insert("http.status_code".to_string(), status.to_string());
+                        }
+                        if let Some(method) = meta.http_method {
+                            dd_meta.insert("http.method".to_string(), method.to_string());
+                        }
+                        if let Some(url) = meta.http_url {
+                            dd_meta.insert("http.url".to_string(), url.to_string());
+                        }
+                        if let Some(ip) = meta.http_client_ip {
+                            dd_meta.insert("http.client_ip".to_string(), ip.to_string());
+                        }
+                        if let Some(rl) = meta.http_request_content_length {
+                            dd_meta.insert("http.request.content_length".to_string(), rl.to_string());
+                        }
+                        if let Some(rl) = meta.http_request_content_length_uncompressed {
+                            dd_meta.insert("http.request.content_length_uncompressed".to_string(), rl.to_string());
+                        }
+                        if let Some(rl) = meta.http_response_content_length {
+                            dd_meta.insert("http.response.content_length".to_string(), rl.to_string());
+                        }
+                        if let Some(rl) = meta.http_response_content_length_uncompressed {
+                            dd_meta.insert("http.response.content_length_uncompressed".to_string(), rl.to_string());
+                        }
+                        if let Some(span_kind) = meta.span_kind {
+                            dd_meta.insert("span.kind".to_string(), span_kind.to_string());
+                        }
+                    }
+
+                    span.meta = dd_meta;
                     first_span = false;
                 }
                 trace.push(span);
@@ -210,7 +292,7 @@ impl DatadogAdapter {
             );
         } else {
             // clear the traces because we've successfully submitted them
-            self.traces.clear();
+            self.trace_events.clear();
         }
 
         Ok(())
