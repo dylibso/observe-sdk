@@ -9,6 +9,8 @@ use crate::{
     Event, TelemetryId, TraceEvent,
 };
 
+use self::datadog::DatadogMetadata;
+
 pub mod datadog;
 pub mod datadog_formatter;
 pub mod otel_formatter;
@@ -62,6 +64,12 @@ impl TraceContext {
         }
     }
 
+    pub async fn set_metadata(&self, meta: AdapterMetadata) {
+        if let Err(e) = self.collector.send(Event::Metadata(meta)).await {
+            warn!("Failed to set the metdata {}", e);
+        }
+    }
+
     pub async fn shutdown(&self) {
         if let Err(e) = self.collector.send(Event::Shutdown).await {
             warn!("Failed to shutdown collector {}", e);
@@ -87,4 +95,10 @@ impl AdapterHandle {
         self.adapter_tx.try_send(event)?;
         Ok(())
     }
+}
+
+/// The different types of metadata we can send across to a Collector
+#[derive(Clone, Debug)]
+pub enum AdapterMetadata {
+    Datadog(DatadogMetadata)
 }

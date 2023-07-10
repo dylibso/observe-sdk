@@ -1,4 +1,4 @@
-use dylibso_observe_sdk::adapter::datadog::{DatadogAdapter, DatadogConfig};
+use dylibso_observe_sdk::adapter::{datadog::{DatadogAdapter, DatadogConfig, DatadogMetadata}, AdapterMetadata};
 
 /// You need the datadog agent running on localhost for this example to work
 #[tokio::main]
@@ -12,7 +12,7 @@ pub async fn main() -> anyhow::Result<()> {
     let engine = wasmtime::Engine::new(&config)?;
     let module = wasmtime::Module::new(&engine, &data)?;
 
-    let ddconfig = DatadogConfig::new();
+    let ddconfig = DatadogConfig::default();
     let adapter = DatadogAdapter::create(ddconfig);
 
     // Setup WASI
@@ -37,9 +37,19 @@ pub async fn main() -> anyhow::Result<()> {
         .get_func(&mut store, function_name)
         .expect("function exists");
 
-    //trace_ctx.set_trace_id(new_trace_id()).await?;
     f.call(&mut store, &[], &mut []).unwrap();
 
+    let meta = DatadogMetadata {
+        http_url: Some("https://example.com/things/123".into()),
+        http_method: Some("GET".into()),
+        http_status_code: Some(200u16),
+        http_client_ip: Some("23.123.15.145".into()),
+        http_request_content_length: Some(128974u64),
+        http_response_content_length: Some(239823874u64),
+        ..Default::default()
+    };
+
+    trace_ctx.set_metadata(AdapterMetadata::Datadog(meta)).await;
     trace_ctx.shutdown().await;
 
     Ok(())

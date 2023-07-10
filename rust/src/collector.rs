@@ -2,7 +2,7 @@ use anyhow::Result;
 use log::warn;
 use tokio::sync::mpsc::{Receiver, Sender};
 
-use crate::{adapter::AdapterHandle, new_trace_id, Event, TelemetryId, TraceEvent};
+use crate::{adapter::{AdapterHandle, AdapterMetadata}, new_trace_id, Event, TelemetryId, TraceEvent};
 
 pub type CollectorHandle = Sender<Event>;
 
@@ -24,6 +24,7 @@ pub struct Collector {
     events: Vec<Event>,
     adapter: AdapterHandle,
     telemetry_id: TelemetryId,
+    metadata: Option<AdapterMetadata>,
 }
 
 impl Collector {
@@ -32,6 +33,7 @@ impl Collector {
             adapter,
             events: Vec::new(),
             telemetry_id: new_trace_id(),
+            metadata: None,
         }
     }
 
@@ -62,8 +64,12 @@ impl Collector {
                 let trace = TraceEvent {
                     events: self.events.drain(..).collect(),
                     telemetry_id: self.telemetry_id.clone(),
+                    metadata: self.metadata.clone(),
                 };
                 self.adapter.try_send(trace)?;
+            }
+            Event::Metadata(meta) => {
+                self.metadata = Some(meta);
             }
             _ => {
                 self.events.push(event.clone());
