@@ -83,7 +83,7 @@ impl Display for DatadogLanguage {
     }
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Default)]
 pub struct DatadogMetadata {
     pub resource_name: Option<String>,
     pub http_status_code: Option<u16>,
@@ -99,25 +99,6 @@ pub struct DatadogMetadata {
     pub component: Option<String>,
 }
 
-impl Default for DatadogMetadata {
-    fn default() -> Self {
-        Self {
-            resource_name: None,
-            http_status_code: None,
-            http_url: None,
-            http_method: None,
-            http_client_ip: None,
-            http_request_content_length: None,
-            http_request_content_length_uncompressed: None,
-            http_response_content_length: None,
-            http_response_content_length_uncompressed: None,
-            span_kind: None,
-            language: None,
-            component: None,
-        }
-    }
-}
-
 /// Config options for DatadogAdapter
 #[derive(Debug, Clone)]
 pub struct DatadogConfig {
@@ -131,7 +112,7 @@ impl Default for DatadogConfig {
     fn default() -> Self {
         Self {
             agent_host: "http://localhost:8126".into(),
-            service_name: "my-wasm-service".into(),
+            service_name: "default-wasm-service".into(),
             default_tags: HashMap::new(),
             trace_type: DatadogTraceType::Web,
         }
