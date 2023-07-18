@@ -37,19 +37,26 @@ type TraceCtx struct {
 	telemetryId TelemetryId
 }
 
-func NewTraceCtx(adapter *AdapterBase, data []byte, config *Config) (*TraceCtx, error) {
+func NewTraceCtx(ctx context.Context, adapter *AdapterBase, r wazero.Runtime, data []byte, config *Config) (*TraceCtx, error) {
 	names, err := parseNames(data)
 	if err != nil {
 		return nil, err
 	}
 
-	return &TraceCtx{
+	traceCtx := &TraceCtx{
 		adapter:     adapter.TraceEvents,
 		raw:         make(chan RawEvent, config.ChannelBufferSize),
 		names:       names,
 		telemetryId: NewTraceId(),
 		Config:      config,
-	}, nil
+	}
+
+	err = traceCtx.init(ctx, r)
+	if err != nil {
+		return nil, err
+	}
+
+	return traceCtx, nil
 }
 
 // Finish() will stop the trace and send the
@@ -69,34 +76,11 @@ func (t *TraceCtx) Names() map[uint32]string {
 	return t.names
 }
 
-func (t *TraceCtx) pushFunction(ev CallEvent) {
-	t.stack = append(t.stack, ev)
-}
-
-func (t *TraceCtx) popFunction() (CallEvent, bool) {
-	if len(t.stack) == 0 {
-		return CallEvent{}, false
-	}
-
-	event := t.stack[len(t.stack)-1]
-	t.stack = t.stack[:len(t.stack)-1]
-
-	return event, true
-}
-
-func (t *TraceCtx) peekFunction() (CallEvent, bool) {
-	if len(t.stack) == 0 {
-		return CallEvent{}, false
-	}
-
-	return t.stack[len(t.stack)-1], true
-}
-
 func (t *TraceCtx) WithListener(ctx context.Context) context.Context {
 	return context.WithValue(ctx, experimental.FunctionListenerFactoryKey{}, t)
 }
 
-func (t *TraceCtx) Init(ctx context.Context, r wazero.Runtime) error {
+func (t *TraceCtx) init(ctx context.Context, r wazero.Runtime) error {
 	ctx = t.WithListener(ctx)
 	observe := r.NewHostModuleBuilder("dylibso_observe")
 	functions := observe.NewFunctionBuilder()
@@ -167,6 +151,29 @@ func (t *TraceCtx) Init(ctx context.Context, r wazero.Runtime) error {
 		return err
 	}
 	return nil
+}
+
+func (t *TraceCtx) pushFunction(ev CallEvent) {
+	t.stack = append(t.stack, ev)
+}
+
+func (t *TraceCtx) popFunction() (CallEvent, bool) {
+	if len(t.stack) == 0 {
+		return CallEvent{}, false
+	}
+
+	event := t.stack[len(t.stack)-1]
+	t.stack = t.stack[:len(t.stack)-1]
+
+	return event, true
+}
+
+func (t *TraceCtx) peekFunction() (CallEvent, bool) {
+	if len(t.stack) == 0 {
+		return CallEvent{}, false
+	}
+
+	return t.stack[len(t.stack)-1], true
 }
 
 func checkVersion(m *wasm.Module) error {

@@ -1,6 +1,11 @@
 package observe
 
-import "log"
+import (
+	"context"
+	"log"
+
+	"github.com/tetratelabs/wazero"
+)
 
 type Adapter interface {
 	Start()
@@ -18,11 +23,11 @@ type AdapterBase struct {
 	stop        chan bool
 }
 
-func (a *AdapterBase) NewTraceCtx(wasm []byte, config *Config) (*TraceCtx, error) {
+func (a *AdapterBase) NewTraceCtx(ctx context.Context, r wazero.Runtime, wasm []byte, config *Config) (*TraceCtx, error) {
 	if config == nil {
 		config = NewDefaultConfig()
 	}
-	return NewTraceCtx(a, wasm, config)
+	return NewTraceCtx(ctx, a, r, wasm, config)
 }
 
 func NewAdapterBase() AdapterBase {
