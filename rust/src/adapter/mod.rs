@@ -1,13 +1,20 @@
 use anyhow::Result;
 use log::warn;
 use tokio::sync::mpsc::{channel, Sender};
+
+#[cfg(feature = "wasmtime")]
 use wasmtime::Linker;
 
 use crate::{
     collector::{Collector, CollectorHandle},
-    context::add_to_linker,
     Event, TelemetryId, TraceEvent,
 };
+
+#[cfg(feature = "wasmtime")]
+use crate::context::add_to_linker;
+
+#[cfg(feature = "wasmer")]
+use crate::context::wasmer_imports::make_imports;
 
 use self::datadog::DatadogMetadata;
 
@@ -85,10 +92,22 @@ pub struct AdapterHandle {
 }
 
 impl AdapterHandle {
+    #[cfg(feature = "wasmtime")]
     pub fn start<T: 'static>(&self, linker: &mut Linker<T>, data: &[u8]) -> Result<TraceContext> {
         let (collector, collector_rx) = add_to_linker(linker, data)?;
         Collector::start(collector_rx, self.clone());
         Ok(TraceContext { collector })
+    }
+
+    #[cfg(feature = "wasmer")]
+    pub fn start(
+        &self,
+        store: &mut wasmer::Store,
+        wasm: &[u8],
+    ) -> Result<(wasmer::Imports, TraceContext)> {
+        let ((collector, collector_rx), imports) = make_imports(store, wasm)?;
+        Collector::start(collector_rx, self.clone());
+        Ok((imports, TraceContext { collector }))
     }
 
     pub fn try_send(&self, event: TraceEvent) -> Result<()> {
@@ -100,5 +119,5 @@ impl AdapterHandle {
 /// The different types of metadata we can send across to a Collector
 #[derive(Clone, Debug)]
 pub enum AdapterMetadata {
-    Datadog(DatadogMetadata)
+    Datadog(DatadogMetadata),
 }

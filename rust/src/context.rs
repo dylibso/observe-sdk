@@ -1,13 +1,13 @@
-use anyhow::{anyhow, Result};
-use log::{error, warn};
-use modsurfer_demangle::demangle_function_name;
 use std::{
     collections::HashMap,
     sync::{Arc, Mutex},
     time::SystemTime,
 };
+
+use anyhow::{anyhow, Result};
+use log::error;
+use modsurfer_demangle::demangle_function_name;
 use tokio::sync::mpsc::{channel, Receiver, Sender};
-use wasmtime::{Caller, FuncType, Linker, Val, ValType};
 
 use crate::{
     collector::CollectorHandle, wasm_instr::WasmInstrInfo, Allocation, Event, FunctionCall,
@@ -111,9 +111,10 @@ impl InstrumentationContext {
     }
 }
 
+#[cfg(feature = "wasmtime")]
 pub(crate) fn instrument_enter(
-    input: &[Val],
-    _output: &mut [Val],
+    input: &[wasmtime::Val],
+    _output: &mut [wasmtime::Val],
     ctx: Arc<Mutex<InstrumentationContext>>,
     function_names: &HashMap<u32, String>,
 ) -> anyhow::Result<()> {
@@ -125,9 +126,10 @@ pub(crate) fn instrument_enter(
     Ok(())
 }
 
+#[cfg(feature = "wasmtime")]
 pub(crate) fn instrument_exit(
-    input: &[Val],
-    _output: &mut [Val],
+    input: &[wasmtime::Val],
+    _output: &mut [wasmtime::Val],
     ctx: Arc<Mutex<InstrumentationContext>>,
 ) -> Result<()> {
     let func_id = input[0].unwrap_i32() as u32;
@@ -137,9 +139,10 @@ pub(crate) fn instrument_exit(
     Ok(())
 }
 
+#[cfg(feature = "wasmtime")]
 pub(crate) fn instrument_memory_grow(
-    input: &[Val],
-    _output: &mut [Val],
+    input: &[wasmtime::Val],
+    _output: &mut [wasmtime::Val],
     ctx: Arc<Mutex<InstrumentationContext>>,
 ) -> Result<()> {
     let amount_in_pages = input[0].unwrap_i32(); // The number of pages requested by `memory.grow` instruction
@@ -153,8 +156,12 @@ const MODULE_NAME: &str = "dylibso_observe";
 
 type EventChannel = (Sender<Event>, Receiver<Event>);
 
+#[cfg(feature = "wasmtime")]
 /// Link observability import functions required by instrumented wasm code
-pub fn add_to_linker<T: 'static>(linker: &mut Linker<T>, data: &[u8]) -> Result<EventChannel> {
+pub fn add_to_linker<T: 'static>(
+    linker: &mut wasmtime::Linker<T>,
+    data: &[u8],
+) -> Result<EventChannel> {
     let (ctx, events_tx, events_rx) = InstrumentationContext::new();
 
     // load the static wasm-instr info
@@ -163,17 +170,17 @@ pub fn add_to_linker<T: 'static>(linker: &mut Linker<T>, data: &[u8]) -> Result<
     // check that the version number is supported with this SDK
     // TODO decide what to do about this error?
     if let Err(e) = wasm_instr_info.check_version() {
-        warn!("{}", e);
+        log::warn!("{}", e);
     }
 
-    let t = FuncType::new([ValType::I32], []);
+    let t = wasmtime::FuncType::new([wasmtime::ValType::I32], []);
 
     let enter_ctx = ctx.clone();
     linker.func_new(
         MODULE_NAME,
         "instrument_enter",
         t.clone(),
-        move |_caller: Caller<T>, params, results| {
+        move |_caller: wasmtime::Caller<T>, params, results| {
             instrument_enter(
                 params,
                 results,
@@ -203,4 +210,70 @@ pub fn add_to_linker<T: 'static>(linker: &mut Linker<T>, data: &[u8]) -> Result<
     // global export, which by default can cause wasmtime to return an error during instantiation.
     linker.allow_unknown_exports(true);
     Ok((events_tx, events_rx))
+}
+
+#[cfg(feature = "wasmer")]
+pub mod wasmer_imports {
+    use std::sync::{Arc, Mutex};
+
+    use anyhow::Result;
+    use wasmer;
+
+    use super::{EventChannel, InstrumentationContext, MODULE_NAME};
+    use crate::wasm_instr::WasmInstrInfo;
+
+    struct Env {
+        instr_info: crate::wasm_instr::WasmInstrInfo,
+        instr_ctx: Arc<Mutex<super::InstrumentationContext>>,
+    }
+
+    fn instrument_enter(mut env: wasmer::FunctionEnvMut<Env>, func_index: i32) {
+        let data = env.data_mut();
+        let name = data.instr_info.function_names.get(&(func_index as u32));
+        if let Ok(mut cont) = data.instr_ctx.lock() {
+            cont.enter(func_index as u32, name.map(|x| x.as_str()));
+        }
+    }
+
+    fn instrument_exit(mut env: wasmer::FunctionEnvMut<Env>, func_index: i32) {
+        if let Ok(mut cont) = env.data_mut().instr_ctx.lock() {
+            cont.exit(func_index as u32);
+        }
+    }
+    fn instrument_memory_grow(mut env: wasmer::FunctionEnvMut<Env>, amount: i32) {
+        if let Ok(mut cont) = env.data_mut().instr_ctx.lock() {
+            cont.allocate(amount as u32);
+        }
+    }
+
+    pub fn make_imports(
+        mut store: &mut wasmer::Store,
+        wasm: &[u8],
+    ) -> Result<(EventChannel, wasmer::Imports)> {
+        let (ctx, events_tx, events_rx) = InstrumentationContext::new();
+
+        let wasm_instr_info = WasmInstrInfo::new(wasm)?;
+        if let Err(e) = wasm_instr_info.check_version() {
+            log::warn!("{}", e);
+        }
+
+        let env = wasmer::FunctionEnv::new(
+            &mut store,
+            Env {
+                instr_info: wasm_instr_info,
+                instr_ctx: ctx,
+            },
+        );
+
+        // make the imports object to be link to wasmer host runtime
+        let imports = wasmer::imports! {
+            MODULE_NAME => {
+                "instrument_enter" => wasmer::Function::new_typed_with_env(&mut store, &env, instrument_enter),
+                "instrument_exit" => wasmer::Function::new_typed_with_env(&mut store, &env, instrument_exit),
+                "instrument_memory_grow" => wasmer::Function::new_typed_with_env(&mut store, &env, instrument_memory_grow),
+            },
+        };
+
+        Ok(((events_tx, events_rx), imports))
+    }
 }
