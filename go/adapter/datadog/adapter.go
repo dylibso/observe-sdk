@@ -6,8 +6,6 @@ import (
 	"log"
 	"net/http"
 	"net/url"
-	"strconv"
-	"time"
 
 	"github.com/dylibso/observe-sdk/go"
 	"github.com/dylibso/observe-sdk/go/adapter/datadog_formatter"
@@ -48,71 +46,42 @@ func NewDatadogAdapter(config *DatadogConfig) (DatadogAdapter, error) {
 	}, nil
 }
 
-func (d *DatadogAdapter) Event(e observe.Event) {
-	switch event := e.(type) {
-	case observe.CallEvent:
-		spans := d.makeCallSpans(event, nil)
-		if len(spans) > 0 {
-			d.Spans = append(d.Spans, spans...)
-		}
+func (d *DatadogAdapter) HandleTraceEvent(te observe.TraceEvent) {
+  if te.TelemetryId == nil {
+    log.Println("Datadog adapter needs a trace id")
+    return
+  }
 
-	case observe.MemoryGrowEvent:
-		if len(d.Spans) > 0 {
-			d.Spans[len(d.Spans)-1].AddAllocation(event.MemoryGrowAmount())
-		}
-	case observe.CustomEvent:
-		if value, ok := event.Metadata["trace_id"]; ok {
-			traceId, err := strconv.ParseUint(value.(string), 10, 64)
-			if err != nil {
-				log.Println("failed to parse traceId from event metadata:", err)
-				return
-			}
+  var allSpans []datadog_formatter.Span
+  for _, e := range te.Events {
+    switch event := e.(type) {
+    case observe.CallEvent:
+      spans := d.makeCallSpans(event, nil, *te.TelemetryId)
+      if len(spans) > 0 {
+        allSpans = append(allSpans, spans...)
+      }
+    case observe.MemoryGrowEvent:
+      if len(d.Spans) > 0 {
+        allSpans[len(allSpans)-1].AddAllocation(event.MemoryGrowAmount())
+      }
+    case observe.CustomEvent:
+      log.Println("Datadog adapter does not respect custom events")
+    }
+  }
 
-			d.TraceId = traceId
-		}
-	}
-}
-
-func (d *DatadogAdapter) Wait(collector *observe.Collector, timeout time.Duration) {
-	d.AdapterBase.Wait(collector, timeout, nil)
-}
-
-func (d *DatadogAdapter) Start(collector *observe.Collector, wasm []byte) error {
-	if err := d.AdapterBase.Start(collector, wasm); err != nil {
-		return err
-	}
-
-	stop := d.StopChan(collector)
-
-	go func() {
-		for {
-			select {
-			case event := <-collector.Events:
-				d.Event(event)
-			case <-stop:
-				return
-			}
-		}
-	}()
-
-	return nil
-}
-
-func (d *DatadogAdapter) Stop(collector *observe.Collector) {
-	d.AdapterBase.Stop(collector)
-
-	if len(d.Spans) == 0 {
-		return
-	}
+  if len(allSpans) <= 1 {
+    log.Println("No spans built for datadog trace")
+    return
+  }
 
 	go func() {
 		output := datadog_formatter.New()
 		// TODO: for the moment, these are hard-coded, but will transition to a programmer-
 		// controlled API to customer these values.
-		d.Spans[0].Resource = "request"
+		allSpans[0].Resource = "request"
 		tt := d.Config.TraceType.String()
-		d.Spans[0].Type = &tt
-		output.AddTrace(d.Spans)
+		allSpans[0].Type = &tt
+		output.AddTrace(allSpans)
 
 		b, err := json.Marshal(output)
 		if err != nil {
@@ -140,14 +109,22 @@ func (d *DatadogAdapter) Stop(collector *observe.Collector) {
 	}()
 }
 
-func (d *DatadogAdapter) makeCallSpans(event observe.CallEvent, parentId *uint64) []datadog_formatter.Span {
+func (d *DatadogAdapter) Start() {
+  d.AdapterBase.Start(d)
+}
+
+func (d *DatadogAdapter) Stop() {
+	d.AdapterBase.Stop()
+}
+
+func (d *DatadogAdapter) makeCallSpans(event observe.CallEvent, parentId *observe.TelemetryId, traceId observe.TelemetryId) []datadog_formatter.Span {
 	name := event.FunctionName()
-	span := datadog_formatter.NewSpan(d.Config.ServiceName, d.TraceId, parentId, name, event.Time, event.Time.Add(event.Duration))
+	span := datadog_formatter.NewSpan(d.Config.ServiceName, traceId, parentId, name, event.Time, event.Time.Add(event.Duration))
 
 	spans := []datadog_formatter.Span{*span}
 	for _, ev := range event.Within() {
 		if call, ok := ev.(observe.CallEvent); ok {
-			spans = append(spans, d.makeCallSpans(call, &span.SpanId)...)
+			spans = append(spans, d.makeCallSpans(call, &span.SpanId, traceId)...)
 		}
 	}
 

@@ -1,60 +1,65 @@
 package main
 
 import (
+	"context"
 	"log"
 	"os"
 	"time"
 
-	"github.com/dylibso/observe-sdk/go"
 	"github.com/dylibso/observe-sdk/go/adapter/datadog"
 	"github.com/tetratelabs/wazero"
 	"github.com/tetratelabs/wazero/imports/wasi_snapshot_preview1"
 )
 
 func main() {
-	//
-	// Collector API
-	collector := observe.NewCollector(nil)
-	ctx, r, err := collector.InitRuntime()
-	if err != nil {
-		log.Panicln(err)
-	}
-	defer r.Close(ctx) // This closes everything this Runtime created.
+  ctx := context.Background()
 
-	// Load WASM from disk
-	wasm, err := os.ReadFile(os.Args[1])
-	if err != nil {
-		log.Panicln(err)
-	}
+  log.Println("Starting adapter")
 
-	// Wazero stuff
-	// Instantiate WASI
-	wasi_snapshot_preview1.MustInstantiate(ctx, r)
-	// collector.CustomEvent("Start module", map[string]interface{}{"name": "testing"})
+  // we only need to create and start once per instance of our host app
+  ddconf := datadog.DefaultDatadogConfig()
+  adapter, err := datadog.NewDatadogAdapter(ddconf)
+  adapter.Start()
+  defer adapter.Stop()
 
-	//
-	// Adapter API
-	adapter, err := datadog.NewDatadogAdapter(nil)
-	if err != nil {
-		log.Panicln(err)
-	}
-	adapter.Start(collector, wasm)
-	defer adapter.Wait(collector, time.Millisecond*100)
-	defer adapter.Stop(collector)
+  log.Println("Adapter started")
 
-	adapter.SetTraceId(datadog.NewTraceId())
+  // Load WASM from disk
+  wasm, err := os.ReadFile(os.Args[1])
+  if err != nil {
+    log.Panicln(err)
+  }
 
-	config := wazero.NewModuleConfig().
-		WithStdin(os.Stdin).
-		WithStdout(os.Stdout).
-		WithStderr(os.Stderr).
-		WithArgs(os.Args[1:]...).
-		WithStartFunctions("_start")
-	m, err := r.InstantiateWithConfig(ctx, wasm, config)
-	if err != nil {
-		log.Panicln(err)
-	}
-	defer m.Close(ctx)
+  log.Println("Create trace ctx")
+  traceCtx, err := adapter.NewTraceCtx(wasm, nil)
+  if err != nil {
+    log.Panicln(err)
+  }
+  log.Println("trace ctx created")
+  cfg := wazero.NewRuntimeConfig().WithCustomSections(true)
+  rt := wazero.NewRuntimeWithConfig(ctx, cfg)
+  err = traceCtx.Init(ctx, rt)
+  if err != nil {
+    log.Panicln(err)
+  }
+  wasi_snapshot_preview1.MustInstantiate(ctx, rt)
+  log.Println("wasi inited")
 
-	time.Sleep(time.Second * 2)
+  config := wazero.NewModuleConfig().
+  WithStdin(os.Stdin).
+  WithStdout(os.Stdout).
+  WithStderr(os.Stderr).
+  WithArgs(os.Args[1:]...).
+  WithStartFunctions("_start")
+  m, err := rt.InstantiateWithConfig(ctx, wasm, config)
+  if err != nil {
+    log.Panicln(err)
+  }
+  log.Println("module run")
+  defer m.Close(ctx)
+
+  traceCtx.Finish()
+  log.Println("trace ctx finish")
+
+  time.Sleep(time.Second * 2)
 }

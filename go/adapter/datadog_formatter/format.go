@@ -12,24 +12,24 @@ type DatadogFormatter []Trace
 type Trace []Span
 
 type Span struct {
-	TraceId  uint64            `json:"trace_id"`
-	SpanId   uint64            `json:"span_id"`
-	ParentId *uint64           `json:"parent_id,omitempty"`
-	Name     string            `json:"name"`
-	Start    uint64            `json:"start"`
-	Duration uint64            `json:"duration"`
-	Resource string            `json:"resource"`
-	Error    uint8             `json:"error"`
-	Meta     map[string]string `json:"meta"`
-	Metrics  map[string]string `json:"metrics"`
-	Service  string            `json:"service"`
-	Type     *string           `json:"type,omitempty"`
+	TraceId  observe.TelemetryId   `json:"trace_id"`
+	SpanId   observe.TelemetryId   `json:"span_id"`
+	ParentId *observe.TelemetryId  `json:"parent_id,omitempty"`
+	Name     string                `json:"name"`
+	Start    uint64                `json:"start"`
+	Duration uint64                `json:"duration"`
+	Resource string                `json:"resource"`
+	Error    uint8                 `json:"error"`
+	Meta     map[string]string     `json:"meta"`
+	Metrics  map[string]string     `json:"metrics"`
+	Service  string                `json:"service"`
+	Type     *string               `json:"type,omitempty"`
 }
 
-func NewSpan(service string, traceId uint64, parentId *uint64, name string, start, end time.Time) *Span {
+func NewSpan(service string, traceId observe.TelemetryId, parentId *observe.TelemetryId, name string, start, end time.Time) *Span {
 	id := observe.NewSpanId()
 	span := Span{
-		SpanId:   uint64(id),
+		SpanId:   id,
 		ParentId: parentId,
 		TraceId:  traceId,
 		Name:     name,
