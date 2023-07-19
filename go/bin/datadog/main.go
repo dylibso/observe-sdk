@@ -1,25 +1,24 @@
 package main
 
 import (
+	"context"
 	"log"
 	"os"
 	"time"
 
-	"github.com/dylibso/observe-sdk/go"
 	"github.com/dylibso/observe-sdk/go/adapter/datadog"
 	"github.com/tetratelabs/wazero"
 	"github.com/tetratelabs/wazero/imports/wasi_snapshot_preview1"
 )
 
 func main() {
-	//
-	// Collector API
-	collector := observe.NewCollector(nil)
-	ctx, r, err := collector.InitRuntime()
-	if err != nil {
-		log.Panicln(err)
-	}
-	defer r.Close(ctx) // This closes everything this Runtime created.
+	ctx := context.Background()
+
+	// we only need to create and start once per instance of our host app
+	ddconf := datadog.DefaultDatadogConfig()
+	adapter, err := datadog.NewDatadogAdapter(ddconf)
+	adapter.Start()
+	defer adapter.Stop()
 
 	// Load WASM from disk
 	wasm, err := os.ReadFile(os.Args[1])
@@ -27,22 +26,13 @@ func main() {
 		log.Panicln(err)
 	}
 
-	// Wazero stuff
-	// Instantiate WASI
-	wasi_snapshot_preview1.MustInstantiate(ctx, r)
-	// collector.CustomEvent("Start module", map[string]interface{}{"name": "testing"})
-
-	//
-	// Adapter API
-	adapter, err := datadog.NewDatadogAdapter(nil)
+	cfg := wazero.NewRuntimeConfig().WithCustomSections(true)
+	rt := wazero.NewRuntimeWithConfig(ctx, cfg)
+	traceCtx, err := adapter.NewTraceCtx(ctx, rt, wasm, nil)
 	if err != nil {
 		log.Panicln(err)
 	}
-	adapter.Start(collector, wasm)
-	defer adapter.Wait(collector, time.Millisecond*100)
-	defer adapter.Stop(collector)
-
-	adapter.SetTraceId(datadog.NewTraceId())
+	wasi_snapshot_preview1.MustInstantiate(ctx, rt)
 
 	config := wazero.NewModuleConfig().
 		WithStdin(os.Stdin).
@@ -50,11 +40,13 @@ func main() {
 		WithStderr(os.Stderr).
 		WithArgs(os.Args[1:]...).
 		WithStartFunctions("_start")
-	m, err := r.InstantiateWithConfig(ctx, wasm, config)
+	m, err := rt.InstantiateWithConfig(ctx, wasm, config)
 	if err != nil {
 		log.Panicln(err)
 	}
 	defer m.Close(ctx)
+
+	traceCtx.Finish()
 
 	time.Sleep(time.Second * 2)
 }

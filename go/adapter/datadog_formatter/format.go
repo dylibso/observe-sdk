@@ -9,7 +9,7 @@ import (
 
 type DatadogFormatter []Trace
 
-type Trace []Span
+type Trace []*Span
 
 type Span struct {
 	TraceId  uint64            `json:"trace_id"`
@@ -29,7 +29,7 @@ type Span struct {
 func NewSpan(service string, traceId uint64, parentId *uint64, name string, start, end time.Time) *Span {
 	id := observe.NewSpanId()
 	span := Span{
-		SpanId:   uint64(id),
+		SpanId:   id.ToUint64(),
 		ParentId: parentId,
 		TraceId:  traceId,
 		Name:     name,

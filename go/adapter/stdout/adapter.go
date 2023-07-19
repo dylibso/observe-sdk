@@ -3,7 +3,6 @@ package stdout
 import (
 	"log"
 	"strings"
-	"time"
 
 	observe "github.com/dylibso/observe-sdk/go"
 )
@@ -24,42 +23,30 @@ func (s *StdoutAdapter) printEvents(event observe.CallEvent, indentation int) {
 		if call, ok := event.(observe.CallEvent); ok {
 			s.printEvents(call, indentation+1)
 		}
-	}
-}
-
-func (s *StdoutAdapter) Event(e observe.Event) {
-	switch event := e.(type) {
-	case observe.CallEvent:
-		s.printEvents(event, 0)
-	case observe.MemoryGrowEvent:
-		name := event.FunctionName()
-		log.Println("Allocated", event.MemoryGrowAmount(), "pages of memory in", name)
-	case observe.CustomEvent:
-		log.Println(event.Name, event.Time)
-	}
-}
-
-func (a *StdoutAdapter) Start(collector *observe.Collector, wasm []byte) error {
-	if err := a.AdapterBase.Start(collector, wasm); err != nil {
-		return err
-	}
-
-	stop := a.StopChan(collector)
-
-	go func() {
-		for {
-			select {
-			case event := <-collector.Events:
-				a.Event(event)
-			case <-stop:
-				return
-			}
+		if alloc, ok := event.(observe.MemoryGrowEvent); ok {
+			log.Println(strings.Repeat("  ", indentation), "Allocated", alloc.MemoryGrowAmount(), "pages of memory in", name)
 		}
-	}()
+	}
 
-	return nil
+}
+func (s *StdoutAdapter) HandleTraceEvent(te observe.TraceEvent) {
+	for _, e := range te.Events {
+		switch event := e.(type) {
+		case observe.CallEvent:
+			s.printEvents(event, 0)
+		case observe.MemoryGrowEvent:
+			name := event.FunctionName()
+			log.Println("Allocated", event.MemoryGrowAmount(), "pages of memory in", name)
+		case observe.CustomEvent:
+			log.Println(event.Name, event.Time)
+		}
+	}
 }
 
-func (a *StdoutAdapter) Wait(collector *observe.Collector, timeout time.Duration) {
-	a.AdapterBase.Wait(collector, timeout, func() {})
+func (s *StdoutAdapter) Start() {
+	s.AdapterBase.Start(s)
+}
+
+func (s *StdoutAdapter) Stop() {
+	s.AdapterBase.Stop()
 }
