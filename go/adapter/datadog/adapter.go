@@ -61,7 +61,8 @@ func (d *DatadogAdapter) HandleTraceEvent(te observe.TraceEvent) {
 	for _, e := range te.Events {
 		switch event := e.(type) {
 		case observe.CallEvent:
-			spans := d.makeCallSpans(event, nil, *te.TelemetryId)
+			traceId := te.TelemetryId.ToUint64()
+			spans := d.makeCallSpans(event, nil, traceId)
 			if len(spans) > 0 {
 				allSpans = append(allSpans, spans...)
 			}
@@ -114,7 +115,7 @@ func (d *DatadogAdapter) HandleTraceEvent(te observe.TraceEvent) {
 	}()
 }
 
-func (d *DatadogAdapter) makeCallSpans(event observe.CallEvent, parentId *observe.TelemetryId, traceId observe.TelemetryId) []datadog_formatter.Span {
+func (d *DatadogAdapter) makeCallSpans(event observe.CallEvent, parentId *uint64, traceId uint64) []datadog_formatter.Span {
 	name := event.FunctionName()
 	span := datadog_formatter.NewSpan(d.Config.ServiceName, traceId, parentId, name, event.Time, event.Time.Add(event.Duration))
 

@@ -47,3 +47,8 @@ func (t TelemetryId) ToHex8() string {
 func (t TelemetryId) ToHex16() string {
 	return fmt.Sprintf("%016x%016x", t.msb, t.lsb)
 }
+
+// Some adapters may need a raw representation
+func (t TelemetryId) ToUint64() uint64 {
+	return t.lsb
+}
