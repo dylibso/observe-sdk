@@ -9,7 +9,7 @@ import (
 
 type DatadogFormatter []Trace
 
-type Trace []Span
+type Trace []*Span
 
 type Span struct {
 	TraceId  uint64            `json:"trace_id"`

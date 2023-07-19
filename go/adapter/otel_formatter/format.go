@@ -32,7 +32,7 @@ func (r *ResourceSpan) AddAttribute(key string, value any) *ResourceSpan {
 	return r
 }
 
-func (r *ResourceSpan) AddSpans(spans []Span) {
+func (r *ResourceSpan) AddSpans(spans []*Span) {
 	r.ScopeSpans = append(r.ScopeSpans, ScopeSpan{
 		Scope: Scope{
 			Name: "event",
@@ -46,8 +46,8 @@ type Resource struct {
 }
 
 type ScopeSpan struct {
-	Scope Scope  `json:"scope"`
-	Spans []Span `json:"spans"`
+	Scope Scope   `json:"scope"`
+	Spans []*Span `json:"spans"`
 }
 
 type Attribute struct {

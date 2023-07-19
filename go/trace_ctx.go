@@ -142,7 +142,13 @@ func (t *TraceCtx) init(ctx context.Context, r wazero.Runtime) error {
 			Time: time.Now(),
 		}
 
-		t.events = append(t.events, event)
+		fn, ok := t.popFunction()
+		if !ok {
+			t.events = append(t.events, event)
+			return
+		}
+		fn.within = append(fn.within, event)
+		t.pushFunction(fn)
 	}).Export("instrument_memory_grow")
 
 	_, err := observe.Instantiate(ctx)

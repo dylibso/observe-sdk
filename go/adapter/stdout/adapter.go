@@ -23,6 +23,9 @@ func (s *StdoutAdapter) printEvents(event observe.CallEvent, indentation int) {
 		if call, ok := event.(observe.CallEvent); ok {
 			s.printEvents(call, indentation+1)
 		}
+		if alloc, ok := event.(observe.MemoryGrowEvent); ok {
+			log.Println(strings.Repeat("  ", indentation), "Allocated", alloc.MemoryGrowAmount(), "pages of memory in", name)
+		}
 	}
 
 }

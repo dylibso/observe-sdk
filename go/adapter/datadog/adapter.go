@@ -52,7 +52,7 @@ func (d *DatadogAdapter) Stop() {
 }
 
 func (d *DatadogAdapter) HandleTraceEvent(te observe.TraceEvent) {
-	var allSpans []datadog_formatter.Span
+	var allSpans []*datadog_formatter.Span
 	for _, e := range te.Events {
 		switch event := e.(type) {
 		case observe.CallEvent:
@@ -62,9 +62,7 @@ func (d *DatadogAdapter) HandleTraceEvent(te observe.TraceEvent) {
 				allSpans = append(allSpans, spans...)
 			}
 		case observe.MemoryGrowEvent:
-			if len(allSpans) > 0 {
-				allSpans[len(allSpans)-1].AddAllocation(event.MemoryGrowAmount())
-			}
+			log.Println("MemoryGrowEvent should be attached to a span")
 		case observe.CustomEvent:
 			log.Println("Datadog adapter does not respect custom events")
 		}
@@ -110,14 +108,18 @@ func (d *DatadogAdapter) HandleTraceEvent(te observe.TraceEvent) {
 	}()
 }
 
-func (d *DatadogAdapter) makeCallSpans(event observe.CallEvent, parentId *uint64, traceId uint64) []datadog_formatter.Span {
+func (d *DatadogAdapter) makeCallSpans(event observe.CallEvent, parentId *uint64, traceId uint64) []*datadog_formatter.Span {
 	name := event.FunctionName()
 	span := datadog_formatter.NewSpan(d.Config.ServiceName, traceId, parentId, name, event.Time, event.Time.Add(event.Duration))
 
-	spans := []datadog_formatter.Span{*span}
+	spans := []*datadog_formatter.Span{span}
 	for _, ev := range event.Within() {
 		if call, ok := ev.(observe.CallEvent); ok {
 			spans = append(spans, d.makeCallSpans(call, &span.SpanId, traceId)...)
+		}
+		if alloc, ok := ev.(observe.MemoryGrowEvent); ok {
+			span := spans[len(spans)-1]
+			span.AddAllocation(alloc.MemoryGrowAmount())
 		}
 	}
 

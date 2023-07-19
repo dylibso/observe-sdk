@@ -24,7 +24,7 @@ func NewOtelStdoutAdapter() OtelStdoutAdapter {
 func (o *OtelStdoutAdapter) HandleTraceEvent(te observe.TraceEvent) {
 	traceId := te.TelemetryId.ToHex16()
 
-	var allSpans []otel_formatter.Span
+	var allSpans []*otel_formatter.Span
 	for _, e := range te.Events {
 		switch event := e.(type) {
 		case observe.CallEvent:
@@ -33,9 +33,7 @@ func (o *OtelStdoutAdapter) HandleTraceEvent(te observe.TraceEvent) {
 				allSpans = append(allSpans, spans...)
 			}
 		case observe.MemoryGrowEvent:
-			span := otel.NewSpan(traceId, nil, "allocation", event.Time, event.Time)
-			span.AddAttribute("amount", event.MemoryGrowAmount())
-			allSpans = append(allSpans, *span)
+			log.Println("MemoryGrowEvent should be attached to a span")
 		case observe.CustomEvent:
 			log.Println("Otel adapter does not respect custom events")
 		}
@@ -68,15 +66,19 @@ func (o *OtelStdoutAdapter) Stop() {
 	o.AdapterBase.Stop()
 }
 
-func (o *OtelStdoutAdapter) makeCallSpans(event observe.CallEvent, parentId *string, traceId string) []otel.Span {
+func (o *OtelStdoutAdapter) makeCallSpans(event observe.CallEvent, parentId *string, traceId string) []*otel.Span {
 	name := event.FunctionName()
 	span := otel.NewSpan(traceId, parentId, name, event.Time, event.Time.Add(event.Duration))
 	span.AddAttribute("function_name", fmt.Sprintf("function-call-%s", name))
 
-	spans := []otel.Span{*span}
+	spans := []*otel.Span{span}
 	for _, ev := range event.Within() {
 		if call, ok := ev.(observe.CallEvent); ok {
 			spans = append(spans, o.makeCallSpans(call, &span.SpanId, traceId)...)
+		}
+		if alloc, ok := ev.(observe.MemoryGrowEvent); ok {
+			last := spans[len(spans)-1]
+			last.AddAttribute("allocation", alloc.MemoryGrowAmount())
 		}
 	}
 
