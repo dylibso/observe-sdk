@@ -2,7 +2,6 @@ package observe
 
 import (
 	"context"
-	"log"
 
 	"github.com/tetratelabs/wazero"
 )
@@ -21,7 +20,7 @@ type Adapter interface {
 // from a single wasm module invocation
 type TraceEvent struct {
 	Events      []Event
-	TelemetryId *TelemetryId
+	TelemetryId TelemetryId
 }
 
 // Shared implementation for all Adapters
@@ -51,10 +50,8 @@ func (b *AdapterBase) Start(a Adapter) {
 		for {
 			select {
 			case event := <-b.TraceEvents:
-				log.Println("Adapter Got TraceEvent")
 				a.HandleTraceEvent(event)
 			case <-b.stop:
-				log.Println("Adapter Stopped")
 				return
 			}
 		}
@@ -62,6 +59,5 @@ func (b *AdapterBase) Start(a Adapter) {
 }
 
 func (b *AdapterBase) Stop() {
-	log.Println("Stopping adapter")
 	b.stop <- true
 }

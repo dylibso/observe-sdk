@@ -52,11 +52,6 @@ func (d *DatadogAdapter) Stop() {
 }
 
 func (d *DatadogAdapter) HandleTraceEvent(te observe.TraceEvent) {
-	if te.TelemetryId == nil {
-		log.Println("Datadog adapter needs a trace id")
-		return
-	}
-
 	var allSpans []datadog_formatter.Span
 	for _, e := range te.Events {
 		switch event := e.(type) {

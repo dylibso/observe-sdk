@@ -20,12 +20,8 @@ func NewOtelStdoutAdapter() OtelStdoutAdapter {
 		AdapterBase: base,
 	}
 }
-func (o *OtelStdoutAdapter) HandleTraceEvent(te observe.TraceEvent) {
-	if te.TelemetryId == nil {
-		log.Println("Otel adapter needs a trace id")
-		return
-	}
 
+func (o *OtelStdoutAdapter) HandleTraceEvent(te observe.TraceEvent) {
 	traceId := te.TelemetryId.ToHex16()
 
 	var allSpans []otel_formatter.Span

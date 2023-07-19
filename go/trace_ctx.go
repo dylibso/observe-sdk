@@ -64,7 +64,7 @@ func newTraceCtx(ctx context.Context, adapter *AdapterBase, r wazero.Runtime, da
 func (t *TraceCtx) Finish() {
 	traceEvent := TraceEvent{
 		Events:      t.events,
-		TelemetryId: &t.telemetryId,
+		TelemetryId: t.telemetryId,
 	}
 	t.adapter <- traceEvent
 	// clear the trace context
