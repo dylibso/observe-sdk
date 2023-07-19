@@ -33,18 +33,9 @@ func (o *OtelStdoutAdapter) HandleTraceEvent(te observe.TraceEvent) {
 				allSpans = append(allSpans, spans...)
 			}
 		case observe.MemoryGrowEvent:
-			output := otel.New()
 			span := otel.NewSpan(traceId, nil, "allocation", event.Time, event.Time)
 			span.AddAttribute("amount", event.MemoryGrowAmount())
-			resourceSpan := otel.NewResourceSpan()
-			resourceSpan.AddSpans([]otel.Span{*span})
-			output.AddResourceSpan(*resourceSpan)
-			b, err := json.Marshal(output)
-			if err != nil {
-				log.Println("failed to encode MemoryGrowEvent spans")
-			}
-
-			fmt.Println(string(b))
+			allSpans = append(allSpans, *span)
 		case observe.CustomEvent:
 			log.Println("Otel adapter does not respect custom events")
 		}
@@ -54,8 +45,6 @@ func (o *OtelStdoutAdapter) HandleTraceEvent(te observe.TraceEvent) {
 		log.Println("No spans built for datadog trace")
 		return
 	}
-
-	log.Println(allSpans)
 
 	output := otel.New()
 	resourceSpan := otel.NewResourceSpan()
