@@ -43,6 +43,14 @@ func NewDatadogAdapter(config *DatadogConfig) (DatadogAdapter, error) {
 	}, nil
 }
 
+func (d *DatadogAdapter) Start() {
+	d.AdapterBase.Start(d)
+}
+
+func (d *DatadogAdapter) Stop() {
+	d.AdapterBase.Stop()
+}
+
 func (d *DatadogAdapter) HandleTraceEvent(te observe.TraceEvent) {
 	if te.TelemetryId == nil {
 		log.Println("Datadog adapter needs a trace id")
@@ -104,14 +112,6 @@ func (d *DatadogAdapter) HandleTraceEvent(te observe.TraceEvent) {
 			log.Println("unexpected status code from datadog agent:", resp.StatusCode)
 		}
 	}()
-}
-
-func (d *DatadogAdapter) Start() {
-	d.AdapterBase.Start(d)
-}
-
-func (d *DatadogAdapter) Stop() {
-	d.AdapterBase.Stop()
 }
 
 func (d *DatadogAdapter) makeCallSpans(event observe.CallEvent, parentId *observe.TelemetryId, traceId observe.TelemetryId) []datadog_formatter.Span {
