@@ -7,17 +7,24 @@ import (
 	"github.com/tetratelabs/wazero"
 )
 
+// The primary interface that every Adapter needs to follow
+// Start() and Stop() can just call the implementations on AdapterBase
+// or provide some custom logic. HandleTraceEvent is called after
+// an invocation of a wasm module is done and all events are collected.
 type Adapter interface {
 	Start()
 	Stop()
 	HandleTraceEvent(TraceEvent)
 }
 
+// The payload that contains all the Events
+// from a single wasm module invocation
 type TraceEvent struct {
 	Events      []Event
 	TelemetryId *TelemetryId
 }
 
+// Shared implementation for all Adapters
 type AdapterBase struct {
 	TraceEvents chan TraceEvent
 	stop        chan bool
@@ -27,7 +34,7 @@ func (a *AdapterBase) NewTraceCtx(ctx context.Context, r wazero.Runtime, wasm []
 	if config == nil {
 		config = NewDefaultConfig()
 	}
-	return NewTraceCtx(ctx, a, r, wasm, config)
+	return newTraceCtx(ctx, a, r, wasm, config)
 }
 
 func NewAdapterBase() AdapterBase {

@@ -23,6 +23,9 @@ const (
 	Custom
 )
 
+// Represents the raw event in our Observe form.
+// Events are transformed into vendor specific formats
+// in the Adapters.
 type RawEvent struct {
 	Kind             RawEventKind
 	Stack            []experimental.InternalFunction

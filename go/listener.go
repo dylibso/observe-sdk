@@ -7,6 +7,7 @@ import (
 	"github.com/tetratelabs/wazero/experimental"
 )
 
+// Implements the NewListener() method to satisfy the FunctionListener interface
 func (t *TraceCtx) NewListener(def api.FunctionDefinition) experimental.FunctionListener {
 	if def.GoFunction() == nil {
 		return nil
@@ -14,10 +15,13 @@ func (t *TraceCtx) NewListener(def api.FunctionDefinition) experimental.Function
 	return t
 }
 
+// Implements the NewFunctionListener() method to satisfy the FunctionListener interface
 func (t *TraceCtx) NewFunctionListener(_ api.FunctionDefinition) experimental.FunctionListener {
 	return t
 }
 
+// Implements the Before() method to satisfy the FunctionListener interface.
+// This takes events from the wazero runtime and sends them to the `raw` channel on the TraceCtx.
 func (t *TraceCtx) Before(ctx context.Context, _ api.Module, def api.FunctionDefinition, inputs []uint64, stack experimental.StackIterator) {
 	var event RawEvent
 	name := def.Name()
@@ -44,6 +48,8 @@ func (t *TraceCtx) Before(ctx context.Context, _ api.Module, def api.FunctionDef
 	t.raw <- event
 }
 
+// Null implementation of the After() method to satisfy the FunctionListener interface.
 func (t *TraceCtx) After(context.Context, api.Module, api.FunctionDefinition, []uint64) {}
 
+// Null implementation of the Abort() method to satisfy the FunctionListener interface.
 func (t *TraceCtx) Abort(context.Context, api.Module, api.FunctionDefinition, error) {}

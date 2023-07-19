@@ -10,17 +10,22 @@ import (
 	"github.com/tetratelabs/wazero/experimental"
 )
 
+// The configuration object for the observe SDK
 type Config struct {
 	ChannelBufferSize int
-	RuntimeConfig     wazero.RuntimeConfig
 }
 
+// Create a default configuration
 func NewDefaultConfig() *Config {
 	return &Config{
 		ChannelBufferSize: 1024,
 	}
 }
 
+// TraceCtx holds the context for a trace, or wasm module invocation.
+// It collects holds a channel to the Adapter and from the wazero Listener
+// It will collect events throughout the invocation of the function. Calling
+// Finish() will then submit those events to the Adapter to be processed and sent
 type TraceCtx struct {
 	adapter     chan TraceEvent
 	raw         chan RawEvent
@@ -31,7 +36,8 @@ type TraceCtx struct {
 	telemetryId TelemetryId
 }
 
-func NewTraceCtx(ctx context.Context, adapter *AdapterBase, r wazero.Runtime, data []byte, config *Config) (*TraceCtx, error) {
+// Creates a new TraceCtx. Used internally by the Adapter. The user should create the trace context from the Adapter.
+func newTraceCtx(ctx context.Context, adapter *AdapterBase, r wazero.Runtime, data []byte, config *Config) (*TraceCtx, error) {
 	names, err := parseNames(data)
 	if err != nil {
 		return nil, err
@@ -66,16 +72,15 @@ func (t *TraceCtx) Finish() {
 	t.telemetryId = NewTraceId()
 }
 
-func (t *TraceCtx) Names() map[uint32]string {
-	return t.names
-}
-
-func (t *TraceCtx) WithListener(ctx context.Context) context.Context {
+// Attaches the wazero FunctionListener to the context
+func (t *TraceCtx) withListener(ctx context.Context) context.Context {
 	return context.WithValue(ctx, experimental.FunctionListenerFactoryKey{}, t)
 }
 
+// Initializes the TraceCtx. This connects up the channels with events from the FunctionListener.
+// Should only be called once.
 func (t *TraceCtx) init(ctx context.Context, r wazero.Runtime) error {
-	ctx = t.WithListener(ctx)
+	ctx = t.withListener(ctx)
 	observe := r.NewHostModuleBuilder("dylibso_observe")
 	functions := observe.NewFunctionBuilder()
 
@@ -147,10 +152,12 @@ func (t *TraceCtx) init(ctx context.Context, r wazero.Runtime) error {
 	return nil
 }
 
+// Pushes a function onto the stack
 func (t *TraceCtx) pushFunction(ev CallEvent) {
 	t.stack = append(t.stack, ev)
 }
 
+// Pops a function off the stack
 func (t *TraceCtx) popFunction() (CallEvent, bool) {
 	if len(t.stack) == 0 {
 		return CallEvent{}, false
@@ -162,6 +169,7 @@ func (t *TraceCtx) popFunction() (CallEvent, bool) {
 	return event, true
 }
 
+// Peek at the function on top of the stack without modifying
 func (t *TraceCtx) peekFunction() (CallEvent, bool) {
 	if len(t.stack) == 0 {
 		return CallEvent{}, false

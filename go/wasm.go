@@ -10,6 +10,11 @@ import (
 	"github.com/tetratelabs/wabin/wasm"
 )
 
+const wasmInstrVersionMajor = 0
+const wasmInstrVersionMinor = 0 // TODO: bump this to match compiler when ready
+
+// make sure that our function was instrumented with a compatible
+// version of wasm-instr
 func checkVersion(m *wasm.Module) error {
 	var minorGlobal *wasm.Export = nil
 	var majorGlobal *wasm.Export = nil
@@ -45,6 +50,8 @@ func checkVersion(m *wasm.Module) error {
 	return nil
 }
 
+// Parse the names of the functions out of the
+// names custom section in the wasm binary.
 func parseNames(data []byte) (map[uint32]string, error) {
 	features := wasm.CoreFeaturesV2
 	m, err := binary.DecodeModule(data, features)
