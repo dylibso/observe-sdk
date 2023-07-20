@@ -21,6 +21,7 @@ type Adapter interface {
 type TraceEvent struct {
 	Events      []Event
 	TelemetryId TelemetryId
+	AdapterMeta interface{}
 }
 
 // Shared implementation for all Adapters

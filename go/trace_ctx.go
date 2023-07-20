@@ -34,6 +34,7 @@ type TraceCtx struct {
 	Config      *Config
 	names       map[uint32]string
 	telemetryId TelemetryId
+	adapterMeta interface{}
 }
 
 // Creates a new TraceCtx. Used internally by the Adapter. The user should create the trace context from the Adapter.
@@ -59,12 +60,17 @@ func newTraceCtx(ctx context.Context, adapter *AdapterBase, r wazero.Runtime, da
 	return traceCtx, nil
 }
 
+func (t *TraceCtx) Metadata(metadata interface{}) {
+	t.adapterMeta = metadata
+}
+
 // Finish() will stop the trace and send the
 // TraceEvent payload to the adapter
 func (t *TraceCtx) Finish() {
 	traceEvent := TraceEvent{
 		Events:      t.events,
 		TelemetryId: t.telemetryId,
+		AdapterMeta: t.adapterMeta,
 	}
 	t.adapter <- traceEvent
 	// clear the trace context

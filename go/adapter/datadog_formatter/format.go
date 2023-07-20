@@ -37,6 +37,7 @@ func NewSpan(service string, traceId uint64, parentId *uint64, name string, star
 		Duration: uint64(end.Sub(start).Nanoseconds()),
 		Service:  service,
 		Resource: name,
+		Meta:     make(map[string]string),
 	}
 	return &span
 }
