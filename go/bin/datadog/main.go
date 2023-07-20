@@ -52,11 +52,15 @@ func main() {
 	resourceName := "my-resource"
 	httpUrl := "https://example.com/my-endpoint"
 	httpStatusCode := 200
+	spanKind := datadog.Server
+	clientIp := "66.210.227.34"
 
 	meta := datadog.DatadogMetadata{
 		ResourceName:   &resourceName,
 		HttpUrl:        &httpUrl,
 		HttpStatusCode: &httpStatusCode,
+		SpanKind:       &spanKind,
+		HttpClientIp:   &clientIp,
 	}
 	traceCtx.Metadata(meta)
 

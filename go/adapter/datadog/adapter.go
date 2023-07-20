@@ -79,6 +79,9 @@ func (d *DatadogAdapter) HandleTraceEvent(te observe.TraceEvent) {
 
 		if meta, ok := te.AdapterMeta.(DatadogMetadata); ok {
 			topSpan := allSpans[0]
+			if topSpan.Meta == nil {
+				topSpan.Meta = make(map[string]string)
+			}
 			if meta.ResourceName != nil {
 				topSpan.Resource = *meta.ResourceName
 			}
@@ -87,6 +90,24 @@ func (d *DatadogAdapter) HandleTraceEvent(te observe.TraceEvent) {
 			}
 			if meta.HttpStatusCode != nil {
 				topSpan.Meta["http.status_code"] = fmt.Sprintf("%d", *meta.HttpStatusCode)
+			}
+			if meta.HttpClientIp != nil {
+				topSpan.Meta["http.client_ip"] = *meta.HttpClientIp
+			}
+			if meta.HttpRequestContentLength != nil {
+				topSpan.Meta["http.request.content_length"] = fmt.Sprintf("%d", *meta.HttpRequestContentLength)
+			}
+			if meta.HttpRequestContentLengthUncompressed != nil {
+				topSpan.Meta["http.request.content_length_uncompressed"] = fmt.Sprintf("%d", *meta.HttpRequestContentLengthUncompressed)
+			}
+			if meta.HttpResponseContentLength != nil {
+				topSpan.Meta["http.response.content_length"] = fmt.Sprintf("%d", *meta.HttpResponseContentLength)
+			}
+			if meta.HttpResponseContentLengthUncompressed != nil {
+				topSpan.Meta["http.response.content_length_uncompressed"] = fmt.Sprintf("%d", *meta.HttpResponseContentLengthUncompressed)
+			}
+			if meta.SpanKind != nil {
+				topSpan.Meta["span.kind"] = meta.SpanKind.String()
 			}
 		}
 
@@ -139,10 +160,16 @@ func (d *DatadogAdapter) makeCallSpans(event observe.CallEvent, parentId *uint64
 }
 
 type DatadogMetadata struct {
-	HttpUrl        *string
-	HttpMethod     *string
-	HttpStatusCode *int
-	ResourceName   *string
+	HttpUrl                               *string
+	HttpMethod                            *string
+	HttpStatusCode                        *int
+	ResourceName                          *string
+	HttpClientIp                          *string
+	HttpRequestContentLength              *int
+	HttpRequestContentLengthUncompressed  *int
+	HttpResponseContentLength             *int
+	HttpResponseContentLengthUncompressed *int
+	SpanKind                              *DatadogSpanKind
 }
 
 type DatadogSpanKind int
