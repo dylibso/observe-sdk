@@ -46,6 +46,24 @@ func main() {
 	}
 	defer m.Close(ctx)
 
+	// normally this metadata would be in your web-server framework
+	// or derived when you need them. we're just gonna initialize
+	// some example values here
+	resourceName := "my-resource"
+	httpUrl := "https://example.com/my-endpoint"
+	httpStatusCode := 200
+	spanKind := datadog.Server
+	clientIp := "66.210.227.34"
+
+	meta := datadog.DatadogMetadata{
+		ResourceName:   &resourceName,
+		HttpUrl:        &httpUrl,
+		HttpStatusCode: &httpStatusCode,
+		SpanKind:       &spanKind,
+		HttpClientIp:   &clientIp,
+	}
+	traceCtx.Metadata(meta)
+
 	traceCtx.Finish()
 
 	time.Sleep(time.Second * 2)

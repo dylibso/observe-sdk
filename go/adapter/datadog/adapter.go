@@ -3,6 +3,7 @@ package datadog
 import (
 	"bytes"
 	"encoding/json"
+	"fmt"
 	"log"
 	"net/http"
 	"net/url"
@@ -75,9 +76,45 @@ func (d *DatadogAdapter) HandleTraceEvent(te observe.TraceEvent) {
 
 	go func() {
 		output := datadog_formatter.New()
-		// TODO: for the moment, these are hard-coded, but will transition to a programmer-
-		// controlled API to customer these values.
-		allSpans[0].Resource = "request"
+
+		if te.AdapterMeta != nil {
+			if meta, ok := te.AdapterMeta.(DatadogMetadata); ok {
+				topSpan := allSpans[0]
+				if topSpan.Meta == nil {
+					topSpan.Meta = make(map[string]string)
+				}
+				if meta.ResourceName != nil {
+					topSpan.Resource = *meta.ResourceName
+				}
+				if meta.HttpUrl != nil {
+					topSpan.Meta["http.url"] = *meta.HttpUrl
+				}
+				if meta.HttpStatusCode != nil {
+					topSpan.Meta["http.status_code"] = fmt.Sprintf("%d", *meta.HttpStatusCode)
+				}
+				if meta.HttpClientIp != nil {
+					topSpan.Meta["http.client_ip"] = *meta.HttpClientIp
+				}
+				if meta.HttpRequestContentLength != nil {
+					topSpan.Meta["http.request.content_length"] = fmt.Sprintf("%d", *meta.HttpRequestContentLength)
+				}
+				if meta.HttpRequestContentLengthUncompressed != nil {
+					topSpan.Meta["http.request.content_length_uncompressed"] = fmt.Sprintf("%d", *meta.HttpRequestContentLengthUncompressed)
+				}
+				if meta.HttpResponseContentLength != nil {
+					topSpan.Meta["http.response.content_length"] = fmt.Sprintf("%d", *meta.HttpResponseContentLength)
+				}
+				if meta.HttpResponseContentLengthUncompressed != nil {
+					topSpan.Meta["http.response.content_length_uncompressed"] = fmt.Sprintf("%d", *meta.HttpResponseContentLengthUncompressed)
+				}
+				if meta.SpanKind != nil {
+					topSpan.Meta["span.kind"] = meta.SpanKind.String()
+				}
+			} else {
+				log.Println("The Datadog adapter was expecting a DatadogMetadata object on the trace")
+			}
+		}
+
 		tt := d.Config.TraceType.String()
 		allSpans[0].Type = &tt
 		output.AddTrace(allSpans)
@@ -124,6 +161,19 @@ func (d *DatadogAdapter) makeCallSpans(event observe.CallEvent, parentId *uint64
 	}
 
 	return spans
+}
+
+type DatadogMetadata struct {
+	HttpUrl                               *string
+	HttpMethod                            *string
+	HttpStatusCode                        *int
+	ResourceName                          *string
+	HttpClientIp                          *string
+	HttpRequestContentLength              *int
+	HttpRequestContentLengthUncompressed  *int
+	HttpResponseContentLength             *int
+	HttpResponseContentLengthUncompressed *int
+	SpanKind                              *DatadogSpanKind
 }
 
 type DatadogSpanKind int
