@@ -10,6 +10,10 @@ type Flusher interface {
 	Flush(events []TraceEvent) error
 }
 
+// EventBucket is a bucket for outgoing TraceEvents.
+// It only schedules flushes when the bucket goes from empty to 1 item.
+// At most the latency to flush the bucket will be flushPeriod.
+// It will also flush the TraceEvents in batches according to batch size
 type EventBucket struct {
 	mu          sync.Mutex
 	wg          sync.WaitGroup
@@ -18,6 +22,7 @@ type EventBucket struct {
 	batchSize   int
 }
 
+// NewEventBucket creates an EventBucket
 func NewEventBucket(batchSize int, flushPeriod time.Duration) *EventBucket {
 	return &EventBucket{
 		flushPeriod: flushPeriod,
@@ -25,6 +30,7 @@ func NewEventBucket(batchSize int, flushPeriod time.Duration) *EventBucket {
 	}
 }
 
+// addEvent adds a TraceEvent and schedules to flush to Flusher if needed
 func (b *EventBucket) addEvent(e TraceEvent, f Flusher) {
 	b.mu.Lock()
 	wasEmpty := len(b.bucket) == 0
@@ -42,14 +48,19 @@ func (b *EventBucket) Wait() {
 	b.wg.Wait()
 }
 
-// we start this routine and immediately wait, we are effectively
-// scheduling the flush to run flushPeriod sections later. In the meantime,
-// events may still be coming into the eventBucket
+// scheduleFlush schedules a goroutine to flush
+// the bucket at some time in the future depending on flushPeriod.
+// Events will continue to build up until the flush comes due
 func (b *EventBucket) scheduleFlush(f Flusher) {
+	// we start this routine and immediately wait, we are effectively
+	// scheduling the flush to run flushPeriod sections later. In the meantime,
+	// events may still be coming into the eventBucket
 	go func() {
+		// register this flush with the wait group
 		defer b.wg.Done()
 		b.wg.Add(1)
 
+		// wait for flushPeriod
 		time.Sleep(b.flushPeriod)
 
 		// move the events out of the EventBucket to a slice
@@ -70,6 +81,5 @@ func (b *EventBucket) scheduleFlush(f Flusher) {
 				log.Fatal(err)
 			}
 		}
-
 	}()
 }
