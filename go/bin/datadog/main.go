@@ -4,7 +4,6 @@ import (
 	"context"
 	"log"
 	"os"
-	"time"
 
 	"github.com/dylibso/observe-sdk/go/adapter/datadog"
 	"github.com/tetratelabs/wazero"
@@ -17,8 +16,11 @@ func main() {
 	// we only need to create and start once per instance of our host app
 	ddconf := datadog.DefaultDatadogConfig()
 	adapter, err := datadog.NewDatadogAdapter(ddconf)
+	if err != nil {
+		log.Panicln(err)
+	}
+	defer adapter.Stop(true)
 	adapter.Start()
-	defer adapter.Stop()
 
 	// Load WASM from disk
 	wasm, err := os.ReadFile(os.Args[1])
@@ -65,6 +67,4 @@ func main() {
 	traceCtx.Metadata(meta)
 
 	traceCtx.Finish()
-
-	time.Sleep(time.Second * 2)
 }

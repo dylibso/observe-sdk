@@ -38,14 +38,14 @@ type TraceCtx struct {
 }
 
 // Creates a new TraceCtx. Used internally by the Adapter. The user should create the trace context from the Adapter.
-func newTraceCtx(ctx context.Context, adapter *AdapterBase, r wazero.Runtime, data []byte, config *Config) (*TraceCtx, error) {
+func newTraceCtx(ctx context.Context, eventsChan chan TraceEvent, r wazero.Runtime, data []byte, config *Config) (*TraceCtx, error) {
 	names, err := parseNames(data)
 	if err != nil {
 		return nil, err
 	}
 
 	traceCtx := &TraceCtx{
-		adapter:     adapter.TraceEvents,
+		adapter:     eventsChan,
 		raw:         make(chan RawEvent, config.ChannelBufferSize),
 		names:       names,
 		telemetryId: NewTraceId(),
