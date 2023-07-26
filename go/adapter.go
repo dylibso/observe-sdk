@@ -2,7 +2,6 @@ package observe
 
 import (
 	"context"
-	"log"
 	"time"
 
 	"github.com/tetratelabs/wazero"
