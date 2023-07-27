@@ -3,6 +3,7 @@ use log::{error, warn};
 use modsurfer_demangle::demangle_function_name;
 use std::{
     collections::HashMap,
+    str::from_utf8,
     sync::{Arc, Mutex},
     time::SystemTime,
 };
@@ -10,7 +11,8 @@ use tokio::sync::mpsc::{channel, Receiver, Sender};
 use wasmtime::{Caller, FuncType, Linker, Val, ValType};
 
 use crate::{
-    collector::CollectorHandle, wasm_instr::WasmInstrInfo, Allocation, Event, FunctionCall,
+    collector::CollectorHandle, wasm_instr::WasmInstrInfo, Allocation, Event, FunctionCall, Log,
+    Statsd,
 };
 
 /// The InstrumentationContext holds the implementations
@@ -109,6 +111,49 @@ impl InstrumentationContext {
         }
         Ok(())
     }
+
+    fn statsd(&mut self, message: &[u8]) -> Result<()> {
+        let message = from_utf8(message)?.to_string();
+
+        let ev = Event::Statsd(Statsd {
+            ts: SystemTime::now(),
+            trace_id: None,
+            message,
+        });
+
+        if let Some(mut f) = self.stack.pop() {
+            f.within.push(ev.clone());
+            self.stack.push(f);
+        }
+
+        Ok(())
+    }
+
+    fn log_write(&mut self, level: u8, message: &[u8]) -> Result<()> {
+        let level = match level {
+            1 => log::Level::Error,
+            2 => log::Level::Warn,
+            3 => log::Level::Info,
+            4 => log::Level::Debug,
+            _ => anyhow::bail!("Could not map log level to an appropriate level"),
+        };
+
+        let message = from_utf8(message)?.to_string();
+
+        let ev = Event::Log(Log {
+            ts: SystemTime::now(),
+            message,
+            level,
+        });
+        println!("Got a log");
+
+        if let Some(mut f) = self.stack.pop() {
+            f.within.push(ev.clone());
+            self.stack.push(f);
+        }
+
+        Ok(())
+    }
 }
 
 pub(crate) fn instrument_enter(
@@ -145,6 +190,45 @@ pub(crate) fn instrument_memory_grow(
     let amount_in_pages = input[0].unwrap_i32(); // The number of pages requested by `memory.grow` instruction
     if let Ok(mut cont) = ctx.lock() {
         cont.allocate(amount_in_pages as u32)?;
+    }
+    Ok(())
+}
+
+pub(crate) fn statsd<T>(
+    caller: &mut Caller<T>,
+    input: &[Val],
+    _output: &mut [Val],
+    ctx: Arc<Mutex<InstrumentationContext>>,
+) -> Result<()> {
+    let offset = input.get(0).unwrap().i32().unwrap();
+    let len = input.get(1).unwrap().i32().unwrap();
+    let memory = caller.get_export("memory").unwrap().into_memory().unwrap();
+    let mut buffer = vec![0u8; len as usize];
+
+    memory.read(caller, offset as usize, &mut buffer)?;
+
+    if let Ok(mut cont) = ctx.lock() {
+        cont.statsd(&buffer)?;
+    }
+    Ok(())
+}
+
+pub(crate) fn log_write<T>(
+    caller: &mut Caller<T>,
+    input: &[Val],
+    _output: &mut [Val],
+    ctx: Arc<Mutex<InstrumentationContext>>,
+) -> Result<()> {
+    let level = input.get(0).unwrap().i32().unwrap();
+    let offset = input.get(1).unwrap().i32().unwrap();
+    let len = input.get(2).unwrap().i32().unwrap();
+    let memory = caller.get_export("memory").unwrap().into_memory().unwrap();
+    let mut buffer = vec![0u8; len as usize];
+
+    memory.read(caller, offset as usize, &mut buffer)?;
+
+    if let Ok(mut cont) = ctx.lock() {
+        cont.log_write(level as u8, &buffer)?;
     }
     Ok(())
 }
@@ -191,12 +275,30 @@ pub fn add_to_linker<T: 'static>(linker: &mut Linker<T>, data: &[u8]) -> Result<
         move |_caller, params, results| instrument_exit(params, results, exit_ctx.clone()),
     )?;
 
+    let grow_ctx = ctx.clone();
     linker.func_new(
         MODULE_NAME,
         "instrument_memory_grow",
         t,
-        move |_caller, params, results| instrument_memory_grow(params, results, ctx.clone()),
+        move |_caller, params, results| instrument_memory_grow(params, results, grow_ctx.clone()),
     )?;
+
+    let t = FuncType::new([ValType::I32, ValType::I32], []);
+
+    let statsd_ctx = ctx.clone();
+    linker.func_new(
+        MODULE_NAME,
+        "statsd",
+        t,
+        move |mut caller, params, results| statsd(&mut caller, params, results, statsd_ctx.clone()),
+    )?;
+
+    let t = FuncType::new([ValType::I32, ValType::I32, ValType::I32], []);
+
+    let log_ctx = ctx.clone();
+    linker.func_new(MODULE_NAME, "log", t, move |mut caller, params, results| {
+        log_write(&mut caller, params, results, log_ctx.clone())
+    })?;
 
     // if the wasm was automatically instrumented using Dylibso's compiler, there will be some
     // metadata added to enforce compatibility with the SDK. This metadata is stored as a module

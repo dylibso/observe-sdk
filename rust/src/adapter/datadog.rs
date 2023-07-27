@@ -1,15 +1,19 @@
 use anyhow::Result;
 use log::warn;
 use serde_json::json;
+use std::io::prelude::*;
 use std::{
     collections::HashMap,
     fmt::{Display, Formatter},
+    fs::OpenOptions,
+    io,
+    net::UdpSocket,
     time::Duration,
 };
 use ureq;
 use url::Url;
 
-use crate::{Event, TraceEvent};
+use crate::{Event, Log, Statsd, TraceEvent};
 
 use super::{
     datadog_formatter::{DatadogFormatter, Span, Trace},
@@ -160,6 +164,8 @@ impl DatadogAdapter {
     fn event_to_spans(
         &self,
         spans: &mut Vec<Span>,
+        statsd_events: &mut Vec<Statsd>,
+        log_events: &mut Vec<Log>,
         event: Event,
         parent_id: Option<u64>,
         trace_id: u64,
@@ -182,7 +188,14 @@ impl DatadogAdapter {
                 spans.push(span);
 
                 for e in f.within.iter() {
-                    self.event_to_spans(spans, e.to_owned(), span_id, trace_id)?
+                    self.event_to_spans(
+                        spans,
+                        statsd_events,
+                        log_events,
+                        e.to_owned(),
+                        span_id,
+                        trace_id,
+                    )?
                 }
             }
             Event::Alloc(a) => {
@@ -191,19 +204,38 @@ impl DatadogAdapter {
                     span.add_allocation(a.amount);
                 }
             }
-            _ => {}
+            Event::Statsd(mut s) => {
+                s.trace_id = Some(trace_id);
+                statsd_events.push(s);
+            }
+            Event::Log(l) => {
+                log_events.push(l);
+            }
+            ev => {
+                println!("Unknown event {:#?}", ev);
+            }
         }
         Ok(())
     }
 
     fn dump_traces(&mut self) -> Result<()> {
         let mut dtf = DatadogFormatter::new();
+        let mut statsd_events = vec![];
+        let mut log_events = vec![];
+
         for trace_evt in &self.trace_events {
             let mut spans = vec![];
             let trace_id = &trace_evt.telemetry_id;
             for span in &trace_evt.events {
                 let tid = trace_id.clone().into();
-                self.event_to_spans(&mut spans, span.to_owned(), None, tid)?;
+                self.event_to_spans(
+                    &mut spans,
+                    &mut statsd_events,
+                    &mut log_events,
+                    span.to_owned(),
+                    None,
+                    tid,
+                )?;
             }
             let mut trace = Trace::new();
             let mut first_span = true;
@@ -231,16 +263,24 @@ impl DatadogAdapter {
                             dd_meta.insert("http.client_ip".to_string(), ip.to_string());
                         }
                         if let Some(rl) = meta.http_request_content_length {
-                            dd_meta.insert("http.request.content_length".to_string(), rl.to_string());
+                            dd_meta
+                                .insert("http.request.content_length".to_string(), rl.to_string());
                         }
                         if let Some(rl) = meta.http_request_content_length_uncompressed {
-                            dd_meta.insert("http.request.content_length_uncompressed".to_string(), rl.to_string());
+                            dd_meta.insert(
+                                "http.request.content_length_uncompressed".to_string(),
+                                rl.to_string(),
+                            );
                         }
                         if let Some(rl) = meta.http_response_content_length {
-                            dd_meta.insert("http.response.content_length".to_string(), rl.to_string());
+                            dd_meta
+                                .insert("http.response.content_length".to_string(), rl.to_string());
                         }
                         if let Some(rl) = meta.http_response_content_length_uncompressed {
-                            dd_meta.insert("http.response.content_length_uncompressed".to_string(), rl.to_string());
+                            dd_meta.insert(
+                                "http.response.content_length_uncompressed".to_string(),
+                                rl.to_string(),
+                            );
                         }
                         if let Some(span_kind) = meta.span_kind {
                             dd_meta.insert("span.kind".to_string(), span_kind.to_string());
@@ -273,6 +313,33 @@ impl DatadogAdapter {
         } else {
             // clear the traces because we've successfully submitted them
             self.trace_events.clear();
+        }
+
+        if statsd_events.len() > 0 {
+            let socket = UdpSocket::bind("0.0.0.0:9999").unwrap();
+            for stat in statsd_events {
+                let message = format!("{}|#trace_id:{}", stat.message, stat.trace_id.unwrap());
+                dbg!(&stat);
+                dbg!(&message);
+                socket
+                    .send_to(message.as_bytes(), "127.0.0.1:8125")
+                    .unwrap();
+            }
+        }
+
+        if log_events.len() > 0 {
+            let file = OpenOptions::new()
+                .write(true)
+                .append(true)
+                .create(true)
+                .open("/tmp/planktonic.log")?;
+
+            let mut file_writer = io::BufWriter::new(file);
+            for evt in log_events {
+                dbg!(&evt);
+                file_writer.write_all(evt.message.as_bytes()).unwrap();
+            }
+            file_writer.flush()?;
         }
 
         Ok(())
