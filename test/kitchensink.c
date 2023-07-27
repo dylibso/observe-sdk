@@ -8,6 +8,9 @@
 IMPORT("dylibso_observe", "statsd") extern void statsd(uint32_t, uint32_t);
 IMPORT("dylibso_observe", "log")
 extern void log_write(uint32_t, uint32_t, uint32_t);
+IMPORT("dylibso_observe", "span_enter")
+extern void span_enter(uint32_t, uint32_t);
+IMPORT("dylibso_observe", "span_exit") extern void span_exit();
 
 void write_stat() {
   char stat[] = "vowels.count:1|c";
@@ -30,8 +33,24 @@ void write_log() {
   log_write(level, uint64_ptr, uint64_length);
 }
 
+void custom_span() {
+  char name[] = "myCustomFunctionSpan";
+
+  uintptr_t ptr = (uintptr_t)name;
+  uint64_t uint64_ptr = (uint64_t)ptr;
+  uint64_t uint64_length = (uint64_t)(strlen(name));
+
+  span_enter(uint64_ptr, uint64_length);
+  span_enter(uint64_ptr, uint64_length);
+  span_enter(uint64_ptr, uint64_length);
+  span_exit();
+  span_exit();
+  span_exit();
+}
+
 void run() {
   printf("Hello from Wasm!\n");
+  custom_span();
   write_stat();
   write_log();
 }

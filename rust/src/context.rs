@@ -72,9 +72,9 @@ impl InstrumentationContext {
 
     fn exit(&mut self, func_index: u32) -> Result<()> {
         if let Some(mut func) = self.stack.pop() {
-            if func.index != func_index {
-                return Err(anyhow!("missed a function exit"));
-            }
+            // if func.index != func_index {
+            //     return Err(anyhow!("missed a function exit"));
+            // }
             func.end = SystemTime::now();
 
             if let Some(mut f) = self.stack.pop() {
@@ -233,6 +233,41 @@ pub(crate) fn log_write<T>(
     Ok(())
 }
 
+pub(crate) fn span_enter<T>(
+    caller: &mut Caller<T>,
+    input: &[Val],
+    _output: &mut [Val],
+    ctx: Arc<Mutex<InstrumentationContext>>,
+) -> Result<()> {
+    let offset = input.get(0).unwrap().i32().unwrap();
+    let len = input.get(1).unwrap().i32().unwrap();
+    let memory = caller.get_export("memory").unwrap().into_memory().unwrap();
+    let mut buffer = vec![0u8; len as usize];
+
+    memory.read(caller, offset as usize, &mut buffer)?;
+
+    let name = from_utf8(&buffer)?;
+
+    if let Ok(mut cont) = ctx.lock() {
+        cont.enter(0u32, Some(name))?;
+    }
+
+    Ok(())
+}
+
+pub(crate) fn span_exit<T>(
+    _caller: &mut Caller<T>,
+    _input: &[Val],
+    _output: &mut [Val],
+    ctx: Arc<Mutex<InstrumentationContext>>,
+) -> Result<()> {
+    if let Ok(mut cont) = ctx.lock() {
+        cont.exit(0u32)?;
+    }
+
+    Ok(())
+}
+
 const MODULE_NAME: &str = "dylibso_observe";
 
 type EventChannel = (Sender<Event>, Receiver<Event>);
@@ -289,8 +324,18 @@ pub fn add_to_linker<T: 'static>(linker: &mut Linker<T>, data: &[u8]) -> Result<
     linker.func_new(
         MODULE_NAME,
         "statsd",
-        t,
+        t.clone(),
         move |mut caller, params, results| statsd(&mut caller, params, results, statsd_ctx.clone()),
+    )?;
+
+    let span_enter_ctx = ctx.clone();
+    linker.func_new(
+        MODULE_NAME,
+        "span_enter",
+        t,
+        move |mut caller, params, results| {
+            span_enter(&mut caller, params, results, span_enter_ctx.clone())
+        },
     )?;
 
     let t = FuncType::new([ValType::I32, ValType::I32, ValType::I32], []);
@@ -299,6 +344,18 @@ pub fn add_to_linker<T: 'static>(linker: &mut Linker<T>, data: &[u8]) -> Result<
     linker.func_new(MODULE_NAME, "log", t, move |mut caller, params, results| {
         log_write(&mut caller, params, results, log_ctx.clone())
     })?;
+
+    let t = FuncType::new([], []);
+
+    let span_exit_ctx = ctx.clone();
+    linker.func_new(
+        MODULE_NAME,
+        "span_exit",
+        t,
+        move |mut caller, params, results| {
+            span_exit(&mut caller, params, results, span_exit_ctx.clone())
+        },
+    )?;
 
     // if the wasm was automatically instrumented using Dylibso's compiler, there will be some
     // metadata added to enforce compatibility with the SDK. This metadata is stored as a module
