@@ -248,6 +248,7 @@ pub(crate) fn span_enter<T>(
 
     let name = from_utf8(&buffer)?;
 
+    println!("Span enter: {}", name);
     if let Ok(mut cont) = ctx.lock() {
         cont.enter(0u32, Some(name))?;
     }
