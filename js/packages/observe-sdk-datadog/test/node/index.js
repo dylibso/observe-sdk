@@ -20,6 +20,10 @@ adapter.start(bytes).then((traceContext) => {
     ...traceContext.getImportObject(),
   }).then((instance) => {
     wasi.start(instance);
+    adapter.setMetadata({
+      http_status_code: 200,
+      http_url: "https://example.com",
+    });
     traceContext.stop();
   });
 });
