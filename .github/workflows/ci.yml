@@ -3,8 +3,22 @@ on: [push, pull_request, workflow_dispatch]
 name: CI
 
 jobs:
-  test:
-    name: Test
+  go:
+    name: Test Go
+    runs-on: ubuntu-latest
+    steps: 
+      - name: Checkout sources
+        uses: actions/checkout@v2
+
+      - name: Install Go toolchain
+        uses: actions/setup-go@v4
+
+      - name: Run go test
+        run: |
+          cd go
+          go test ./...
+  rust:
+    name: Test Rust
     runs-on: ubuntu-latest
     steps:
       - name: Checkout sources
