@@ -88,10 +88,6 @@ func (o *OtelStdoutAdapter) makeCallSpans(event observe.CallEvent, parentId *str
 	return spans
 }
 
-// We don't need any background task for this Adapter
 func (o *OtelStdoutAdapter) Start() {
-}
-
-// We don't need any background task for this Adapter
-func (o *OtelStdoutAdapter) Stop(wait bool) {
+	o.AdapterBase.Start(o)
 }

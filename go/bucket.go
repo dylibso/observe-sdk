@@ -70,6 +70,7 @@ func (b *EventBucket) scheduleFlush(f Flusher) {
 		b.bucket = nil
 		b.mu.Unlock()
 
+		// flush the bucket in chunks of batchSize
 		for i := 0; i < len(bucket); i += b.batchSize {
 			j := i + b.batchSize
 			if j > len(bucket) {

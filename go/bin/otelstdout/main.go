@@ -4,6 +4,7 @@ import (
 	"context"
 	"log"
 	"os"
+	"time"
 
 	"github.com/dylibso/observe-sdk/go/adapter/otel_stdout"
 	"github.com/tetratelabs/wazero"
@@ -45,4 +46,5 @@ func main() {
 	defer m.Close(ctx)
 
 	traceCtx.Finish()
+	time.Sleep(2 * time.Second)
 }

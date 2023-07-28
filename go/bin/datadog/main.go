@@ -4,6 +4,7 @@ import (
 	"context"
 	"log"
 	"os"
+	"time"
 
 	"github.com/dylibso/observe-sdk/go/adapter/datadog"
 	"github.com/tetratelabs/wazero"
@@ -67,4 +68,5 @@ func main() {
 	traceCtx.Metadata(meta)
 
 	traceCtx.Finish()
+	time.Sleep(2 * time.Second)
 }

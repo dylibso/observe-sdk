@@ -23,12 +23,10 @@ func NewStdoutAdapter() *StdoutAdapter {
 }
 
 func (s *StdoutAdapter) HandleTraceEvent(te observe.TraceEvent) {
-	log.Println("handle event")
 	s.AdapterBase.HandleTraceEvent(te)
 }
 
 func (s *StdoutAdapter) Flush(evts []observe.TraceEvent) error {
-	log.Println("flush")
 	for _, te := range evts {
 		for _, e := range te.Events {
 			switch event := e.(type) {
@@ -59,10 +57,6 @@ func (s *StdoutAdapter) printEvents(event observe.CallEvent, indentation int) {
 	}
 }
 
-// we don't need a background task for this adapter
 func (s *StdoutAdapter) Start() {
-}
-
-// we don't need a background task for this adapter
-func (s *StdoutAdapter) Stop(wait bool) {
+	s.AdapterBase.Start(s)
 }

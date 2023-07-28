@@ -48,7 +48,6 @@ func (a *AdapterBase) NewTraceCtx(ctx context.Context, r wazero.Runtime, wasm []
 func NewAdapterBase(batchSize int, flushPeriod time.Duration) AdapterBase {
 	bucket := NewEventBucket(batchSize, flushPeriod)
 	return AdapterBase{
-		// TODO set to some kind of max, add dump logic
 		TraceEvents: make(chan TraceEvent, 100),
 		eventBucket: bucket,
 	}
