@@ -11,59 +11,62 @@ import (
 )
 
 type OtelStdoutAdapter struct {
-	observe.AdapterBase
+	*observe.AdapterBase
 }
 
-func NewOtelStdoutAdapter() OtelStdoutAdapter {
-	base := observe.NewAdapterBase()
-	return OtelStdoutAdapter{
-		AdapterBase: base,
+func NewOtelStdoutAdapter() *OtelStdoutAdapter {
+	base := observe.NewAdapterBase(1, 0)
+	adapter := &OtelStdoutAdapter{
+		AdapterBase: &base,
 	}
+
+	adapter.AdapterBase.SetFlusher(adapter)
+
+	return adapter
 }
 
 func (o *OtelStdoutAdapter) HandleTraceEvent(te observe.TraceEvent) {
-	traceId := te.TelemetryId.ToHex16()
+	o.AdapterBase.HandleTraceEvent(te)
+}
 
-	var allSpans []*otel_formatter.Span
-	for _, e := range te.Events {
-		switch event := e.(type) {
-		case observe.CallEvent:
-			spans := o.makeCallSpans(event, nil, traceId)
-			if len(spans) > 0 {
-				allSpans = append(allSpans, spans...)
+func (o *OtelStdoutAdapter) Flush(evts []observe.TraceEvent) error {
+	for _, te := range evts {
+		traceId := te.TelemetryId.ToHex16()
+
+		var allSpans []*otel_formatter.Span
+		for _, e := range te.Events {
+			switch event := e.(type) {
+			case observe.CallEvent:
+				spans := o.makeCallSpans(event, nil, traceId)
+				if len(spans) > 0 {
+					allSpans = append(allSpans, spans...)
+				}
+			case observe.MemoryGrowEvent:
+				log.Println("MemoryGrowEvent should be attached to a span")
+			case observe.CustomEvent:
+				log.Println("Otel adapter does not respect custom events")
 			}
-		case observe.MemoryGrowEvent:
-			log.Println("MemoryGrowEvent should be attached to a span")
-		case observe.CustomEvent:
-			log.Println("Otel adapter does not respect custom events")
 		}
+
+		if len(allSpans) <= 1 {
+			log.Println("No spans built for datadog trace")
+			return nil
+		}
+
+		output := otel.New()
+		resourceSpan := otel.NewResourceSpan()
+		resourceSpan.AddSpans(allSpans)
+		output.AddResourceSpan(*resourceSpan)
+		b, err := json.Marshal(output)
+		if err != nil {
+			log.Println("failed to encode CallEvent spans")
+			return nil
+		}
+
+		fmt.Println(string(b))
 	}
 
-	if len(allSpans) <= 1 {
-		log.Println("No spans built for datadog trace")
-		return
-	}
-
-	output := otel.New()
-	resourceSpan := otel.NewResourceSpan()
-	resourceSpan.AddSpans(allSpans)
-	output.AddResourceSpan(*resourceSpan)
-	b, err := json.Marshal(output)
-	if err != nil {
-		log.Println("failed to encode CallEvent spans")
-		return
-	}
-
-	fmt.Println(string(b))
-
-}
-
-func (o *OtelStdoutAdapter) Start() {
-	o.AdapterBase.Start(o)
-}
-
-func (o *OtelStdoutAdapter) Stop() {
-	o.AdapterBase.Stop()
+	return nil
 }
 
 func (o *OtelStdoutAdapter) makeCallSpans(event observe.CallEvent, parentId *string, traceId string) []*otel.Span {
@@ -83,4 +86,8 @@ func (o *OtelStdoutAdapter) makeCallSpans(event observe.CallEvent, parentId *str
 	}
 
 	return spans
+}
+
+func (o *OtelStdoutAdapter) Start() {
+	o.AdapterBase.Start(o)
 }

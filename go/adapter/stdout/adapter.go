@@ -8,12 +8,40 @@ import (
 )
 
 type StdoutAdapter struct {
-	observe.AdapterBase
+	*observe.AdapterBase
 }
 
-func NewStdoutAdapter() StdoutAdapter {
-	base := observe.NewAdapterBase()
-	return StdoutAdapter{AdapterBase: base}
+func NewStdoutAdapter() *StdoutAdapter {
+	base := observe.NewAdapterBase(1, 0)
+	adapter := &StdoutAdapter{
+		AdapterBase: &base,
+	}
+
+	adapter.AdapterBase.SetFlusher(adapter)
+
+	return adapter
+}
+
+func (s *StdoutAdapter) HandleTraceEvent(te observe.TraceEvent) {
+	s.AdapterBase.HandleTraceEvent(te)
+}
+
+func (s *StdoutAdapter) Flush(evts []observe.TraceEvent) error {
+	for _, te := range evts {
+		for _, e := range te.Events {
+			switch event := e.(type) {
+			case observe.CallEvent:
+				s.printEvents(event, 0)
+			case observe.MemoryGrowEvent:
+				name := event.FunctionName()
+				log.Println("Allocated", event.MemoryGrowAmount(), "pages of memory in", name)
+			case observe.CustomEvent:
+				log.Println(event.Name, event.Time)
+			}
+		}
+	}
+
+	return nil
 }
 
 func (s *StdoutAdapter) printEvents(event observe.CallEvent, indentation int) {
@@ -27,26 +55,8 @@ func (s *StdoutAdapter) printEvents(event observe.CallEvent, indentation int) {
 			log.Println(strings.Repeat("  ", indentation), "Allocated", alloc.MemoryGrowAmount(), "pages of memory in", name)
 		}
 	}
-
-}
-func (s *StdoutAdapter) HandleTraceEvent(te observe.TraceEvent) {
-	for _, e := range te.Events {
-		switch event := e.(type) {
-		case observe.CallEvent:
-			s.printEvents(event, 0)
-		case observe.MemoryGrowEvent:
-			name := event.FunctionName()
-			log.Println("Allocated", event.MemoryGrowAmount(), "pages of memory in", name)
-		case observe.CustomEvent:
-			log.Println(event.Name, event.Time)
-		}
-	}
 }
 
 func (s *StdoutAdapter) Start() {
 	s.AdapterBase.Start(s)
-}
-
-func (s *StdoutAdapter) Stop() {
-	s.AdapterBase.Stop()
 }

@@ -7,6 +7,7 @@ import (
 	"log"
 	"net/http"
 	"net/url"
+	"time"
 
 	"github.com/dylibso/observe-sdk/go"
 	"github.com/dylibso/observe-sdk/go/adapter/datadog_formatter"
@@ -17,6 +18,8 @@ type DatadogConfig struct {
 	ServiceName string                             `json:"service_name"`
 	DefaultTags map[string]string                  `json:"default_tags"`
 	TraceType   datadog_formatter.DatadogTraceType `json:"trace_type"`
+	FlushPeriod time.Duration
+	BatchSize   int
 }
 
 func DefaultDatadogConfig() *DatadogConfig {
@@ -25,57 +28,68 @@ func DefaultDatadogConfig() *DatadogConfig {
 		ServiceName: "my-wasm-service",
 		DefaultTags: nil,
 		TraceType:   datadog_formatter.Web,
+		FlushPeriod: 2 * time.Second,
+		BatchSize:   100,
 	}
 }
 
 type DatadogAdapter struct {
-	observe.AdapterBase
+	*observe.AdapterBase
 	Config *DatadogConfig
 }
 
-func NewDatadogAdapter(config *DatadogConfig) (DatadogAdapter, error) {
+func NewDatadogAdapter(config *DatadogConfig) (*DatadogAdapter, error) {
 	if config == nil {
 		config = DefaultDatadogConfig()
 	}
 
-	return DatadogAdapter{
-		AdapterBase: observe.NewAdapterBase(),
+	base := observe.NewAdapterBase(config.BatchSize, config.FlushPeriod)
+	adapter := &DatadogAdapter{
+		AdapterBase: &base,
 		Config:      config,
-	}, nil
+	}
+
+	adapter.AdapterBase.SetFlusher(adapter)
+
+	return adapter, nil
 }
 
 func (d *DatadogAdapter) Start() {
 	d.AdapterBase.Start(d)
 }
 
-func (d *DatadogAdapter) Stop() {
-	d.AdapterBase.Stop()
+func (d *DatadogAdapter) Stop(wait bool) {
+	d.AdapterBase.Stop(wait)
 }
 
-func (d *DatadogAdapter) HandleTraceEvent(te observe.TraceEvent) {
-	var allSpans []*datadog_formatter.Span
-	for _, e := range te.Events {
-		switch event := e.(type) {
-		case observe.CallEvent:
-			traceId := te.TelemetryId.ToUint64()
-			spans := d.makeCallSpans(event, nil, traceId)
-			if len(spans) > 0 {
-				allSpans = append(allSpans, spans...)
+func (d *DatadogAdapter) HandleTraceEvent(e observe.TraceEvent) {
+	d.AdapterBase.HandleTraceEvent(e)
+}
+
+func (d *DatadogAdapter) Flush(evts []observe.TraceEvent) error {
+	log.Printf("Flushing %d events\n", len(evts))
+	var traces [][]*datadog_formatter.Span
+	for _, te := range evts {
+		var allSpans []*datadog_formatter.Span
+		for _, e := range te.Events {
+			switch event := e.(type) {
+			case observe.CallEvent:
+				traceId := te.TelemetryId.ToUint64()
+				spans := d.makeCallSpans(event, nil, traceId)
+				if len(spans) > 0 {
+					allSpans = append(allSpans, spans...)
+				}
+			case observe.MemoryGrowEvent:
+				log.Println("MemoryGrowEvent should be attached to a span")
+			case observe.CustomEvent:
+				log.Println("Datadog adapter does not respect custom events")
 			}
-		case observe.MemoryGrowEvent:
-			log.Println("MemoryGrowEvent should be attached to a span")
-		case observe.CustomEvent:
-			log.Println("Datadog adapter does not respect custom events")
 		}
-	}
 
-	if len(allSpans) <= 1 {
-		log.Println("No spans built for datadog trace")
-		return
-	}
-
-	go func() {
-		output := datadog_formatter.New()
+		if len(allSpans) <= 1 {
+			log.Println("No spans built for datadog trace")
+			return nil
+		}
 
 		if te.AdapterMeta != nil {
 			if meta, ok := te.AdapterMeta.(DatadogMetadata); ok {
@@ -117,32 +131,44 @@ func (d *DatadogAdapter) HandleTraceEvent(te observe.TraceEvent) {
 
 		tt := d.Config.TraceType.String()
 		allSpans[0].Type = &tt
-		output.AddTrace(allSpans)
 
-		b, err := json.Marshal(output)
-		if err != nil {
-			log.Println("failed to encode trace data to json", err)
-			return
-		}
+		traces = append(traces, allSpans)
+	}
 
-		data := bytes.NewBuffer(b)
+	output := datadog_formatter.New()
+	log.Println("formatted traces ", len(traces))
 
-		host, err := url.JoinPath(d.Config.AgentHost, "v0.3", "traces")
-		if err != nil {
-			log.Println("failed to create datadog agent endpoint url:", err)
-			return
-		}
+	for _, trace := range traces {
+		output.AddTrace(trace)
+	}
 
-		resp, err := http.Post(host, "application/json", data)
-		if err != nil {
-			log.Println("failed to send trace request to datadog:", err)
-			return
-		}
+	b, err := json.Marshal(output)
+	if err != nil {
+		log.Println("failed to encode trace data to json", err)
+		return nil
+	}
 
-		if resp.StatusCode != http.StatusOK {
-			log.Println("unexpected status code from datadog agent:", resp.StatusCode)
-		}
-	}()
+	data := bytes.NewBuffer(b)
+
+	host, err := url.JoinPath(d.Config.AgentHost, "v0.3", "traces")
+	if err != nil {
+		log.Println("failed to create datadog agent endpoint url:", err)
+		return nil
+	}
+
+	resp, err := http.Post(host, "application/json", data)
+	if err != nil {
+		log.Println("failed to send trace request to datadog:", err)
+		return nil
+	}
+
+	if resp.StatusCode != http.StatusOK {
+		log.Println("unexpected status code from datadog agent:", resp.StatusCode)
+	}
+
+	log.Println("Submitted traces")
+
+	return nil
 }
 
 func (d *DatadogAdapter) makeCallSpans(event observe.CallEvent, parentId *uint64, traceId uint64) []*datadog_formatter.Span {
