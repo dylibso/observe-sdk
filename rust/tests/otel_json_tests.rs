@@ -7,7 +7,6 @@ mod tests {
     use serde_json::Value;
 
     mod helpers;
-    use helpers::otel_json::*;
 
     #[test]
     fn otel_stdout() -> Result<()> {
@@ -26,7 +25,7 @@ mod tests {
         let output = String::from_utf8(output.stdout)?;
 
         // traces is the collection of all traces emitted from this run
-        let traces = output
+        let _traces = output
             .lines()
             .map(|l| match serde_json::from_str(l) {
                 Ok(x) => Some(x),

@@ -104,9 +104,6 @@ impl InstrumentationContext {
             self.stack.push(f);
         }
 
-        if let Err(e) = self.collector.try_send(ev) {
-            error!("error recording memory allocation: {}", e);
-        }
         Ok(())
     }
 }
