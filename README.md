@@ -1,4 +1,9 @@
-# Observe
+<picture>
+    <source media="(prefers-color-scheme: dark)" srcset=".github/assets/observe-wasm-light.svg">
+    <img alt="WebAssembly Observability - Observe SDK by Dylibso" src=".github/assets/observe-wasm.svg">
+</picture>
+
+# WebAssembly Observability Toolkit
 
 Observe provides observability SDKs for WebAssembly, enabling continuous
 monitoring of WebAssembly code as it executes within a runtime.
@@ -33,10 +38,10 @@ prioritize these additional components
 
 There are two components to this process:
 
-1. [Instrumenting the Wasm code](#instrumenting-wasm-module)
+1. [Instrumenting the Wasm code](#instrumenting-wasm-modules)
 2. [Including a runtime/host SDK](#including-a-runtime-sdk)
 
-## Instrumenting Wasm Module
+## Instrumenting Wasm Modules
 
 This package expects the wasm code to be instrumented using our instrumenting
 compiler. The only way to instrument your wasm right now is through the
@@ -61,7 +66,8 @@ curl -F wasm=@code.wasm https://compiler-preview.dylibso.com/instrument -X POST 
 
 ## Including a runtime SDK
 
-First install the cargo dependency for the SDK:
+This example covers the integration of the Rust SDK for Wasmtime. First install
+the cargo dependency for the SDK:
 
 ```toml
 [dependencies]
