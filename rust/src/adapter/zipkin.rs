@@ -67,7 +67,7 @@ impl ZipkinAdapter {
         let mut ztf = ZipkinFormatter::new();
         ztf.spans = spans;
 
-        let mut first_span = ztf
+        let first_span = ztf
             .spans
             .first_mut()
             .context("No spans to send to zipkin")?;
