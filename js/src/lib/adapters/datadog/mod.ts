@@ -24,6 +24,17 @@ export enum DatadogSpanKind {
   Internal = "internal",
 }
 
+export enum DatadogLanguage {
+  Cpp = "cpp",
+  Dotnet = "dotnet",
+  Go = "go",
+  Jvm = "jvm",
+  Javascript = "javascript",
+  Php = "php",
+  Ruby = "ruby",
+  Python = "python",
+}
+
 export interface DatadogConfig {
   agentHost: URL;
   serviceName: string;
@@ -42,10 +53,25 @@ export const DefaultDatadogConfig: DatadogConfig = {
   traceBatchMax: 100,
 };
 
+export interface DatadogMetadata {
+  resource_name?: string,
+  http_status_code?: number,
+  http_url?: string,
+  http_method?: string,
+  http_client_ip?: string,
+  http_request_content_length?: number,
+  http_request_content_length_uncompressed?: number,
+  http_response_content_length?: number,
+  http_response_content_length_uncompressed?: number,
+  span_kind?: DatadogSpanKind,
+  language?: DatadogLanguage,
+  component?: string,
+}
+
 export class DatadogTraceContext implements Collector {
   constructor(
     private collector: SpanCollector,
-  ) {}
+  ) { }
   getImportObject(): WebAssembly.Imports {
     return this.collector.getImportObject();
   }
@@ -70,6 +96,8 @@ export class DatadogAdapter implements Adapter {
   formatter: DatadogFormatter;
   config: DatadogConfig;
   traceIntervalId: number | undefined;
+  meta: DatadogMetadata | undefined;
+
   constructor(config?: DatadogConfig) {
     this.config = DefaultDatadogConfig;
     if (config) {
@@ -134,6 +162,10 @@ export class DatadogAdapter implements Adapter {
     }
   }
 
+  public setMetadata(meta: DatadogMetadata): void {
+    this.meta = meta;
+  }
+
   private addSpanToTrace(
     trace: Trace,
     fn: FunctionCall,
@@ -170,6 +202,42 @@ export class DatadogAdapter implements Adapter {
 
   private async send() {
     if (this.formatter.traces.length > 0) {
+      for (var trace of this.formatter.traces) {
+        const span = trace.spans[0];
+        if (span && this.meta) {
+          if (this.meta.resource_name) {
+            span.meta["resource"] = this.meta.resource_name;
+          }
+          if (this.meta.http_status_code) {
+            span.meta["http.status_code"] = this.meta.http_status_code;
+          }
+          if (this.meta.http_url) {
+            span.meta["http.url"] = this.meta.http_url;
+          }
+          if (this.meta.http_method) {
+            span.meta["http.method"] = this.meta.http_method;
+          }
+          if (this.meta.http_client_ip) {
+            span.meta["http.client_ip"] = this.meta.http_client_ip;
+          }
+          if (this.meta.http_request_content_length) {
+            span.meta["http.request.content_length"] = this.meta.http_request_content_length;
+          }
+          if (this.meta.http_request_content_length_uncompressed) {
+            span.meta["http.request.content_length_uncompressed"] = this.meta.http_request_content_length_uncompressed;
+          }
+          if (this.meta.http_response_content_length) {
+            span.meta["http.response.content_length"] = this.meta.http_response_content_length;
+          }
+          if (this.meta.http_response_content_length_uncompressed) {
+            span.meta["http.response.content_length_uncompressed"] = this.meta.http_response_content_length_uncompressed;
+          }
+          if (this.meta.span_kind) {
+            span.meta["span.kind"] = this.meta.span_kind;
+          }
+        }
+      }
+
       const controller = new AbortController();
       const id = setTimeout(() => controller.abort(), 1000);
       try {
