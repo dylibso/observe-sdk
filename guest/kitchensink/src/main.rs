@@ -4,7 +4,7 @@ use observe_instrument::instrument;
 
 #[instrument]
 fn log_something(msg: &str) {
-    span_tags("user_id:123,world:hello");
+    span_tags(vec!["user_id:123", "world:hello"]);
     statsd("worlds.helloed:1|c");
     log(Level::Warn, msg);
 }

@@ -34,7 +34,8 @@ pub fn span_enter(name: &str) {
     unsafe { _span_enter(ptr, len) };
 }
 
-pub fn span_tags(tags: &str) {
+pub fn span_tags(tags: Vec<&str>) {
+    let tags = tags.join(",");
     let ptr = tags.as_ptr() as *const u8;
     let ptr = ptr as u32;
     let len = tags.len() as u32;
