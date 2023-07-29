@@ -1,9 +1,10 @@
 use log::Level;
-use observe_api::{log, span_enter, span_exit, statsd};
+use observe_api::{log, span_enter, span_exit, span_tags, statsd};
 use observe_instrument::instrument;
 
 #[instrument]
 fn log_something(msg: &str) {
+    span_tags("user_id:123,world:hello");
     statsd("worlds.helloed:1|c");
     log(Level::Warn, msg);
 }
@@ -20,4 +21,3 @@ fn main() {
     run();
     span_exit();
 }
-

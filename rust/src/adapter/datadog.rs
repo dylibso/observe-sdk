@@ -208,6 +208,14 @@ impl DatadogAdapter {
                 s.trace_id = Some(trace_id);
                 statsd_events.push(s);
             }
+            Event::Tags(t) => {
+                if let Some(span) = spans.last_mut() {
+                    for tag in t.tags {
+                        println!("Adding span tag {}", &tag);
+                        span.add_tag(tag);
+                    }
+                }
+            }
             Event::Log(l) => {
                 log_events.push(l);
             }

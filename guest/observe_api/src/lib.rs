@@ -6,6 +6,8 @@ extern "C" {
     fn _log(level: u32, ptr: u32, len: u32);
     #[link_name = "span_enter"]
     fn _span_enter(ptr: u32, len: u32);
+    #[link_name = "span_tags"]
+    fn _span_tags(ptr: u32, len: u32);
     #[link_name = "span_exit"]
     fn _span_exit();
 }
@@ -30,6 +32,13 @@ pub fn span_enter(name: &str) {
     let ptr = ptr as u32;
     let len = name.len() as u32;
     unsafe { _span_enter(ptr, len) };
+}
+
+pub fn span_tags(tags: &str) {
+    let ptr = tags.as_ptr() as *const u8;
+    let ptr = ptr as u32;
+    let len = tags.len() as u32;
+    unsafe { _span_tags(ptr, len) };
 }
 
 pub fn span_exit() {

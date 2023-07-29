@@ -12,7 +12,7 @@ use wasmtime::{Caller, FuncType, Linker, Val, ValType};
 
 use crate::{
     collector::CollectorHandle, wasm_instr::WasmInstrInfo, Allocation, Event, FunctionCall, Log,
-    Statsd,
+    Statsd, Tags,
 };
 
 /// The InstrumentationContext holds the implementations
@@ -129,6 +129,20 @@ impl InstrumentationContext {
         Ok(())
     }
 
+    fn span_tags(&mut self, tags: Vec<String>) -> Result<()> {
+        let ev = Event::Tags(Tags {
+            ts: SystemTime::now(),
+            tags,
+        });
+
+        if let Some(mut f) = self.stack.pop() {
+            f.within.push(ev.clone());
+            self.stack.push(f);
+        }
+
+        Ok(())
+    }
+
     fn log_write(&mut self, level: u8, message: &[u8]) -> Result<()> {
         let level = match level {
             1 => log::Level::Error,
@@ -209,6 +223,26 @@ pub(crate) fn statsd<T>(
 
     if let Ok(mut cont) = ctx.lock() {
         cont.statsd(&buffer)?;
+    }
+    Ok(())
+}
+
+pub(crate) fn span_tags<T>(
+    caller: &mut Caller<T>,
+    input: &[Val],
+    _output: &mut [Val],
+    ctx: Arc<Mutex<InstrumentationContext>>,
+) -> Result<()> {
+    let offset = input.get(0).unwrap().i32().unwrap();
+    let len = input.get(1).unwrap().i32().unwrap();
+    let memory = caller.get_export("memory").unwrap().into_memory().unwrap();
+    let mut buffer = vec![0u8; len as usize];
+    memory.read(caller, offset as usize, &mut buffer)?;
+    let buffer = from_utf8(&buffer)?;
+    let tags: Vec<String> = buffer.split(|c| c == ',').map(|e| e.to_string()).collect();
+
+    if let Ok(mut cont) = ctx.lock() {
+        cont.span_tags(tags)?;
     }
     Ok(())
 }
@@ -333,9 +367,19 @@ pub fn add_to_linker<T: 'static>(linker: &mut Linker<T>, data: &[u8]) -> Result<
     linker.func_new(
         MODULE_NAME,
         "span_enter",
-        t,
+        t.clone(),
         move |mut caller, params, results| {
             span_enter(&mut caller, params, results, span_enter_ctx.clone())
+        },
+    )?;
+
+    let span_tags_ctx = ctx.clone();
+    linker.func_new(
+        MODULE_NAME,
+        "span_tags",
+        t.clone(),
+        move |mut caller, params, results| {
+            span_tags(&mut caller, params, results, span_tags_ctx.clone())
         },
     )?;
 

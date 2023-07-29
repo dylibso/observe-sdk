@@ -71,4 +71,12 @@ impl Span {
         self.meta
             .insert("allocations".to_string(), amount.to_string());
     }
+
+    pub fn add_tag(&mut self, tag: String) {
+        // TODO need a more robust way to do this
+        let parts: Vec<&str> = tag.split(|c| c == ':').collect();
+        let key = parts.get(0).unwrap();
+        let value = parts.get(1).unwrap();
+        self.meta.insert(key.to_string(), value.to_string());
+    }
 }
