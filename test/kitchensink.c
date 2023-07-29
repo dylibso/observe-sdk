@@ -5,7 +5,8 @@
 
 #define IMPORT(a, b) __attribute__((import_module(a), import_name(b)))
 
-IMPORT("dylibso_observe", "statsd") extern void statsd(uint32_t, uint32_t);
+IMPORT("dylibso_observe", "metric")
+extern void metric(uint32_t, uint32_t, uint32_t);
 IMPORT("dylibso_observe", "log")
 extern void log_write(uint32_t, uint32_t, uint32_t);
 IMPORT("dylibso_observe", "span_enter")
@@ -30,7 +31,7 @@ void write_stat() {
   uint64_t uint64_length = (uint64_t)(strlen(stat));
 
   custom_span_enter("statsd");
-  statsd(uint64_ptr, uint64_length);
+  metric((uint64_t)1, uint64_ptr, uint64_length);
   custom_span_exit();
 }
 

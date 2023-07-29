@@ -52,7 +52,7 @@ pub enum Event {
     TraceId(TelemetryId),
     Metadata(AdapterMetadata),
     Tags(Tags),
-    Statsd(Statsd),
+    Metric(Metric),
     Log(Log),
     Shutdown,
 }
@@ -81,8 +81,14 @@ pub struct Allocation {
 }
 
 #[derive(Debug, Clone)]
-pub struct Statsd {
+pub enum MetricFormat {
+    Statsd = 1,
+}
+
+#[derive(Debug, Clone)]
+pub struct Metric {
     pub ts: SystemTime,
+    pub format: MetricFormat,
     pub message: String,
     pub trace_id: Option<u64>,
 }

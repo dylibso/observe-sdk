@@ -12,7 +12,7 @@ use wasmtime::{Caller, FuncType, Linker, Val, ValType};
 
 use crate::{
     collector::CollectorHandle, wasm_instr::WasmInstrInfo, Allocation, Event, FunctionCall, Log,
-    Statsd, Tags,
+    Metric, MetricFormat, Tags,
 };
 
 /// The InstrumentationContext holds the implementations
@@ -112,12 +112,13 @@ impl InstrumentationContext {
         Ok(())
     }
 
-    fn statsd(&mut self, message: &[u8]) -> Result<()> {
+    fn metric(&mut self, format: MetricFormat, message: &[u8]) -> Result<()> {
         let message = from_utf8(message)?.to_string();
 
-        let ev = Event::Statsd(Statsd {
+        let ev = Event::Metric(Metric {
             ts: SystemTime::now(),
             trace_id: None,
+            format,
             message,
         });
 
@@ -208,21 +209,25 @@ pub(crate) fn instrument_memory_grow(
     Ok(())
 }
 
-pub(crate) fn statsd<T>(
+pub(crate) fn metric<T>(
     caller: &mut Caller<T>,
     input: &[Val],
     _output: &mut [Val],
     ctx: Arc<Mutex<InstrumentationContext>>,
 ) -> Result<()> {
-    let offset = input.get(0).unwrap().i32().unwrap();
-    let len = input.get(1).unwrap().i32().unwrap();
+    let format = match input.get(0).unwrap().i32().unwrap() {
+        1 => MetricFormat::Statsd,
+        _ => anyhow::bail!("Illegal metric format value"),
+    };
+    let offset = input.get(1).unwrap().i32().unwrap();
+    let len = input.get(2).unwrap().i32().unwrap();
     let memory = caller.get_export("memory").unwrap().into_memory().unwrap();
     let mut buffer = vec![0u8; len as usize];
 
     memory.read(caller, offset as usize, &mut buffer)?;
 
     if let Ok(mut cont) = ctx.lock() {
-        cont.statsd(&buffer)?;
+        cont.metric(format, &buffer)?;
     }
     Ok(())
 }
@@ -355,14 +360,6 @@ pub fn add_to_linker<T: 'static>(linker: &mut Linker<T>, data: &[u8]) -> Result<
 
     let t = FuncType::new([ValType::I32, ValType::I32], []);
 
-    let statsd_ctx = ctx.clone();
-    linker.func_new(
-        MODULE_NAME,
-        "statsd",
-        t.clone(),
-        move |mut caller, params, results| statsd(&mut caller, params, results, statsd_ctx.clone()),
-    )?;
-
     let span_enter_ctx = ctx.clone();
     linker.func_new(
         MODULE_NAME,
@@ -384,6 +381,14 @@ pub fn add_to_linker<T: 'static>(linker: &mut Linker<T>, data: &[u8]) -> Result<
     )?;
 
     let t = FuncType::new([ValType::I32, ValType::I32, ValType::I32], []);
+
+    let metric_ctx = ctx.clone();
+    linker.func_new(
+        MODULE_NAME,
+        "metric",
+        t.clone(),
+        move |mut caller, params, results| metric(&mut caller, params, results, metric_ctx.clone()),
+    )?;
 
     let log_ctx = ctx.clone();
     linker.func_new(MODULE_NAME, "log", t, move |mut caller, params, results| {

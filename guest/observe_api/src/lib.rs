@@ -1,7 +1,7 @@
 #[link(wasm_import_module = "dylibso_observe")]
 extern "C" {
-    #[link_name = "statsd"]
-    fn _statsd(ptr: u32, len: u32);
+    #[link_name = "metric"]
+    fn _metric(format: u32, ptr: u32, len: u32);
     #[link_name = "log"]
     fn _log(level: u32, ptr: u32, len: u32);
     #[link_name = "span_enter"]
@@ -20,11 +20,16 @@ pub fn log(level: log::Level, message: &str) {
     unsafe { _log(level, ptr, len) };
 }
 
-pub fn statsd(message: &str) {
+pub enum MetricFormat {
+    Statsd = 1,
+}
+
+pub fn metric(format: MetricFormat, message: &str) {
+    let format = format as u32;
     let ptr = message.as_ptr() as *const u8;
     let ptr = ptr as u32;
     let len = message.len() as u32;
-    unsafe { _statsd(ptr, len) };
+    unsafe { _metric(format, ptr, len) };
 }
 
 pub fn span_enter(name: &str) {

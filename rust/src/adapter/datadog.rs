@@ -13,7 +13,7 @@ use std::{
 use ureq;
 use url::Url;
 
-use crate::{Event, Log, Statsd, TraceEvent};
+use crate::{Event, Log, Metric, TraceEvent};
 
 use super::{
     datadog_formatter::{DatadogFormatter, Span, Trace},
@@ -164,7 +164,7 @@ impl DatadogAdapter {
     fn event_to_spans(
         &self,
         spans: &mut Vec<Span>,
-        statsd_events: &mut Vec<Statsd>,
+        metric_events: &mut Vec<Metric>,
         log_events: &mut Vec<Log>,
         event: Event,
         parent_id: Option<u64>,
@@ -190,7 +190,7 @@ impl DatadogAdapter {
                 for e in f.within.iter() {
                     self.event_to_spans(
                         spans,
-                        statsd_events,
+                        metric_events,
                         log_events,
                         e.to_owned(),
                         span_id,
@@ -204,9 +204,9 @@ impl DatadogAdapter {
                     span.add_allocation(a.amount);
                 }
             }
-            Event::Statsd(mut s) => {
-                s.trace_id = Some(trace_id);
-                statsd_events.push(s);
+            Event::Metric(mut m) => {
+                m.trace_id = Some(trace_id);
+                metric_events.push(m);
             }
             Event::Tags(t) => {
                 if let Some(span) = spans.last_mut() {
@@ -228,7 +228,7 @@ impl DatadogAdapter {
 
     fn dump_traces(&mut self) -> Result<()> {
         let mut dtf = DatadogFormatter::new();
-        let mut statsd_events = vec![];
+        let mut metric_events = vec![];
         let mut log_events = vec![];
 
         for trace_evt in &self.trace_events {
@@ -238,7 +238,7 @@ impl DatadogAdapter {
                 let tid = trace_id.clone().into();
                 self.event_to_spans(
                     &mut spans,
-                    &mut statsd_events,
+                    &mut metric_events,
                     &mut log_events,
                     span.to_owned(),
                     None,
@@ -323,12 +323,11 @@ impl DatadogAdapter {
             self.trace_events.clear();
         }
 
-        if statsd_events.len() > 0 {
+        if metric_events.len() > 0 {
             let socket = UdpSocket::bind("0.0.0.0:9999").unwrap();
-            for stat in statsd_events {
+            for stat in metric_events {
+                // TODO we are just assumign they are statsd format but we can check stat.format
                 let message = format!("{}|#trace_id:{}", stat.message, stat.trace_id.unwrap());
-                dbg!(&stat);
-                dbg!(&message);
                 socket
                     .send_to(message.as_bytes(), "127.0.0.1:8125")
                     .unwrap();

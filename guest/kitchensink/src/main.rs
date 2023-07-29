@@ -1,11 +1,11 @@
 use log::Level;
-use observe_api::{log, span_enter, span_exit, span_tags, statsd};
+use observe_api::{log, metric, span_enter, span_exit, span_tags, MetricFormat};
 use observe_instrument::instrument;
 
 #[instrument]
 fn log_something(msg: &str) {
     span_tags(vec!["user_id:123", "world:hello"]);
-    statsd("worlds.helloed:1|c");
+    metric(MetricFormat::Statsd, "worlds.helloed:1|c");
     log(Level::Warn, msg);
 }
 
