@@ -18,6 +18,7 @@ fn run() {
 
 fn main() {
     span_enter("main");
+    span_tags(vec!["user_id:123", "world:hello"]);
     run();
     span_exit();
 }

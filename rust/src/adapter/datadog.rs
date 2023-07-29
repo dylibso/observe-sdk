@@ -295,7 +295,7 @@ impl DatadogAdapter {
                         }
                     }
 
-                    span.meta = dd_meta;
+                    span.meta.extend(dd_meta);
                     first_span = false;
                 }
                 trace.push(span);
