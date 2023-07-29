@@ -16,9 +16,8 @@ fn run() {
     log_something("Hello World 3");
 }
 
+#[instrument]
 fn main() {
-    span_enter("main");
     span_tags(vec!["user_id:123", "world:hello"]);
     run();
-    span_exit();
 }
