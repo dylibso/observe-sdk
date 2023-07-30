@@ -1,4 +1,4 @@
-use anyhow::{anyhow, Result};
+use anyhow::{anyhow, Context, Result};
 use log::{error, warn};
 use modsurfer_demangle::demangle_function_name;
 use std::{
@@ -160,7 +160,6 @@ impl InstrumentationContext {
             message,
             level,
         });
-        println!("Got a log");
 
         if let Some(mut f) = self.stack.pop() {
             f.within.push(ev.clone());
@@ -177,11 +176,17 @@ pub(crate) fn instrument_enter(
     ctx: Arc<Mutex<InstrumentationContext>>,
     function_names: &HashMap<u32, String>,
 ) -> anyhow::Result<()> {
-    let func_id = input[0].unwrap_i32() as u32;
+    let func_id = input
+        .get(0)
+        .context("Missing func_id arg")?
+        .i32()
+        .context("Could not convert func_id arg to i32")? as u32;
     let printname = function_names.get(&func_id);
+
     if let Ok(mut cont) = ctx.lock() {
         cont.enter(func_id, printname.map(|x| x.as_str()))?;
     }
+
     Ok(())
 }
 
@@ -190,9 +195,14 @@ pub(crate) fn instrument_exit(
     _output: &mut [Val],
     ctx: Arc<Mutex<InstrumentationContext>>,
 ) -> Result<()> {
-    let func_id = input[0].unwrap_i32() as u32;
+    let func_id = input
+        .get(0)
+        .context("Missing func_id arg")?
+        .i32()
+        .context("Could not convert func_id arg to i32")?;
+
     if let Ok(mut cont) = ctx.lock() {
-        cont.exit(func_id)?;
+        cont.exit(func_id as u32)?;
     }
     Ok(())
 }
@@ -202,7 +212,12 @@ pub(crate) fn instrument_memory_grow(
     _output: &mut [Val],
     ctx: Arc<Mutex<InstrumentationContext>>,
 ) -> Result<()> {
-    let amount_in_pages = input[0].unwrap_i32(); // The number of pages requested by `memory.grow` instruction
+    let amount_in_pages = input
+        .get(0)
+        .context("Missing amount_in_pages arg")?
+        .i32()
+        .context("Could not convert amount_in_pages arg to i32")?;
+
     if let Ok(mut cont) = ctx.lock() {
         cont.allocate(amount_in_pages as u32)?;
     }
@@ -215,20 +230,42 @@ pub(crate) fn metric<T>(
     _output: &mut [Val],
     ctx: Arc<Mutex<InstrumentationContext>>,
 ) -> Result<()> {
-    let format = match input.get(0).unwrap().i32().unwrap() {
+    let format = input
+        .get(0)
+        .context("Missing format arg")?
+        .i32()
+        .context("Could not convert format arg to i32")?;
+
+    let format = match format {
         1 => MetricFormat::Statsd,
         _ => anyhow::bail!("Illegal metric format value"),
     };
-    let offset = input.get(1).unwrap().i32().unwrap();
-    let len = input.get(2).unwrap().i32().unwrap();
-    let memory = caller.get_export("memory").unwrap().into_memory().unwrap();
-    let mut buffer = vec![0u8; len as usize];
 
-    memory.read(caller, offset as usize, &mut buffer)?;
+    let ptr = input
+        .get(1)
+        .context("Missing ptr arg")?
+        .i32()
+        .context("Could not convert ptr arg to i32")?;
+
+    let len = input
+        .get(2)
+        .context("Missing len arg")?
+        .i32()
+        .context("Could not convert len arg to i32")?;
+
+    let memory = caller
+        .get_export("memory")
+        .context("Could not get memory from caller")?
+        .into_memory()
+        .context("Could not convert to into memory")?;
+
+    let mut buffer = vec![0u8; len as usize];
+    memory.read(caller, ptr as usize, &mut buffer)?;
 
     if let Ok(mut cont) = ctx.lock() {
         cont.metric(format, &buffer)?;
     }
+
     Ok(())
 }
 
@@ -238,17 +275,36 @@ pub(crate) fn span_tags<T>(
     _output: &mut [Val],
     ctx: Arc<Mutex<InstrumentationContext>>,
 ) -> Result<()> {
-    let offset = input.get(0).unwrap().i32().unwrap();
-    let len = input.get(1).unwrap().i32().unwrap();
-    let memory = caller.get_export("memory").unwrap().into_memory().unwrap();
+    let ptr = input
+        .get(0)
+        .context("Missing ptr arg")?
+        .i32()
+        .context("Could not convert ptr arg to i32")?;
+
+    let len = input
+        .get(1)
+        .context("Missing len arg")?
+        .i32()
+        .context("Could not convert len arg to i32")?;
+
+    let memory = caller
+        .get_export("memory")
+        .context("Could not get memory from caller")?
+        .into_memory()
+        .context("Could not convert to into memory")?;
+
     let mut buffer = vec![0u8; len as usize];
-    memory.read(caller, offset as usize, &mut buffer)?;
-    let buffer = from_utf8(&buffer)?;
-    let tags: Vec<String> = buffer.split(|c| c == ',').map(|e| e.to_string()).collect();
+    memory.read(caller, ptr as usize, &mut buffer)?;
+
+    let tags: Vec<String> = from_utf8(&buffer)?
+        .split(|c| c == ',')
+        .map(|e| e.to_string())
+        .collect();
 
     if let Ok(mut cont) = ctx.lock() {
         cont.span_tags(tags)?;
     }
+
     Ok(())
 }
 
@@ -258,17 +314,37 @@ pub(crate) fn log_write<T>(
     _output: &mut [Val],
     ctx: Arc<Mutex<InstrumentationContext>>,
 ) -> Result<()> {
-    let level = input.get(0).unwrap().i32().unwrap();
-    let offset = input.get(1).unwrap().i32().unwrap();
-    let len = input.get(2).unwrap().i32().unwrap();
-    let memory = caller.get_export("memory").unwrap().into_memory().unwrap();
-    let mut buffer = vec![0u8; len as usize];
+    let level = input
+        .get(0)
+        .context("Missing level arg")?
+        .i32()
+        .context("Could not convert ptr arg to i32")?;
 
-    memory.read(caller, offset as usize, &mut buffer)?;
+    let ptr = input
+        .get(1)
+        .context("Missing ptr arg")?
+        .i32()
+        .context("Could not convert ptr arg to i32")?;
+
+    let len = input
+        .get(2)
+        .context("Missing len arg")?
+        .i32()
+        .context("Could not convert len arg to i32")?;
+
+    let memory = caller
+        .get_export("memory")
+        .context("Could not get memory from caller")?
+        .into_memory()
+        .context("Could not convert to into memory")?;
+
+    let mut buffer = vec![0u8; len as usize];
+    memory.read(caller, ptr as usize, &mut buffer)?;
 
     if let Ok(mut cont) = ctx.lock() {
         cont.log_write(level as u8, &buffer)?;
     }
+
     Ok(())
 }
 
@@ -278,16 +354,28 @@ pub(crate) fn span_enter<T>(
     _output: &mut [Val],
     ctx: Arc<Mutex<InstrumentationContext>>,
 ) -> Result<()> {
-    let offset = input.get(0).unwrap().i32().unwrap();
-    let len = input.get(1).unwrap().i32().unwrap();
-    let memory = caller.get_export("memory").unwrap().into_memory().unwrap();
+    let ptr = input
+        .get(0)
+        .context("Missing ptr arg")?
+        .i32()
+        .context("Could not convert ptr arg to i32")?;
+
+    let len = input
+        .get(1)
+        .context("Missing len arg")?
+        .i32()
+        .context("Could not convert len arg to i32")?;
+
+    let memory = caller
+        .get_export("memory")
+        .context("Could not get memory from caller")?
+        .into_memory()
+        .context("Could not convert to into memory")?;
+
     let mut buffer = vec![0u8; len as usize];
-
-    memory.read(caller, offset as usize, &mut buffer)?;
-
+    memory.read(caller, ptr as usize, &mut buffer)?;
     let name = from_utf8(&buffer)?;
 
-    println!("Span enter: {}", name);
     if let Ok(mut cont) = ctx.lock() {
         cont.enter(0u32, Some(name))?;
     }
