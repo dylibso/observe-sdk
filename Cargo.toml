@@ -1,4 +1,3 @@
 [workspace]
 members = [ "rust" ]
-exclude = ["guest/observe_instrument", "guest/kitchensink", "guest/observe_api"]
 
