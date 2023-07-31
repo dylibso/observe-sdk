@@ -5,5 +5,8 @@
     "esbuild": "^0.18.13",
     "typescript": "^5.1.6",
     "wasi": "^0.0.6"
+  },
+  "dependencies": {
+    "protobufjs": "^7.2.4"
   }
 }
