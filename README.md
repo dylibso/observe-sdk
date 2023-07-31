@@ -1,7 +1,9 @@
 <picture>
-    <source media="(prefers-color-scheme: dark)" srcset=".github/assets/observe-wasm-light.svg">
-    <img alt="WebAssembly Observability - Observe SDK by Dylibso" src=".github/assets/observe-wasm.svg">
+    <source media="(prefers-color-scheme: dark)" srcset=".github/assets/observe-wasm-light.png">
+    <img alt="WebAssembly Observability - Observe SDK by Dylibso" width="75%" style="max-width: 600px" src=".github/assets/observe-wasm.png">
 </picture>
+
+[![CI](https://github.com/dylibso/observe-sdk/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/dylibso/observe-sdk/actions/workflows/ci.yml)
 
 # WebAssembly Observability Toolkit
 
@@ -66,11 +68,12 @@ curl -F wasm=@code.wasm https://compiler-preview.dylibso.com/instrument -X POST 
 
 ## Including a runtime SDK
 
-Each language includes some examples demonstrating use with different adapters. You can view these examples here:
+Each language includes some examples demonstrating use with different adapters.
+You can view these examples here:
 
-* [Rust](rust/examples)
-* [Go](go/bin)
-* [Js](js/packages)
+- [Rust](rust/examples)
+- [Go](go/bin)
+- [Js](js/packages)
 
 ## Development
 
