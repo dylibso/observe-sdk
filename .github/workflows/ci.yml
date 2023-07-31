@@ -3,8 +3,66 @@ on: [push, pull_request, workflow_dispatch]
 name: CI
 
 jobs:
-  test:
-    name: Test
+  javascript:
+    name: Test JS
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout sources
+        uses: actions/checkout@v2
+
+      - name: Install Deno toolchain
+        uses: denoland/setup-deno@v1
+
+      - name: Install Node toolchain
+        uses: actions/setup-node@v3
+        with: 
+          node-version: 20
+
+      - name: Install JS build deps
+        run: |
+          cd js
+          npm i
+
+      - name: Run Deno test
+        run: |
+          cd js/packages/observe-sdk-stdout
+          npm run build:esm
+          npm run test:deno > out.txt
+
+          # test the expected content of the formatted output
+          ALLOCS=$(cat out.txt | grep "Allocation grew memory by 3 pages" | wc -l)
+          [ $ALLOCS -eq 10 ]
+
+      - name: Run Node test
+        run: |
+          cd js/packages/observe-sdk-stdout
+          npm run build:cjs
+          npm link
+          pushd test/node
+          npm link @dylibso/observe-sdk-stdout
+          popd
+          npm run test:node > out.txt
+          
+          # test the expected content of the formatted output
+          ALLOCS=$(cat out.txt | grep "Allocation grew memory by 3 pages" | wc -l)
+          [ $ALLOCS -eq 10 ]
+
+  go:
+    name: Test Go
+    runs-on: ubuntu-latest
+    steps: 
+      - name: Checkout sources
+        uses: actions/checkout@v2
+
+      - name: Install Go toolchain
+        uses: actions/setup-go@v4
+
+      - name: Run go test
+        run: |
+          cd go
+          go test ./...
+  rust:
+    name: Test Rust
     runs-on: ubuntu-latest
     steps:
       - name: Checkout sources

@@ -1,0 +1,16 @@
+{
+  "name": "modsurfer-demangle",
+  "version": "0.1.0",
+  "files": [
+    "modsurfer_demangle_bg.wasm",
+    "modsurfer_demangle.js",
+    "modsurfer_demangle_bg.js",
+    "modsurfer_demangle.d.ts"
+  ],
+  "module": "modsurfer_demangle.js",
+  "types": "modsurfer_demangle.d.ts",
+  "sideEffects": [
+    "./modsurfer_demangle.js",
+    "./snippets/*"
+  ]
+}
