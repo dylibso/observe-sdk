@@ -40,15 +40,35 @@ prioritize these additional components
 
 There are two components to this process:
 
-1. [Instrumenting the Wasm code](#instrumenting-wasm-modules)
-2. [Including a runtime/host SDK](#including-a-runtime-sdk)
+1. [Including a runtime/host SDK](#including-a-runtime-sdk)
+2. [Instrumenting the Wasm code](#instrumenting-wasm-modules)
+
+## Including a runtime SDK and an Adapter
+
+First you should choose a Host SDK corresponding to your host application's language and Wasm runtime.
+The Host SDK captures raw observability events from the running Wasm module and sends them to an adapter.
+You must choose an adapter based on where you want your data to go. At the moment, we support a few systems out of the box.
+In the future we will support a lot more and will have more community driven options. If you don't see support for your
+favorite observability tools feel free to reach out to us at ([support@dylibso.com](mailto:support@dylibso.com)).
+
+Each language includes some examples demonstrating use with different adapters.
+You can view these examples here:
+
+- [Rust](rust/examples)
+- [Go](go/bin)
+- [Js](js/packages)
 
 ## Instrumenting Wasm Modules
 
-This package expects the wasm code to be instrumented using our instrumenting
-compiler. The only way to instrument your wasm right now is through the
-instrumentation service. The easiest way to do this is to send up your wasm with
-curl and get an instrumented wasm module back:
+There are two ways to instrument the Wasm modules: automatically and manually.
+
+
+### Automatically instrument your Wasm
+
+At the moment, the SDKs expect the Wasm code to be instrumented using our instrumenting
+compiler. This is a tool that can look at your Wasm and recompile it with instrumentation built in.
+Access to this compiler is free but available only on request of an API key. The easiest way to use it is to send up your Wasm with
+curl and get an instrumented Wasm module back:
 
 ```
 curl -F wasm=@code.wasm https://compiler-preview.dylibso.com/instrument -X POST -H 'Authorization: Bearer <your-api-key>' > code.instr.wasm
@@ -66,14 +86,13 @@ curl -F wasm=@code.wasm https://compiler-preview.dylibso.com/instrument -X POST 
 > [support@dylibso.com](mailto:support@dylibso.com) to discuss the available
 > options.
 
-## Including a runtime SDK
+### Manually instrument your Wasm
 
-Each language includes some examples demonstrating use with different adapters.
-You can view these examples here:
-
-- [Rust](rust/examples)
-- [Go](go/bin)
-- [Js](js/packages)
+The Host SDKs expose a series of host functions that make up our *Observe API*. You can code directly against this if you wish.
+Because we are still changing and experimenting with this API, we have not built much tooling or support for this yet.
+See [PR #51](https://github.com/dylibso/observe-sdk/pull/51) for a general idea of what this API looks like.
+Expect to see some documentation and alpha tools by September 2023. We will be building out a lot of the language specific layers, but we hope the community
+can help by building tools on top of it and integrating with existing libraries like OpenTelemetry.
 
 ## Development
 
