@@ -10,7 +10,7 @@ export type FunctionId = number;
 export type NamesMap = Map<FunctionId, string>;
 
 export class CustomEvent {
-  constructor(public readonly name: string, public readonly data: any) {}
+  constructor(public readonly name: string, public readonly data: any) { }
 }
 
 export class MemoryGrow {
@@ -57,6 +57,10 @@ export class FunctionCall {
   public duration(): number {
     return Math.ceil(1e6 * this.hrDuration());
   }
+}
+
+export interface Formatter {
+  format(wasm?: Uint8Array): Promise<Collector>;
 }
 
 export interface Collector {

@@ -1,0 +1,40 @@
+{
+    "name": "@dylibso/observe-sdk-honeycomb",
+    "version": "1.0.0",
+    "description": "A library that produces function tracing to honeycomb",
+    "directories": {
+        "test": "test"
+    },
+    "main": "./dist/cjs/index.js",
+    "module": "./dist/esm/index.js",
+    "types": "./dist/types/index.d.ts",
+    "exports": {
+        ".": {
+            "types": "./dist/types/index.d.ts",
+            "require": "./dist/cjs/index.js",
+            "default": "./dist/esm/index.js"
+        }
+    },
+    "scripts": {
+        "build:esm": "node ../../esbuild/esbuild.js -b -e ./index.js -o ../observe-sdk-honeycomb/dist/esm/index.js -p browser -f esm",
+        "build:cjs": "node ../../esbuild/esbuild.js -b -e ./index.js -o ../observe-sdk-honeycomb/dist/cjs/index.js -p browser -f cjs",
+        "build:types": "tsc -b",
+        "build": "npm run build:esm && npm run build:cjs && npm run build:types",
+        "build:web-test": "node ../../esbuild/esbuild.js -b -e ./test/web/index.js -o ./test/web/build.js -p browser",
+        "test:node": "node test/node/index.js",
+        "test:deno": "deno run -A test/deno/index.ts",
+        "test:web": "npm run build:web-test && npx serve ./test/web"
+    },
+    "keywords": [
+        "dylibso",
+        "honeycomb",
+        "tracing",
+        "observe",
+        "opentelemetry",
+        "otel",
+        "wasm",
+        "webassembly"
+    ],
+    "author": "",
+    "license": "ISC"
+}
