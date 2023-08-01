@@ -123,6 +123,12 @@ impl Default for DatadogConfig {
     }
 }
 
+struct DatadogEvents {
+    pub spans: Vec<Span>,
+    pub metrics: Vec<Metric>,
+    pub logs: Vec<Log>,
+}
+
 /// An adapter to send events from your module to a [Datadog Agent](https://docs.datadoghq.com/agent/).
 pub struct DatadogAdapter {
     trace_events: Vec<TraceEvent>,
@@ -163,9 +169,7 @@ impl DatadogAdapter {
 
     fn event_to_spans(
         &self,
-        spans: &mut Vec<Span>,
-        metric_events: &mut Vec<Metric>,
-        log_events: &mut Vec<Log>,
+        ddevents: &mut DatadogEvents,
         event: Event,
         parent_id: Option<u64>,
         trace_id: u64,
@@ -185,31 +189,24 @@ impl DatadogAdapter {
 
                 let span_id = Some(span.span_id);
 
-                spans.push(span);
+                ddevents.spans.push(span);
 
                 for e in f.within.iter() {
-                    self.event_to_spans(
-                        spans,
-                        metric_events,
-                        log_events,
-                        e.to_owned(),
-                        span_id,
-                        trace_id,
-                    )?
+                    self.event_to_spans(ddevents, e.to_owned(), span_id, trace_id)?
                 }
             }
             Event::Alloc(a) => {
                 // TODO i seem to be losing this value
-                if let Some(span) = spans.last_mut() {
+                if let Some(span) = ddevents.spans.last_mut() {
                     span.add_allocation(a.amount);
                 }
             }
             Event::Metric(mut m) => {
                 m.trace_id = Some(trace_id);
-                metric_events.push(m);
+                ddevents.metrics.push(m);
             }
             Event::Tags(t) => {
-                if let Some(span) = spans.last_mut() {
+                if let Some(span) = ddevents.spans.last_mut() {
                     for tag in t.tags {
                         println!("Adding span tag {}", &tag);
                         span.add_tag(tag);
@@ -217,7 +214,7 @@ impl DatadogAdapter {
                 }
             }
             Event::Log(l) => {
-                log_events.push(l);
+                ddevents.logs.push(l);
             }
             ev => {
                 println!("Unknown event {:#?}", ev);
@@ -228,26 +225,27 @@ impl DatadogAdapter {
 
     fn dump_traces(&mut self) -> Result<()> {
         let mut dtf = DatadogFormatter::new();
-        let mut metric_events = vec![];
         let mut log_events = vec![];
+        let mut metric_events = vec![];
 
         for trace_evt in &self.trace_events {
-            let mut spans = vec![];
             let trace_id = &trace_evt.telemetry_id;
+            let mut ddevents = DatadogEvents {
+                spans: vec![],
+                logs: vec![],
+                metrics: vec![],
+            };
             for span in &trace_evt.events {
                 let tid = trace_id.clone().into();
-                self.event_to_spans(
-                    &mut spans,
-                    &mut metric_events,
-                    &mut log_events,
-                    span.to_owned(),
-                    None,
-                    tid,
-                )?;
+                self.event_to_spans(&mut ddevents, span.to_owned(), None, tid)?;
             }
+
+            metric_events.extend(ddevents.metrics);
+            log_events.extend(ddevents.logs);
+
             let mut trace = Trace::new();
             let mut first_span = true;
-            for span in spans {
+            for span in ddevents.spans {
                 let mut span = span.clone();
                 if first_span {
                     let mut dd_meta = self.config.default_tags.clone();

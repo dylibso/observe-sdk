@@ -72,9 +72,9 @@ impl InstrumentationContext {
 
     fn exit(&mut self, func_index: u32) -> Result<()> {
         if let Some(mut func) = self.stack.pop() {
-            // if func.index != func_index {
-            //     return Err(anyhow!("missed a function exit"));
-            // }
+            if func_index != 0 && func.index != func_index {
+                return Err(anyhow!("missed a function exit"));
+            }
             func.end = SystemTime::now();
 
             if let Some(mut f) = self.stack.pop() {
