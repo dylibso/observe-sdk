@@ -1,4 +1,4 @@
-use anyhow::{anyhow, Context, Result};
+use anyhow::{bail, Context, Result};
 use log::{error, warn};
 use modsurfer_demangle::demangle_function_name;
 use std::{
@@ -73,7 +73,7 @@ impl InstrumentationContext {
     fn exit(&mut self, func_index: u32) -> Result<()> {
         if let Some(mut func) = self.stack.pop() {
             if func_index != 0 && func.index != func_index {
-                return Err(anyhow!("missed a function exit"));
+                bail!("missed a function exit");
             }
             func.end = SystemTime::now();
 
@@ -92,7 +92,7 @@ impl InstrumentationContext {
 
             return Ok(());
         }
-        Err(anyhow!("empty stack in exit"))
+        bail!("empty stack in exit")
     }
 
     fn allocate(&mut self, amount: u32) -> Result<()> {
@@ -147,7 +147,7 @@ impl InstrumentationContext {
             2 => log::Level::Warn,
             3 => log::Level::Info,
             4 => log::Level::Debug,
-            _ => anyhow::bail!("Could not map log level to an appropriate level"),
+            _ => bail!("Could not map log level to an appropriate level"),
         };
 
         let message = from_utf8(message)?.to_string();
@@ -235,7 +235,7 @@ pub(crate) fn metric<T>(
 
     let format = match format {
         1 => MetricFormat::Statsd,
-        _ => anyhow::bail!("Illegal metric format value"),
+        _ => bail!("Illegal metric format value"),
     };
 
     let ptr = input
