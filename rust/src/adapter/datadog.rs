@@ -208,7 +208,6 @@ impl DatadogAdapter {
             Event::Tags(t) => {
                 if let Some(span) = ddevents.spans.last_mut() {
                     for tag in t.tags {
-                        println!("Adding span tag {}", &tag);
                         span.add_tag(tag);
                     }
                 }
@@ -217,7 +216,7 @@ impl DatadogAdapter {
                 ddevents.logs.push(l);
             }
             ev => {
-                println!("Unknown event {:#?}", ev);
+                log::error!("Unknown event {:#?}", ev);
             }
         }
         Ok(())
@@ -326,26 +325,29 @@ impl DatadogAdapter {
             for stat in metric_events {
                 // TODO we are just assumign they are statsd format but we can check stat.format
                 let message = format!("{}|#trace_id:{}", stat.message, stat.trace_id.unwrap());
+                // TODO get the host from config
                 socket
                     .send_to(message.as_bytes(), "127.0.0.1:8125")
                     .unwrap();
             }
         }
 
-        if log_events.len() > 0 {
-            let file = OpenOptions::new()
-                .write(true)
-                .append(true)
-                .create(true)
-                .open("/tmp/planktonic.log")?;
+        // TODO find a better way to get logs to the agent
 
-            let mut file_writer = io::BufWriter::new(file);
-            for evt in log_events {
-                dbg!(&evt);
-                file_writer.write_all(evt.message.as_bytes()).unwrap();
-            }
-            file_writer.flush()?;
-        }
+        // if log_events.len() > 0 {
+        //     let file = OpenOptions::new()
+        //         .write(true)
+        //         .append(true)
+        //         .create(true)
+        //         .open("/tmp/planktonic.log")?;
+
+        //     let mut file_writer = io::BufWriter::new(file);
+        //     for evt in log_events {
+        //         dbg!(&evt);
+        //         file_writer.write_all(evt.message.as_bytes()).unwrap();
+        //     }
+        //     file_writer.flush()?;
+        // }
 
         Ok(())
     }
