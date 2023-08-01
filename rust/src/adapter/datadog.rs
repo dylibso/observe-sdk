@@ -320,17 +320,17 @@ impl DatadogAdapter {
             self.trace_events.clear();
         }
 
-        if metric_events.len() > 0 {
-            let socket = UdpSocket::bind("0.0.0.0:9999").unwrap();
-            for stat in metric_events {
-                // TODO we are just assumign they are statsd format but we can check stat.format
-                let message = format!("{}|#trace_id:{}", stat.message, stat.trace_id.unwrap());
-                // TODO get the host from config
-                socket
-                    .send_to(message.as_bytes(), "127.0.0.1:8125")
-                    .unwrap();
-            }
-        }
+        // if metric_events.len() > 0 {
+        //     let socket = UdpSocket::bind("0.0.0.0:9999").unwrap();
+        //     for stat in metric_events {
+        //         // TODO we are just assumign they are statsd format but we can check stat.format
+        //         let message = format!("{}|#trace_id:{}", stat.message, stat.trace_id.unwrap());
+        //         // TODO get the host from config
+        //         socket
+        //             .send_to(message.as_bytes(), "127.0.0.1:8125")
+        //             .unwrap();
+        //     }
+        // }
 
         // TODO find a better way to get logs to the agent
 
