@@ -483,6 +483,7 @@ dependencies = [
 [[package]]
 name = "dylibso-observe-sdk"
 version = "0.1.0"
+source = "git+https://github.com/dylibso/observe-sdk?branch=main#d05d8d41548f56447fb14706b8e9be60c3a6a0a1"
 dependencies = [
  "anyhow",
  "log",

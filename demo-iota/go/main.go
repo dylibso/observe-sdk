@@ -30,7 +30,7 @@ func main() {
 	//
 	// Adapter API
 	config := datadog.DefaultDatadogConfig()
-	config.ServiceName = "iota-go"
+	config.ServiceName = "iota"
 	config.AgentHost = "http://ddagent:8126"
 	dd, err := datadog.NewDatadogAdapter(config)
 	if err != nil {

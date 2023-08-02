@@ -29,7 +29,7 @@ async fn main() {
     // configure the DataDog adapter to share with runtime instances
     let ddconfig = DatadogConfig {
         agent_host: "http://ddagent:8126".into(),
-        service_name: "planktonic".into(),
+        service_name: "iota".into(),
         ..Default::default()
     };
     let adapter = DatadogAdapter::create(ddconfig);
