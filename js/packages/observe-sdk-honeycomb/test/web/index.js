@@ -2,7 +2,14 @@ import { HoneycombAdapter } from "@dylibso/observe-sdk-honeycomb";
 import { File, OpenFile, WASI } from "@bjorn3/browser_wasi_shim";
 
 const f = async () => {
-  const adapter = new HoneycombAdapter();
+  const config = {
+    apiKey: '',
+    dataset: 'web',
+    emitTracesInterval: 1000,
+    traceBatchMax: 100,
+    host: 'https://api.honeycomb.io',
+  }
+  const adapter = new HoneycombAdapter(config);
   const resp = await fetch("count_vowels.instr.wasm");
 
   const bytes = await resp.arrayBuffer();
