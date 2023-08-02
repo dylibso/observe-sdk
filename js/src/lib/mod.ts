@@ -1,9 +1,11 @@
-export const now = (): hrMillisecondsFromOrigin => {
-  return performance.now();
+export const now = (): NanosFromOrigin => {
+  // performance.now is in millis with greater precision than Date.now()
+  // https://developer.mozilla.org/en-US/docs/Web/API/Performance/now
+  return (performance.now() + performance.timeOrigin) * 1000000;
 };
 
 export type Milliseconds = number;
-export type hrMillisecondsFromOrigin = number;
+export type NanosFromOrigin = number;
 export type ObserveEvent = FunctionCall | MemoryGrow | CustomEvent;
 export type MemoryGrowAmount = number;
 export type FunctionId = number;
@@ -34,7 +36,7 @@ export class FunctionCall {
     public readonly id: FunctionId,
   ) {
     this.start = now();
-    this.end = 0;
+    this.end = now();;
     this.within = [];
   }
 
@@ -46,7 +48,7 @@ export class FunctionCall {
     this.end = now();
   }
 
-  public hrDuration(): hrMillisecondsFromOrigin {
+  public hrDuration(): NanosFromOrigin {
     return this.end - this.start;
   }
 

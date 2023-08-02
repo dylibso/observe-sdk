@@ -46,17 +46,17 @@ export function traceFromEvents(serviceName: string, events: ObserveEvent[]): Tr
  * @param spans - the list of spans associated with this trace, this is mutated
  * @param ev - the ObserveEvent to convert into spans
  */
-function eventToSpans(trace: Trace, spans: Span[], ev: ObserveEvent) {
+function eventToSpans(trace: Trace, spans: Span[], ev: ObserveEvent, parentId?: Uint8Array) {
     if (ev instanceof FunctionCall) {
-        const span = newSpan(trace, ev.name || 'unknown-name', ev.start, ev.end);
+        const span = newSpan(trace, ev.name || 'unknown-name', ev.start, ev.end, parentId);
         spans.push(span);
 
         ev.within.forEach((e) => {
-            eventToSpans(trace, spans, e);
+            eventToSpans(trace, spans, e, span.spanId);
         })
     }
     else if (ev instanceof MemoryGrow) {
-        const span = newSpan(trace, 'allocation', ev.start, ev.start);
+        const span = newSpan(trace, 'allocation', ev.start, ev.start, parentId);
         span.attributes.push({
             key: 'amount',
             value: {
@@ -81,7 +81,7 @@ function newSpan(
     name: string,
     start: number,
     end: number,
-    parentSpanId?: number,
+    parentSpanId?: Uint8Array,
 ): Span {
     const spanId = newSpanId();
     const span: Span = {
@@ -89,7 +89,7 @@ function newSpan(
         spanId: numberToUint8Array(spanId),
         name,
         kind: Span_SpanKind.SPAN_KIND_INTERNAL, // 
-        parentSpanId: numberToUint8Array(parentSpanId || 0),
+        parentSpanId: parentSpanId || new Uint8Array(),
         startTimeUnixNano: start,
         endTimeUnixNano: end,
         attributes: [],
