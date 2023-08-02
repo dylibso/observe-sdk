@@ -49,3 +49,12 @@ We have 3 webservers that implement these two endpoints. Each is written in a di
   - https://p01--iota-web-go--tyqfmnr79gjf.code.run/
 + js
   - TODO
+
+
+## Rebuilding Example Functions
+
+You can rebuild and re-instrument the example functions if you have an API key for the instrumenting compiler:
+
+```bash
+make build WASM_INSTR_API_KEY=0a3257906cb81fdb66930b1020b8d0ff
+```
