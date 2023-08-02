@@ -1,5 +1,6 @@
 import {
   Adapter,
+  AdapterConfig,
   Collector,
   CustomEvent,
   FunctionCall,
@@ -35,7 +36,7 @@ export enum DatadogLanguage {
   Python = "python",
 }
 
-export interface DatadogConfig {
+export interface DatadogConfig extends AdapterConfig {
   agentHost: URL;
   serviceName: string;
   defaultTags: Map<string, string>;
@@ -90,37 +91,21 @@ export class DatadogTraceContext implements Collector {
   }
 }
 
-const CLEAR_TRACE_INTERVAL_ID = undefined;
 
-export class DatadogAdapter implements Adapter {
+
+export class DatadogAdapter extends Adapter {
   formatter: DatadogFormatter;
   config: DatadogConfig;
   traceIntervalId: number | undefined;
   meta: DatadogMetadata | undefined;
 
   constructor(config?: DatadogConfig) {
+    super();
     this.config = DefaultDatadogConfig;
     if (config) {
       this.config = config;
     }
     this.formatter = new DatadogFormatter([]);
-    this.traceIntervalId = CLEAR_TRACE_INTERVAL_ID;
-  }
-
-  private restartTraceInterval() {
-    if (this.traceIntervalId) {
-      clearInterval(this.traceIntervalId);
-      this.traceIntervalId = CLEAR_TRACE_INTERVAL_ID;
-    }
-
-    this.startTraceInterval();
-  }
-
-  private startTraceInterval() {
-    this.traceIntervalId = setInterval(
-      async () => await this.send(),
-      this.config.emitTracesInterval,
-    );
   }
 
   public async start(
@@ -200,7 +185,7 @@ export class DatadogAdapter implements Adapter {
     return endpoint;
   }
 
-  private async send() {
+  async send() {
     if (this.formatter.traces.length > 0) {
       for (var trace of this.formatter.traces) {
         const span = trace.spans[0];

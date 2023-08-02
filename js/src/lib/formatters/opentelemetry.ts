@@ -1,6 +1,9 @@
 import { ObserveEvent, newTraceId, newSpanId, FunctionCall, MemoryGrow } from '../mod';
 import { TracesData, ResourceSpans, Span, Span_SpanKind } from '../../../proto/opentelemetry/proto/trace/v1/trace'
 
+export {
+    TracesData
+}
 export class Trace implements TracesData {
     public traceId: number;
     resourceSpans: ResourceSpans[] = [];
@@ -10,7 +13,7 @@ export class Trace implements TracesData {
     }
 }
 
-export function traceFromEvents(events: ObserveEvent[]): Trace {
+export function traceFromEvents(serviceName: string, events: ObserveEvent[]): Trace {
     const trace = new Trace(newTraceId());
     const spans: Span[] = [];
     events.forEach((e) => {
@@ -20,18 +23,32 @@ export function traceFromEvents(events: ObserveEvent[]): Trace {
     trace.resourceSpans = [{
         scopeSpans: [{
             spans: spans,
-            scope: null,
+            scope: undefined,
             schemaUrl: '',
         }],
-        resource: null,
+        resource: {
+            attributes: [{
+                key: 'service.name',
+                value: {
+                    stringValue: serviceName
+                }
+            }],
+            droppedAttributesCount: 0,
+        },
         schemaUrl: '',
     }];
     return trace;
 }
 
+/**
+ * 
+ * @param trace - all spans created will be tied to this trace
+ * @param spans - the list of spans associated with this trace, this is mutated
+ * @param ev - the ObserveEvent to convert into spans
+ */
 function eventToSpans(trace: Trace, spans: Span[], ev: ObserveEvent) {
     if (ev instanceof FunctionCall) {
-        const span = newSpan(trace, ev.name || 'unknown-name', ev.startNano(), ev.end);
+        const span = newSpan(trace, ev.name || 'unknown-name', ev.start, ev.end);
         spans.push(span);
 
         ev.within.forEach((e) => {
@@ -50,6 +67,15 @@ function eventToSpans(trace: Trace, spans: Span[], ev: ObserveEvent) {
     }
 }
 
+/**
+ * 
+ * @param trace - The trace this span is associated with
+ * @param name - Name of the span, either the function's name or 'allocation'
+ * @param start - When the span started
+ * @param end - When the span ended
+ * @param parentSpanId - SpanID of the parent (if any)
+ * @returns 
+ */
 function newSpan(
     trace: Trace,
     name: string,
@@ -63,7 +89,7 @@ function newSpan(
         spanId: numberToUint8Array(spanId),
         name,
         kind: Span_SpanKind.SPAN_KIND_INTERNAL, // 
-        parentSpanId: parentSpanId ? numberToUint8Array(parentSpanId) : null,
+        parentSpanId: numberToUint8Array(parentSpanId || 0),
         startTimeUnixNano: start,
         endTimeUnixNano: end,
         attributes: [],
@@ -73,7 +99,10 @@ function newSpan(
         traceState: '', // https://github.com/open-telemetry/opentelemetry-specification/blob/main/specification/trace/tracestate-handling.md
         events: [],
         links: [],
-        status: null,
+        status: {
+            code: null,
+            message: '',
+        },
     };
 
     return span;

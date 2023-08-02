@@ -35,11 +35,11 @@ export class SpanCollector implements Collector {
     this.names = new Map<FunctionId, string>();
   }
 
-  public async setNames(wasm: Uint8Array | WebAssembly.Module) {
+  public async setNames(wasm: ArrayBuffer | WebAssembly.Module) {
     await initDemangle();
 
     let module = wasm;
-    if (wasm instanceof Uint8Array) {
+    if (!(wasm instanceof WebAssembly.Module)) {
       module = new WebAssembly.Module(wasm);
     }
 

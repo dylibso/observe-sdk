@@ -1,70 +1,79 @@
 import { Adapter, ObserveEvent } from "../../mod.ts";
 import { SpanCollector } from "../../collectors/span/mod.ts";
-import { traceFromEvents, Trace } from "../../formatters/opentelemetry.ts";
+import { traceFromEvents, Trace, TracesData } from "../../formatters/opentelemetry.ts";
+import { AdapterConfig } from "../../../lib/mod";
 
-export interface HoneycombConfig {
-    apiKey: string;
-    dataset: string;
-    emitTracesInterval: number;
-    traceBatchMax: number;
-    host: string,
-}
-
-const defaultConfig = {
+const defaultConfig: HoneycombConfig = {
     apiKey: '',
     dataset: 'default-dataset',
     emitTracesInterval: 1000,
     traceBatchMax: 100,
-    host: '',
+    host: 'https://api.honeycomb.io/',
 }
 
-export class HoneycombAdapter implements Adapter {
+export interface HoneycombConfig extends AdapterConfig {
+    apiKey: string;
+    dataset: string;
+    traceBatchMax: number;
+    host: string,
+}
+
+export class HoneycombAdapter extends Adapter {
     config: HoneycombConfig = defaultConfig;
-    traceIntervalId: number | undefined = undefined;
     traces: Trace[] = [];
 
     constructor(config?: HoneycombConfig) {
+        super();
         if (config) {
             this.config = config;
         }
     }
 
     public async start(wasm: Uint8Array): Promise<SpanCollector> {
+        super.startTraceInterval();
         const collector = new SpanCollector(this);
         await collector.setNames(wasm);
         return collector;
     }
 
     public collect(events: ObserveEvent[]): void {
-        this.traces.push(traceFromEvents(events));
+        this.traces.push(traceFromEvents(this.config.dataset, events));
         if (this.traces.length > this.config.traceBatchMax) {
             this.send();
+            this.restartTraceInterval();
         }
     }
 
     private tracesEndpoint() {
         const endpoint = new URL(this.config.host);
-        endpoint.pathname = `1/batch/${this.config.dataset}`;
+        endpoint.pathname = `v1/traces`;
         return endpoint;
     }
 
-    private async send() {
+    async send() {
+        const req = this.traces[0] // TODO: process all of them
+
         if (this.traces.length > 0) {
             const controller = new AbortController();
             const id = setTimeout(() => controller.abort(), 1000);
+
+            const bytes = TracesData.encode(req).finish()
             try {
                 const resp = await fetch(this.tracesEndpoint(), {
                     headers: {
-                        "content-type": "application/json",
+                        "content-type": "application/protobuf",
+                        "x-honeycomb-team": this.config.apiKey,
                     },
-                    method: "PUT",
-                    body: JSON.stringify(this.traces),
+                    method: "POST",
+                    body: bytes,
                     signal: controller.signal,
                 });
                 if (!resp.ok) {
+                    const msg = await resp.json();
                     console.error(
                         "Request to honeycomb failed with status:",
                         resp.status,
+                        msg
                     );
                 } else {
                     this.traces = [];

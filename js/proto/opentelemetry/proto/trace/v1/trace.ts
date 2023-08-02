@@ -36,8 +36,8 @@ export interface ResourceSpans {
    * If this field is not set then no resource info is known.
    */
   resource:
-  | Resource
-  | undefined;
+    | Resource
+    | undefined;
   /** A list of ScopeSpans that originate from a resource. */
   scopeSpans: ScopeSpans[];
   /**
@@ -55,8 +55,8 @@ export interface ScopeSpans {
    * an empty instrumentation scope name (unknown).
    */
   scope:
-  | InstrumentationScope
-  | undefined;
+    | InstrumentationScope
+    | undefined;
   /** A list of Spans that originate from an instrumentation scope. */
   spans: Span[];
   /** This schema_url applies to all spans and span events in the "spans" field. */

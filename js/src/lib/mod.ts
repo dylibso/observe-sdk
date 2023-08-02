@@ -70,9 +70,36 @@ export interface Collector {
   stop(): void;
 }
 
-export interface Adapter {
-  start(wasm?: Uint8Array): Promise<Collector>;
-  collect(events: Array<ObserveEvent>): void;
+export interface AdapterConfig {
+  emitTracesInterval: number;
+}
+
+export abstract class Adapter {
+  traceIntervalId: number | undefined = undefined;
+  config: AdapterConfig;
+
+  abstract start(wasm?: Uint8Array): Promise<Collector>;
+
+  abstract collect(events: Array<ObserveEvent>): void;
+
+  abstract send?();
+
+  restartTraceInterval() {
+    if (this.traceIntervalId) {
+      clearInterval(this.traceIntervalId);
+      this.traceIntervalId = undefined;
+    }
+
+    this.startTraceInterval();
+  }
+
+  startTraceInterval() {
+    // @ts-ignore - return value of setInterval is definitely a `number`
+    this.traceIntervalId = setInterval(
+      async () => await this.send(),
+      this.config.emitTracesInterval,
+    );
+  }
 }
 
 export type TelemetryId = number;
