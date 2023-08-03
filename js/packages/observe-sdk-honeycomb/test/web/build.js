@@ -1990,7 +1990,7 @@
     }
   });
   var now = () => {
-    return performance.now();
+    return (performance.now() + performance.timeOrigin) * 1e6;
   };
   var CustomEvent = class {
     constructor(name, data) {
@@ -2013,7 +2013,7 @@
       this.name = name;
       this.id = id;
       this.start = now();
-      this.end = 0;
+      this.end = this.start;
       this.within = [];
     }
     start;
@@ -2026,14 +2026,8 @@
       }
       this.end = now();
     }
-    hrDuration() {
-      return this.end - this.start;
-    }
-    startNano() {
-      return 1e6 * (performance.timeOrigin + this.start);
-    }
     duration() {
-      return Math.ceil(1e6 * this.hrDuration());
+      return this.end - this.start;
     }
   };
   var Adapter = class {
@@ -2202,11 +2196,7 @@
     } while (byte & 128);
     return { value: result, bytesRead };
   }
-  var initDemangle = () => new Promise(async (resolve, _) => {
-    const bytes = await modsurfer_demangle_bg_default2();
-    __wbg_set_wasm(bytes);
-    resolve(true);
-  });
+  modsurfer_demangle_bg_default2().then((bytes) => __wbg_set_wasm(bytes));
   var SpanCollector = class {
     constructor(adapter) {
       this.adapter = adapter;
@@ -2218,10 +2208,9 @@
     stack;
     events;
     async setNames(wasm2) {
-      await initDemangle();
       let module2 = wasm2;
       if (!(wasm2 instanceof WebAssembly.Module)) {
-        module2 = new WebAssembly.Module(wasm2);
+        module2 = await WebAssembly.compile(wasm2);
       }
       const mangledNames = parseNameSection(WebAssembly.Module.customSections(module2, "name")[0]);
       mangledNames.forEach((value, key) => {
@@ -3717,15 +3706,15 @@
     }];
     return trace;
   }
-  function eventToSpans(trace, spans, ev) {
+  function eventToSpans(trace, spans, ev, parentId) {
     if (ev instanceof FunctionCall) {
-      const span = newSpan(trace, ev.name || "unknown-name", ev.start, ev.end);
+      const span = newSpan(trace, ev.name || "unknown-name", ev.start, ev.end, parentId);
       spans.push(span);
       ev.within.forEach((e) => {
-        eventToSpans(trace, spans, e);
+        eventToSpans(trace, spans, e, span.spanId);
       });
     } else if (ev instanceof MemoryGrow) {
-      const span = newSpan(trace, "allocation", ev.start, ev.start);
+      const span = newSpan(trace, "allocation", ev.start, ev.start, parentId);
       span.attributes.push({
         key: "amount",
         value: {
@@ -3743,7 +3732,7 @@
       name,
       kind: 1,
       // 
-      parentSpanId: numberToUint8Array(parentSpanId || 0),
+      parentSpanId: parentSpanId || new Uint8Array(),
       startTimeUnixNano: start,
       endTimeUnixNano: end,
       attributes: [],
@@ -3788,7 +3777,6 @@
       }
     }
     async start(wasm2) {
-      console.log(wasm2);
       super.startTraceInterval();
       const collector = new SpanCollector(this);
       await collector.setNames(wasm2);
@@ -3807,11 +3795,10 @@
       return endpoint;
     }
     async send() {
-      const req = this.traces[0];
-      if (this.traces.length > 0) {
+      this.traces.forEach(async (trace) => {
         const controller = new AbortController();
         const id = setTimeout(() => controller.abort(), 1e3);
-        const bytes = TracesData.encode(req).finish();
+        const bytes = TracesData.encode(trace).finish();
         try {
           const resp = await fetch(this.tracesEndpoint(), {
             headers: {
@@ -3829,15 +3816,14 @@
               resp.status,
               msg
             );
-          } else {
-            this.traces = [];
           }
         } catch (e) {
           console.error("Request to honeycomb failed:", e);
         } finally {
           clearTimeout(id);
         }
-      }
+      });
+      this.traces = [];
     }
   };
 
