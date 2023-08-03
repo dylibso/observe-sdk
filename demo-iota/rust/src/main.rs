@@ -27,8 +27,7 @@ struct ModuleParams {
 #[tokio::main]
 async fn main() {
     // configure the DataDog adapter to share with runtime instances
-    let mut default_tags = HashMap::new();
-    default_tags.insert("host_language".to_string(), "rust".to_string());
+    let default_tags = HashMap::from([("host_language".to_string(), "rust".to_string())]);
     let ddconfig = DatadogConfig {
         agent_host: "http://ddagent:8126".into(),
         service_name: "iota".into(),
