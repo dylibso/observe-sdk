@@ -51,13 +51,10 @@ export class HoneycombAdapter extends Adapter {
     }
 
     async send() {
-        const req = this.traces[0] // TODO: process all of them
-
-        if (this.traces.length > 0) {
+        this.traces.forEach(async (trace) => {
             const controller = new AbortController();
             const id = setTimeout(() => controller.abort(), 1000);
-
-            const bytes = TracesData.encode(req).finish()
+            const bytes = TracesData.encode(trace).finish();
             try {
                 const resp = await fetch(this.tracesEndpoint(), {
                     headers: {
@@ -75,14 +72,13 @@ export class HoneycombAdapter extends Adapter {
                         resp.status,
                         msg
                     );
-                } else {
-                    this.traces = [];
                 }
             } catch (e) {
                 console.error("Request to honeycomb failed:", e);
             } finally {
                 clearTimeout(id);
             }
-        }
+        });
+        this.traces = [];
     }
 }

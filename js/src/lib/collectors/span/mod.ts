@@ -16,13 +16,8 @@ import {
   ObserveEvent,
 } from "../../mod.ts";
 
-const initDemangle = () =>
-  new Promise(async (resolve, _) => {
-    // @ts-ignore - there is indeed a `default` function on `wasm`
-    const bytes = await wasm.default();
-    __wbg_set_wasm(bytes);
-    resolve(true);
-  });
+// @ts-ignore - The esbuild wasm plugin provides a `default` function to initialize the wasm
+wasm.default().then((bytes) => __wbg_set_wasm(bytes));
 
 export class SpanCollector implements Collector {
   names: NamesMap;
@@ -36,11 +31,10 @@ export class SpanCollector implements Collector {
   }
 
   public async setNames(wasm: ArrayBuffer | WebAssembly.Module) {
-    await initDemangle();
 
     let module = wasm;
     if (!(wasm instanceof WebAssembly.Module)) {
-      module = new WebAssembly.Module(wasm);
+      module = await WebAssembly.compile(wasm)
     }
 
     const mangledNames = parseNameSection(WebAssembly.Module.customSections(module, "name")[0]);
