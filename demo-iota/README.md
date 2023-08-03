@@ -6,15 +6,15 @@ Iota maps the HTTP body to the Wasm function's standard input. And it maps the W
 
 There are only two endpoints:
 
-## `POST /upload?name=<my-function-name>`
+## `POST /upload?name=<identifier>`
 
-Post a Wasm module to this endpoint with any name you want.
+Post a Wasm module to this endpoint using any name you want as the identifier:
 
 ```bash
 curl -F wasm=@count_vowels.wasm  "https://p01--iota-web--tyqfmnr79gjf.code.run/upload?name=count_vowels" -X POST
 ```
 
-## `POST /run?name=<my-function-name>`
+## `POST /run?name=<identifier>`
 
 Post to this endpoint to run a function by name. The HTTP body will get passed to the function input. The function output will be returned in the HTTP response body
 
