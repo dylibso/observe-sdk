@@ -1,4 +1,7 @@
-use dylibso_observe_sdk::adapter::{datadog::{DatadogAdapter, DatadogConfig, DatadogMetadata}, AdapterMetadata};
+use dylibso_observe_sdk::adapter::{
+    datadog::{DatadogAdapter, DatadogConfig, DatadogMetadata},
+    AdapterMetadata,
+};
 
 /// You need the datadog agent running on localhost for this example to work
 #[tokio::main]
