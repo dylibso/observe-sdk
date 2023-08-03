@@ -63,12 +63,13 @@ export interface Collector {
   getImportObject(): WebAssembly.Imports;
   send(to: Adapter): void;
   addMetadata(name: string, value: any): void;
+  setMetadata(data: any): void;
   stop(): void;
 }
 
 export interface Adapter {
   start(wasm?: Uint8Array): Promise<Collector>;
-  collect(events: Array<ObserveEvent>): void;
+  collect(events: Array<ObserveEvent>, metadata: any): void;
 }
 
 export type TelemetryId = number;

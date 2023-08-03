@@ -6,6 +6,7 @@ import {
   newTraceId,
   TelemetryId,
 } from "../../mod.ts";
+import { DatadogMetadata } from "./mod.ts";
 
 export interface Span {
   trace_id: number;
@@ -23,6 +24,7 @@ export interface Span {
 }
 
 export class Trace {
+  meta?: DatadogMetadata;
   spans: Span[];
   trace_id: TelemetryId;
 

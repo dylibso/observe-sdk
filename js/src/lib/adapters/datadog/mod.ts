@@ -54,24 +54,27 @@ export const DefaultDatadogConfig: DatadogConfig = {
 };
 
 export interface DatadogMetadata {
-  resource_name?: string,
-  http_status_code?: number,
-  http_url?: string,
-  http_method?: string,
-  http_client_ip?: string,
-  http_request_content_length?: number,
-  http_request_content_length_uncompressed?: number,
-  http_response_content_length?: number,
-  http_response_content_length_uncompressed?: number,
-  span_kind?: DatadogSpanKind,
-  language?: DatadogLanguage,
-  component?: string,
+  resource_name?: string;
+  http_status_code?: number;
+  http_url?: string;
+  http_method?: string;
+  http_client_ip?: string;
+  http_request_content_length?: number;
+  http_request_content_length_uncompressed?: number;
+  http_response_content_length?: number;
+  http_response_content_length_uncompressed?: number;
+  span_kind?: DatadogSpanKind;
+  language?: DatadogLanguage;
+  component?: string;
 }
 
 export class DatadogTraceContext implements Collector {
   constructor(
     private collector: SpanCollector,
-  ) { }
+  ) {}
+  setMetadata(data: DatadogMetadata): void {
+    this.collector.meta = data;
+  }
   getImportObject(): WebAssembly.Imports {
     return this.collector.getImportObject();
   }
@@ -95,8 +98,7 @@ const CLEAR_TRACE_INTERVAL_ID = undefined;
 export class DatadogAdapter implements Adapter {
   formatter: DatadogFormatter;
   config: DatadogConfig;
-  traceIntervalId: number | undefined;
-  meta: DatadogMetadata | undefined;
+  traceIntervalId: number | undefined | NodeJS.Timer;
 
   constructor(config?: DatadogConfig) {
     this.config = DefaultDatadogConfig;
@@ -134,8 +136,9 @@ export class DatadogAdapter implements Adapter {
     return new DatadogTraceContext(spanCollector);
   }
 
-  public collect(events: ObserveEvent[]): void {
+  public collect(events: ObserveEvent[], metadata: any): void {
     const trace = new Trace();
+    trace.meta = metadata;
     const traceId = events.find((event) => {
       if (event instanceof CustomEvent) {
         if (event.name === "trace_id") {
@@ -160,10 +163,6 @@ export class DatadogAdapter implements Adapter {
       this.send();
       this.restartTraceInterval();
     }
-  }
-
-  public setMetadata(meta: DatadogMetadata): void {
-    this.meta = meta;
   }
 
   private addSpanToTrace(
@@ -202,38 +201,42 @@ export class DatadogAdapter implements Adapter {
 
   private async send() {
     if (this.formatter.traces.length > 0) {
-      for (var trace of this.formatter.traces) {
+      for (const trace of this.formatter.traces) {
         const span = trace.spans[0];
-        if (span && this.meta) {
-          if (this.meta.resource_name) {
-            span.meta["resource"] = this.meta.resource_name;
+        if (span && trace.meta) {
+          if (trace.meta.resource_name) {
+            span.meta["resource"] = trace.meta.resource_name;
           }
-          if (this.meta.http_status_code) {
-            span.meta["http.status_code"] = this.meta.http_status_code;
+          if (trace.meta.http_status_code) {
+            span.meta["http.status_code"] = trace.meta.http_status_code;
           }
-          if (this.meta.http_url) {
-            span.meta["http.url"] = this.meta.http_url;
+          if (trace.meta.http_url) {
+            span.meta["http.url"] = trace.meta.http_url;
           }
-          if (this.meta.http_method) {
-            span.meta["http.method"] = this.meta.http_method;
+          if (trace.meta.http_method) {
+            span.meta["http.method"] = trace.meta.http_method;
           }
-          if (this.meta.http_client_ip) {
-            span.meta["http.client_ip"] = this.meta.http_client_ip;
+          if (trace.meta.http_client_ip) {
+            span.meta["http.client_ip"] = trace.meta.http_client_ip;
           }
-          if (this.meta.http_request_content_length) {
-            span.meta["http.request.content_length"] = this.meta.http_request_content_length;
+          if (trace.meta.http_request_content_length) {
+            span.meta["http.request.content_length"] =
+              trace.meta.http_request_content_length;
           }
-          if (this.meta.http_request_content_length_uncompressed) {
-            span.meta["http.request.content_length_uncompressed"] = this.meta.http_request_content_length_uncompressed;
+          if (trace.meta.http_request_content_length_uncompressed) {
+            span.meta["http.request.content_length_uncompressed"] =
+              trace.meta.http_request_content_length_uncompressed;
           }
-          if (this.meta.http_response_content_length) {
-            span.meta["http.response.content_length"] = this.meta.http_response_content_length;
+          if (trace.meta.http_response_content_length) {
+            span.meta["http.response.content_length"] =
+              trace.meta.http_response_content_length;
           }
-          if (this.meta.http_response_content_length_uncompressed) {
-            span.meta["http.response.content_length_uncompressed"] = this.meta.http_response_content_length_uncompressed;
+          if (trace.meta.http_response_content_length_uncompressed) {
+            span.meta["http.response.content_length_uncompressed"] =
+              trace.meta.http_response_content_length_uncompressed;
           }
-          if (this.meta.span_kind) {
-            span.meta["span.kind"] = this.meta.span_kind;
+          if (trace.meta.span_kind) {
+            span.meta["span.kind"] = trace.meta.span_kind;
           }
         }
       }

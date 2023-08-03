@@ -1,6 +1,6 @@
 const fs = require("fs");
 const { WASI } = require("wasi");
-const { env, argv } = require('node:process');
+const { env, argv } = require("node:process");
 const { DatadogAdapter } = require("@dylibso/observe-sdk-datadog");
 
 const wasi = new WASI({
@@ -20,7 +20,7 @@ adapter.start(bytes).then((traceContext) => {
     ...traceContext.getImportObject(),
   }).then((instance) => {
     wasi.start(instance);
-    adapter.setMetadata({
+    traceContext.setMetadata({
       http_status_code: 200,
       http_url: "https://example.com",
     });
