@@ -8,7 +8,7 @@ There are only two endpoints:
 
 ## `POST /upload?name=<identifier>`
 
-Post a Wasm module to this endpoint with any name you want.
+Post a Wasm module to this endpoint using any name you want as the identifier:
 
 ```bash
 curl -F wasm=@count_vowels.wasm  "https://p01--iota-web--tyqfmnr79gjf.code.run/upload?name=count_vowels" -X POST
