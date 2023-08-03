@@ -6,19 +6,19 @@
 #define IMPORT(a, b) __attribute__((import_module(a), import_name(b)))
 
 IMPORT("dylibso_observe", "metric")
-extern void metric(uint32_t, uint32_t, uint32_t);
+extern void metric(uint32_t, uint64_t, uint32_t);
 IMPORT("dylibso_observe", "log")
-extern void log_write(uint32_t, uint32_t, uint32_t);
+extern void log_write(uint32_t, uint64_t, uint32_t);
 IMPORT("dylibso_observe", "span_enter")
-extern void span_enter(uint32_t, uint32_t);
+extern void span_enter(uint64_t, uint32_t);
 IMPORT("dylibso_observe", "span_exit") extern void span_exit();
 
 void custom_span_enter(char name[]) {
   uintptr_t ptr = (uintptr_t)name;
   uint64_t uint64_ptr = (uint64_t)ptr;
-  uint64_t uint64_length = (uint64_t)(strlen(name));
+  uint32_t uint32_length = (uint32_t)(strlen(name));
 
-  span_enter(uint64_ptr, uint64_length);
+  span_enter(uint64_ptr, uint32_length);
 }
 
 void custom_span_exit() { span_exit(); }
@@ -28,10 +28,10 @@ void write_stat() {
 
   uintptr_t ptr = (uintptr_t)stat;
   uint64_t uint64_ptr = (uint64_t)ptr;
-  uint64_t uint64_length = (uint64_t)(strlen(stat));
+  uint32_t uint32_length = (uint32_t)(strlen(stat));
 
   custom_span_enter("statsd");
-  metric((uint64_t)1, uint64_ptr, uint64_length);
+  metric((uint64_t)1, uint64_ptr, uint32_length);
   custom_span_exit();
 }
 
@@ -40,11 +40,11 @@ void write_log() {
 
   uintptr_t ptr = (uintptr_t)stat;
   uint64_t uint64_ptr = (uint64_t)ptr;
-  uint64_t uint64_length = (uint64_t)(strlen(stat));
-  uint64_t level = (uint64_t)1;
+  uint32_t uint32_length = (uint32_t)(strlen(stat));
+  uint32_t uint32_level = (uint32_t)1;
 
   custom_span_enter("log_write");
-  log_write(level, uint64_ptr, uint64_length);
+  log_write(uint32_level, uint64_ptr, uint32_length);
   custom_span_exit();
 }
 

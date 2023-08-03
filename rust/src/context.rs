@@ -70,11 +70,13 @@ impl InstrumentationContext {
         Ok(())
     }
 
-    fn exit(&mut self, func_index: u32) -> Result<()> {
+    fn exit(&mut self, _func_index: u32) -> Result<()> {
         if let Some(mut func) = self.stack.pop() {
-            if func_index != 0 && func.index != func_index {
-                bail!("missed a function exit");
-            }
+            // TODO this prevents us from using wasm-instr and manual instr
+            // we should decide how to handle this and put this back in some way
+            // if func_index != 0 && func.index != func_index {
+            //     bail!("missed a function exit");
+            // }
             func.end = SystemTime::now();
 
             if let Some(mut f) = self.stack.pop() {
@@ -177,7 +179,7 @@ pub(crate) fn instrument_enter(
         .get(0)
         .context("Missing func_id arg")?
         .i32()
-        .context("Could not convert func_id arg to i32")? as u32;
+        .context("Could not cast func_id arg to i32")? as u32;
     let printname = function_names.get(&func_id);
 
     if let Ok(mut cont) = ctx.lock() {
@@ -196,7 +198,7 @@ pub(crate) fn instrument_exit(
         .get(0)
         .context("Missing func_id arg")?
         .i32()
-        .context("Could not convert func_id arg to i32")?;
+        .context("Could not cast func_id arg to i32")?;
 
     if let Ok(mut cont) = ctx.lock() {
         cont.exit(func_id as u32)?;
@@ -213,7 +215,7 @@ pub(crate) fn instrument_memory_grow(
         .get(0)
         .context("Missing amount_in_pages arg")?
         .i32()
-        .context("Could not convert amount_in_pages arg to i32")?;
+        .context("Could not cast amount_in_pages arg to i32")?;
 
     if let Ok(mut cont) = ctx.lock() {
         cont.allocate(amount_in_pages as u32)?;
@@ -231,7 +233,7 @@ pub(crate) fn metric<T>(
         .get(0)
         .context("Missing format arg")?
         .i32()
-        .context("Could not convert format arg to i32")?;
+        .context("Could not cast format arg to i32")?;
 
     let format = match format {
         1 => MetricFormat::Statsd,
@@ -241,20 +243,20 @@ pub(crate) fn metric<T>(
     let ptr = input
         .get(1)
         .context("Missing ptr arg")?
-        .i32()
-        .context("Could not convert ptr arg to i32")?;
+        .i64()
+        .context("Could not cast ptr arg to i64")?;
 
     let len = input
         .get(2)
         .context("Missing len arg")?
         .i32()
-        .context("Could not convert len arg to i32")?;
+        .context("Could not cast len arg to i32")?;
 
     let memory = caller
         .get_export("memory")
         .context("Could not get memory from caller")?
         .into_memory()
-        .context("Could not convert to into memory")?;
+        .context("Could not cast to into memory")?;
 
     let mut buffer = vec![0u8; len as usize];
     memory.read(caller, ptr as usize, &mut buffer)?;
@@ -275,20 +277,20 @@ pub(crate) fn span_tags<T>(
     let ptr = input
         .get(0)
         .context("Missing ptr arg")?
-        .i32()
-        .context("Could not convert ptr arg to i32")?;
+        .i64()
+        .context("Could not cast ptr arg to i64")?;
 
     let len = input
         .get(1)
         .context("Missing len arg")?
         .i32()
-        .context("Could not convert len arg to i32")?;
+        .context("Could not cast len arg to i32")?;
 
     let memory = caller
         .get_export("memory")
         .context("Could not get memory from caller")?
         .into_memory()
-        .context("Could not convert to into memory")?;
+        .context("Could not cast to into memory")?;
 
     let mut buffer = vec![0u8; len as usize];
     memory.read(caller, ptr as usize, &mut buffer)?;
@@ -315,25 +317,25 @@ pub(crate) fn log_write<T>(
         .get(0)
         .context("Missing level arg")?
         .i32()
-        .context("Could not convert ptr arg to i32")?;
+        .context("Could not cast level arg to i32")?;
 
     let ptr = input
         .get(1)
         .context("Missing ptr arg")?
-        .i32()
-        .context("Could not convert ptr arg to i32")?;
+        .i64()
+        .context("Could not cast ptr arg to i64")?;
 
     let len = input
         .get(2)
         .context("Missing len arg")?
         .i32()
-        .context("Could not convert len arg to i32")?;
+        .context("Could not cast len arg to i32")?;
 
     let memory = caller
         .get_export("memory")
         .context("Could not get memory from caller")?
         .into_memory()
-        .context("Could not convert to into memory")?;
+        .context("Could not cast to into memory")?;
 
     let mut buffer = vec![0u8; len as usize];
     memory.read(caller, ptr as usize, &mut buffer)?;
@@ -354,20 +356,20 @@ pub(crate) fn span_enter<T>(
     let ptr = input
         .get(0)
         .context("Missing ptr arg")?
-        .i32()
-        .context("Could not convert ptr arg to i32")?;
+        .i64()
+        .context("Could not cast ptr arg to i64")?;
 
     let len = input
         .get(1)
         .context("Missing len arg")?
         .i32()
-        .context("Could not convert len arg to i32")?;
+        .context("Could not cast len arg to i32")?;
 
     let memory = caller
         .get_export("memory")
         .context("Could not get memory from caller")?
         .into_memory()
-        .context("Could not convert to into memory")?;
+        .context("Could not cast to into memory")?;
 
     let mut buffer = vec![0u8; len as usize];
     memory.read(caller, ptr as usize, &mut buffer)?;
@@ -443,7 +445,7 @@ pub fn add_to_linker<T: 'static>(linker: &mut Linker<T>, data: &[u8]) -> Result<
         move |_caller, params, results| instrument_memory_grow(params, results, grow_ctx.clone()),
     )?;
 
-    let t = FuncType::new([ValType::I32, ValType::I32], []);
+    let t = FuncType::new([ValType::I64, ValType::I32], []);
 
     let span_enter_ctx = ctx.clone();
     linker.func_new(
@@ -465,7 +467,7 @@ pub fn add_to_linker<T: 'static>(linker: &mut Linker<T>, data: &[u8]) -> Result<
         },
     )?;
 
-    let t = FuncType::new([ValType::I32, ValType::I32, ValType::I32], []);
+    let t = FuncType::new([ValType::I32, ValType::I64, ValType::I32], []);
 
     let metric_ctx = ctx.clone();
     linker.func_new(
