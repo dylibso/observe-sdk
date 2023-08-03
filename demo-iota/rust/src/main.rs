@@ -1,11 +1,12 @@
 use std::io::prelude::*;
 use std::{collections::HashMap, fs::File};
 
+use axum::body::Body;
 use axum::{
     extract::Multipart,
     extract::Query,
     extract::State,
-    response::Json,
+    response::{IntoResponse, Response},
     routing::{get, post},
     Router,
 };
@@ -14,7 +15,6 @@ use dylibso_observe_sdk::adapter::{
     AdapterHandle,
 };
 use serde::Deserialize;
-use serde_json::{json, Value};
 use wasi_common::{pipe::ReadPipe, pipe::WritePipe};
 use wasmtime::*;
 use wasmtime_wasi::sync::WasiCtxBuilder;
@@ -57,7 +57,7 @@ async fn run_module(
     State(state): State<AdapterHandle>,
     params: Query<ModuleParams>,
     body: String,
-) -> Json<Value> {
+) -> impl IntoResponse {
     let query: ModuleParams = params.0;
     // Define the WASI functions globally on the `Config`.
     let engine = Engine::default();
@@ -96,9 +96,7 @@ async fn run_module(
         .unwrap()
         .into_inner();
 
-    Json(json!({
-        "stdout": std::str::from_utf8(&contents).unwrap().trim()
-    }))
+    Response::new(Body::from(contents))
 }
 
 async fn upload(params: Query<ModuleParams>, mut multipart: Multipart) {
