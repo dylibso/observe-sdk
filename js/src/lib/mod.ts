@@ -60,6 +60,7 @@ export interface Collector {
   getImportObject(): WebAssembly.Imports;
   send(to: Adapter): void;
   addMetadata(name: string, value: any): void;
+  setMetadata(data: any): void;
   stop(): void;
 }
 
@@ -68,12 +69,12 @@ export interface AdapterConfig {
 }
 
 export abstract class Adapter {
-  traceIntervalId: number | undefined = undefined;
+  traceIntervalId: number | undefined | NodeJS.Timer = undefined;
   config: AdapterConfig;
 
   abstract start(wasm?: Uint8Array): Promise<Collector>;
 
-  abstract collect(events: Array<ObserveEvent>): void;
+  abstract collect(events: Array<ObserveEvent>, metadata: any): void;
 
   abstract send?();
 

@@ -20,6 +20,7 @@ import {
 wasm.default().then((bytes) => __wbg_set_wasm(bytes));
 
 export class SpanCollector implements Collector {
+  meta?: any;
   names: NamesMap;
   stack: Array<FunctionCall>;
   events: ObserveEvent[];
@@ -30,21 +31,26 @@ export class SpanCollector implements Collector {
     this.names = new Map<FunctionId, string>();
   }
 
-  public async setNames(wasm: ArrayBuffer | WebAssembly.Module) {
+  setMetadata(data: any): void {
+    this.meta = data;
+  }
 
+  public async setNames(wasm: ArrayBuffer | WebAssembly.Module) {
     let module = wasm;
     if (!(wasm instanceof WebAssembly.Module)) {
       module = await WebAssembly.compile(wasm)
     }
 
-    const mangledNames = parseNameSection(WebAssembly.Module.customSections(module, "name")[0]);
+    const mangledNames = parseNameSection(
+      WebAssembly.Module.customSections(module, "name")[0],
+    );
     mangledNames.forEach((value, key) => {
-      this.names.set(key, demangle(value))
-    })
+      this.names.set(key, demangle(value));
+    });
   }
 
   public send(to: Adapter): void {
-    to.collect(this.events);
+    to.collect(this.events, this.meta);
   }
 
   instrumentEnter = (funcId: FunctionId) => {
