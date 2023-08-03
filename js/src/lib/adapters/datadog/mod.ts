@@ -160,7 +160,7 @@ export class DatadogAdapter extends Adapter {
       this.config.serviceName,
       trace.trace_id,
       fn.name,
-      fn.startNano(),
+      fn.start,
       fn.duration(),
       parentId,
     );
@@ -238,6 +238,7 @@ export class DatadogAdapter extends Adapter {
           console.error(
             "Request to datadog agent failed with status:",
             resp.status,
+            resp.statusText
           );
         } else {
           this.formatter.traces = [];

@@ -1,7 +1,6 @@
 import {
-  NanosFromOrigin,
+  Nanoseconds,
   MemoryGrowAmount,
-  Milliseconds,
   newSpanId,
   newTraceId,
   TelemetryId,
@@ -60,8 +59,8 @@ export class DatadogFormatter {
     serviceName: string,
     traceId: number,
     name: string,
-    start: Milliseconds,
-    duration: NanosFromOrigin,
+    start: Nanoseconds,
+    duration: Nanoseconds,
     parentId?: number,
   ): Span {
     return {

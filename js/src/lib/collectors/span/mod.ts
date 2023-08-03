@@ -18,7 +18,7 @@ import {
 
 const initDemangle = () =>
   new Promise(async (resolve, _) => {
-    // @ts-ignore
+    // @ts-ignore - there is indeed a `default` function on `wasm`
     const bytes = await wasm.default();
     __wbg_set_wasm(bytes);
     resolve(true);

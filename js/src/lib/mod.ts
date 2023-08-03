@@ -1,11 +1,10 @@
-export const now = (): NanosFromOrigin => {
+export const now = (): Nanoseconds => {
   // performance.now is in millis with greater precision than Date.now()
   // https://developer.mozilla.org/en-US/docs/Web/API/Performance/now
   return (performance.now() + performance.timeOrigin) * 1000000;
 };
 
-export type Milliseconds = number;
-export type NanosFromOrigin = number;
+export type Nanoseconds = number;
 export type ObserveEvent = FunctionCall | MemoryGrow | CustomEvent;
 export type MemoryGrowAmount = number;
 export type FunctionId = number;
@@ -16,7 +15,7 @@ export class CustomEvent {
 }
 
 export class MemoryGrow {
-  start: Milliseconds;
+  start: Nanoseconds;
   constructor(public readonly amount: MemoryGrowAmount) {
     this.start = now();
   }
@@ -27,8 +26,8 @@ export class MemoryGrow {
 }
 
 export class FunctionCall {
-  start: Milliseconds;
-  end: Milliseconds;
+  start: Nanoseconds;
+  end: Nanoseconds;
   within: Array<ObserveEvent>;
 
   constructor(
@@ -36,7 +35,7 @@ export class FunctionCall {
     public readonly id: FunctionId,
   ) {
     this.start = now();
-    this.end = now();;
+    this.end = this.start;
     this.within = [];
   }
 
@@ -48,16 +47,8 @@ export class FunctionCall {
     this.end = now();
   }
 
-  public hrDuration(): NanosFromOrigin {
+  public duration(): Nanoseconds {
     return this.end - this.start;
-  }
-
-  public startNano(): number {
-    return 1e6 * (performance.timeOrigin + this.start);
-  }
-
-  public duration(): number {
-    return Math.ceil(1e6 * this.hrDuration());
   }
 }
 

@@ -19,7 +19,7 @@ function printEvents(event: ObserveEvent, indentation: number) {
   if (event instanceof FunctionCall) {
     console.log(
       `${"  ".repeat(indentation)
-      } Call to ${event.name} took ${event.hrDuration()}ms`,
+      } Call to ${event.name} took ${event.duration()}ns`,
     );
     event.within.forEach((f) => {
       printEvents(f, indentation + 1);
