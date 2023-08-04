@@ -6,7 +6,7 @@ from the guest to the host. Most of these APIs are simply ways to pass observabi
 to the host layer.
 
 * `dylibso_observe.metric(i32, i64, i32)`
-* `dylibso_observe.log(i64, i32)`
+* `dylibso_observe.log(i32, i64, i32)`
 * `dylibso_observe.span_enter(i64, i32)`
 * `dylibso_observe.span_exit()`
 * `dylibso_observe.span_tags(i64, i32)`
