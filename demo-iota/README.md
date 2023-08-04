@@ -17,10 +17,10 @@ deployed that can reach all Iotas through a single entrypoint.
 
 ### Upload a module:
 
-`POST https://iota.dylibso.com/upload/<app>/<identifier>`
+`POST https://iota.dylibso.com/upload/<app>/<name>`
 
-Where `<app>` is any of `go`, `rust`, `node`, `deno`, and the `<identifier>` is
-the name described above.
+Where `<app>` is any of `go`, `rust`, `node`, `deno`, and the `<name>` is the
+deployed code to execute.
 
 ```sh
 cd demo-iota
@@ -29,11 +29,11 @@ make iota-upload app=rust wasm=functions/count_vowels.rs.inst.wasm name=count_vo
 
 ### Run a module:
 
-`POST https://iota.dylibso.com/run/<app>/<adapter>/<identifier>`
+`POST https://iota.dylibso.com/run/<app>/<adapter>/<name>`
 
 Where `<app>` is any of `go`, `rust`, `node`, `deno`, `<adapter>` is any
-supported APM (`datadog`, `honeycomb`), and the `<identifier>` is the name
-described above.
+supported APM (`datadog`, `honeycomb`), and the `<name>` is the name is the
+deployed code to execute.
 
 ```sh
 cd demo-iota 
@@ -47,19 +47,19 @@ echo "this is a test" | make iota-run app=rust adapter=datadog name=count_vowels
 
 There are only two endpoints:
 
-### `POST /upload?name=<identifier>`
+### `POST /upload?name=<name>`
 
-Post a Wasm module to this endpoint using any name you want as the identifier:
+Post a Wasm module to this endpoint using any name you want to identify the code
+to execute:
 
 ```bash
 curl -F wasm=@count_vowels.wasm  "https://p01--iota-web--tyqfmnr79gjf.code.run/upload?name=count_vowels" -X POST
 ```
 
-### `POST /run?name=<identifier>`
+### `POST /run?name=<name>`
 
-Post to this endpoint to run a function by name. The HTTP body will get passed
-to the function input. The function output will be returned in the HTTP response
-body
+Post to this endpoint to run code by name. The HTTP body will get passed to the
+function input. The function output will be returned in the HTTP response body
 
 ```bash
 curl  "https://p01--iota-web--tyqfmnr79gjf.code.run/run?name=count_vowels" -X POST -d "Hello World"
