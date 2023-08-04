@@ -13,6 +13,7 @@ use self::datadog::DatadogMetadata;
 
 pub mod datadog;
 pub mod datadog_formatter;
+pub mod honeycomb;
 pub mod otel_formatter;
 pub mod otelstdout;
 pub mod stdout;
@@ -100,5 +101,5 @@ impl AdapterHandle {
 /// The different types of metadata we can send across to a Collector
 #[derive(Clone, Debug)]
 pub enum AdapterMetadata {
-    Datadog(DatadogMetadata)
+    Datadog(DatadogMetadata),
 }
