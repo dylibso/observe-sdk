@@ -1,3 +1,5 @@
+pub use observe_instrument::instrument;
+
 #[link(wasm_import_module = "dylibso_observe")]
 extern "C" {
     #[link_name = "metric"]

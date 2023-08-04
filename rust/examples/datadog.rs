@@ -8,7 +8,7 @@ use dylibso_observe_sdk::adapter::{
 pub async fn main() -> anyhow::Result<()> {
     let args: Vec<_> = std::env::args().skip(1).collect();
     let data = std::fs::read(&args[0])?;
-    let function_name = "_start";
+    let function_name = "main";
     let config = wasmtime::Config::new();
 
     // Create instance
@@ -40,7 +40,12 @@ pub async fn main() -> anyhow::Result<()> {
         .get_func(&mut store, function_name)
         .expect("function exists");
 
-    f.call(&mut store, &[], &mut []).unwrap();
+    f.call(
+        &mut store,
+        &[wasmtime::Val::I32(0), wasmtime::Val::I32(0)],
+        &mut [],
+    )
+    .unwrap();
 
     let meta = DatadogMetadata {
         http_url: Some("https://example.com/things/123".into()),

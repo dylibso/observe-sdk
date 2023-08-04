@@ -1,0 +1,8 @@
+[package]
+name = "rust_guest"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+observe_api = { path = "../../observe-api/rust" }
+
