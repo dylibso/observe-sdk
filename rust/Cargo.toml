@@ -7,7 +7,7 @@ edition = "2021"
 
 [dependencies]
 anyhow = "1"
-wasmtime = {version = "9.0.3"}
+wasmtime = {version = "=9.0.3", default-features=false, features=['cranelift']}
 wasmtime-wasi = {version = "9.0.3"}
 tokio = { version = "1", features = ["sync", "rt-multi-thread", "macros"] }
 rand = "0"
