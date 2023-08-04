@@ -15,8 +15,10 @@ Ideally, you will not call this API layer directly but instead use language spec
 
 ## Language Bindings
 
-We currently provide language bindings to this API in [rust](rust/) and [c](c/).
-You can find examples on how to use these [for rust](test/rust/src/main) and [for c](test/c/main.c).
+We currently provide these language bindings to this API:
+
+* [rust](rust/) -- [example](test/rust/src/main.rs)
+* [c](c/) -- [example](test/c/main.c)
 
 More languages will come soon as well as tools built on top of these bindings. If you are planning on building your own tooling we suggest using or contributing one of these language specific bindings.
 
