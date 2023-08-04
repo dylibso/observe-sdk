@@ -5,6 +5,6 @@ edition = "2021"
 
 [dependencies]
 log = "0.4.19"
-observe_api = { path = "../../observe-api/rust" }
+observe_api = { path = "../../rust" }
 
 
