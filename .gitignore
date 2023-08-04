@@ -1,3 +1,4 @@
 rust/target
 rust/Cargo.lock
 target
+.env

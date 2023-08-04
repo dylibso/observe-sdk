@@ -6,8 +6,8 @@ import (
 	"log"
 
 	observe "github.com/dylibso/observe-sdk/go"
-	"github.com/dylibso/observe-sdk/go/adapter/otel_formatter"
 	otel "github.com/dylibso/observe-sdk/go/adapter/otel_formatter"
+	trace "go.opentelemetry.io/proto/otlp/trace/v1"
 )
 
 type OtelStdoutAdapter struct {
@@ -33,7 +33,7 @@ func (o *OtelStdoutAdapter) Flush(evts []observe.TraceEvent) error {
 	for _, te := range evts {
 		traceId := te.TelemetryId.ToHex16()
 
-		var allSpans []*otel_formatter.Span
+		var allSpans []*trace.Span
 		for _, e := range te.Events {
 			switch event := e.(type) {
 			case observe.CallEvent:
@@ -53,11 +53,8 @@ func (o *OtelStdoutAdapter) Flush(evts []observe.TraceEvent) error {
 			return nil
 		}
 
-		output := otel.New()
-		resourceSpan := otel.NewResourceSpan()
-		resourceSpan.AddSpans(allSpans)
-		output.AddResourceSpan(*resourceSpan)
-		b, err := json.Marshal(output)
+		t := otel.NewTrace(traceId, "golang", allSpans)
+		b, err := json.Marshal(t.TracesData)
 		if err != nil {
 			log.Println("failed to encode CallEvent spans")
 			return nil
@@ -69,19 +66,19 @@ func (o *OtelStdoutAdapter) Flush(evts []observe.TraceEvent) error {
 	return nil
 }
 
-func (o *OtelStdoutAdapter) makeCallSpans(event observe.CallEvent, parentId *string, traceId string) []*otel.Span {
+func (o *OtelStdoutAdapter) makeCallSpans(event observe.CallEvent, parentId []byte, traceId string) []*trace.Span {
 	name := event.FunctionName()
 	span := otel.NewSpan(traceId, parentId, name, event.Time, event.Time.Add(event.Duration))
-	span.AddAttribute("function_name", fmt.Sprintf("function-call-%s", name))
+	span.Attributes = append(span.Attributes, otel.NewKeyValueString("function_name", fmt.Sprintf("function-call-%s", name)))
 
-	spans := []*otel.Span{span}
+	spans := []*trace.Span{span}
 	for _, ev := range event.Within() {
 		if call, ok := ev.(observe.CallEvent); ok {
-			spans = append(spans, o.makeCallSpans(call, &span.SpanId, traceId)...)
+			spans = append(spans, o.makeCallSpans(call, span.SpanId, traceId)...)
 		}
 		if alloc, ok := ev.(observe.MemoryGrowEvent); ok {
 			last := spans[len(spans)-1]
-			last.AddAttribute("allocation", alloc.MemoryGrowAmount())
+			last.Attributes = append(last.Attributes, otel.NewKeyValueInt64("allocation", int64(alloc.MemoryGrowAmount())))
 		}
 	}
 

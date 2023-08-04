@@ -3,96 +3,76 @@ package otel_formatter
 import (
 	"time"
 
-	"github.com/dylibso/observe-sdk/go"
+	common "go.opentelemetry.io/proto/otlp/common/v1"
+	resource "go.opentelemetry.io/proto/otlp/resource/v1"
+	trace "go.opentelemetry.io/proto/otlp/trace/v1"
+
+	observe "github.com/dylibso/observe-sdk/go"
 )
 
-type OtelFormatter struct {
-	ResourceSpans []ResourceSpan `json:"resourceSpans"`
+type Trace struct {
+	TraceId    string
+	TracesData *trace.TracesData
 }
 
-func New() *OtelFormatter {
-	return &OtelFormatter{}
-}
-
-func (o *OtelFormatter) AddResourceSpan(span ResourceSpan) {
-	o.ResourceSpans = append(o.ResourceSpans, span)
-}
-
-type ResourceSpan struct {
-	Resource   Resource    `json:"resource"`
-	ScopeSpans []ScopeSpan `json:"scopeSpans"`
-}
-
-func NewResourceSpan() *ResourceSpan {
-	return &ResourceSpan{}
-}
-
-func (r *ResourceSpan) AddAttribute(key string, value any) *ResourceSpan {
-	r.Resource.Attributes = append(r.Resource.Attributes, Attribute{Key: key, Value: value})
-	return r
-}
-
-func (r *ResourceSpan) AddSpans(spans []*Span) {
-	r.ScopeSpans = append(r.ScopeSpans, ScopeSpan{
-		Scope: Scope{
-			Name: "event",
+func NewTrace(traceId string, serviceName string, spans []*trace.Span) *Trace {
+	return &Trace{
+		TraceId: traceId,
+		TracesData: &trace.TracesData{
+			ResourceSpans: []*trace.ResourceSpans{
+				{
+					Resource: &resource.Resource{
+						Attributes: []*common.KeyValue{
+							NewKeyValueString("service.name", serviceName),
+						},
+					},
+					ScopeSpans: []*trace.ScopeSpans{
+						{
+							Spans: spans,
+						},
+					},
+				},
+			},
 		},
-		Spans: spans,
-	})
-}
-
-type Resource struct {
-	Attributes []Attribute `json:"attributes"`
-}
-
-type ScopeSpan struct {
-	Scope Scope   `json:"scope"`
-	Spans []*Span `json:"spans"`
-}
-
-type Attribute struct {
-	Key   string `json:"key"`
-	Value any    `json:"value"`
-}
-
-type Scope struct {
-	Name string `json:"name"`
-}
-
-type Span struct {
-	TraceId                string      `json:"traceId"`
-	SpanId                 string      `json:"spanId"`
-	ParentSpanId           string      `json:"parentSpanId"`
-	Name                   string      `json:"name"`
-	Kind                   int64       `json:"kind"`
-	StartTimeNano          int64       `json:"startTimeUnixNano"`
-	EndTimeNano            int64       `json:"endTimeUnixNano"`
-	Attributes             []Attribute `json:"attributes"`
-	DroppedAttributesCount int64       `json:"droppedAttributesCount"`
-	DroppedEventsCount     int64       `json:"droppedEventsCount"`
-	DroppedLinksCount      int64       `json:"droppedLinksCount"`
-	Status                 Status      `json:"status"`
-}
-
-type Status struct{}
-
-func NewSpan(traceId string, parentId *string, name string, start, end time.Time) *Span {
-	if parentId == nil {
-		var empty string
-		parentId = &empty
 	}
-	return &Span{
-		TraceId:       traceId,
-		SpanId:        observe.NewSpanId().ToHex8(),
-		ParentSpanId:  *parentId,
-		Name:          name,
-		Kind:          1,
-		StartTimeNano: start.UnixNano(),
-		EndTimeNano:   end.UnixNano(),
+}
+
+func NewSpan(traceId string, parentId []byte, name string, start, end time.Time) *trace.Span {
+	if parentId == nil {
+		parentId = []byte{}
+	}
+	return &trace.Span{
+		TraceId:           []byte(traceId),
+		SpanId:            []byte(observe.NewSpanId().ToHex8()),
+		ParentSpanId:      parentId,
+		Name:              name,
+		Kind:              1,
+		StartTimeUnixNano: uint64(start.UnixNano()),
+		EndTimeUnixNano:   uint64(end.UnixNano()),
 		// uses empty defaults for remaining fields...
 	}
 }
 
-func (s *Span) AddAttribute(key string, value any) {
-	s.Attributes = append(s.Attributes, Attribute{Key: key, Value: value})
+func NewKeyValueString(key string, value string) *common.KeyValue {
+	strVal := &common.AnyValue_StringValue{
+		StringValue: value,
+	}
+	return &common.KeyValue{
+		Key: key,
+		Value: &common.AnyValue{
+			Value: strVal,
+		},
+	}
+}
+
+func NewKeyValueInt64(key string, value int64) *common.KeyValue {
+	strVal := &common.AnyValue_IntValue{
+		IntValue: value,
+	}
+	return &common.KeyValue{
+		Key: key,
+		Value: &common.AnyValue{
+			Value: strVal,
+		},
+	}
 }
