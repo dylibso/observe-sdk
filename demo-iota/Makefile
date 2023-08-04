@@ -17,3 +17,11 @@ build:
 		rustc $$file --target=wasm32-wasi -C opt-level=3 -C debuginfo=0 -o $$file.wasm; \
 		curl -F wasm=@$$file.wasm https://compiler-preview.dylibso.com/instrument -X POST -H "Authorization: Bearer $(WASM_INSTR_API_KEY)" > $$file.instr.wasm; \
 	done
+
+iota-upload:
+	curl -F wasm=@$(wasm) "https://iota.dylibso.com/upload/$(app)/$(name)" -X POST
+
+iota-run: 
+	@cat > $(STDIN_FILE)
+	curl "https://iota.dylibso.com/run/$(app)/$(adapter)/$(name)" -X POST -d "$$(cat $(STDIN_FILE))"
+	@rm $(STDIN_FILE)
