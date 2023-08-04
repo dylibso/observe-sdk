@@ -866,7 +866,6 @@ dependencies = [
  "dylibso-observe-sdk",
  "futures-util",
  "serde",
- "serde_json",
  "tokio",
  "wasi-common",
  "wasmtime",

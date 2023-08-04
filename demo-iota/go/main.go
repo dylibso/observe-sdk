@@ -2,7 +2,6 @@ package main
 
 import (
 	"bytes"
-	"encoding/json"
 	"fmt"
 	"io"
 	"io/ioutil"
@@ -10,7 +9,6 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
-	"strings"
 
 	"github.com/dylibso/observe-sdk/go"
 	"github.com/dylibso/observe-sdk/go/adapter/datadog"
@@ -148,14 +146,7 @@ func (s *server) runModule(res http.ResponseWriter, req *http.Request) {
 	log.Println("stopped collector, sent to datadog")
 	defer mod.Close(ctx)
 
-	data, err := json.Marshal(Output{Stdout: strings.Trim(output.String(), "\n")})
-	if err != nil {
-		log.Println("json encode error:", err)
-		res.WriteHeader(http.StatusInternalServerError)
-		res.Write([]byte("Internal Service Error"))
-		return
-	}
 	res.WriteHeader(http.StatusOK)
 	res.Header().Add("content-type", "application/json")
-	res.Write(data)
+	res.Write(output.Bytes())
 }

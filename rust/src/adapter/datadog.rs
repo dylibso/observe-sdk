@@ -1,15 +1,19 @@
 use anyhow::Result;
 use log::warn;
 use serde_json::json;
+//use std::io::prelude::*;
 use std::{
     collections::HashMap,
     fmt::{Display, Formatter},
+    //fs::OpenOptions,
+    //io,
+    //net::UdpSocket,
     time::Duration,
 };
 use ureq;
 use url::Url;
 
-use crate::{Event, TraceEvent};
+use crate::{Event, Log, Metric, TraceEvent};
 
 use super::{
     datadog_formatter::{DatadogFormatter, Span, Trace},
@@ -119,6 +123,12 @@ impl Default for DatadogConfig {
     }
 }
 
+struct DatadogEvents {
+    pub spans: Vec<Span>,
+    pub metrics: Vec<Metric>,
+    pub logs: Vec<Log>,
+}
+
 /// An adapter to send events from your module to a [Datadog Agent](https://docs.datadoghq.com/agent/).
 pub struct DatadogAdapter {
     trace_events: Vec<TraceEvent>,
@@ -159,7 +169,7 @@ impl DatadogAdapter {
 
     fn event_to_spans(
         &self,
-        spans: &mut Vec<Span>,
+        ddevents: &mut DatadogEvents,
         event: Event,
         parent_id: Option<u64>,
         trace_id: u64,
@@ -179,35 +189,62 @@ impl DatadogAdapter {
 
                 let span_id = Some(span.span_id);
 
-                spans.push(span);
+                ddevents.spans.push(span);
 
                 for e in f.within.iter() {
-                    self.event_to_spans(spans, e.to_owned(), span_id, trace_id)?
+                    self.event_to_spans(ddevents, e.to_owned(), span_id, trace_id)?
                 }
             }
             Event::Alloc(a) => {
                 // TODO i seem to be losing this value
-                if let Some(span) = spans.last_mut() {
+                if let Some(span) = ddevents.spans.last_mut() {
                     span.add_allocation(a.amount);
                 }
             }
-            _ => {}
+            Event::Metric(mut m) => {
+                m.trace_id = Some(trace_id);
+                ddevents.metrics.push(m);
+            }
+            Event::Tags(t) => {
+                if let Some(span) = ddevents.spans.last_mut() {
+                    for tag in t.tags {
+                        span.add_tag(tag);
+                    }
+                }
+            }
+            Event::Log(l) => {
+                ddevents.logs.push(l);
+            }
+            ev => {
+                log::error!("Unknown event {:#?}", ev);
+            }
         }
         Ok(())
     }
 
     fn dump_traces(&mut self) -> Result<()> {
         let mut dtf = DatadogFormatter::new();
+        let mut log_events = vec![];
+        let mut metric_events = vec![];
+
         for trace_evt in &self.trace_events {
-            let mut spans = vec![];
             let trace_id = &trace_evt.telemetry_id;
+            let mut ddevents = DatadogEvents {
+                spans: vec![],
+                logs: vec![],
+                metrics: vec![],
+            };
             for span in &trace_evt.events {
                 let tid = trace_id.clone().into();
-                self.event_to_spans(&mut spans, span.to_owned(), None, tid)?;
+                self.event_to_spans(&mut ddevents, span.to_owned(), None, tid)?;
             }
+
+            metric_events.extend(ddevents.metrics);
+            log_events.extend(ddevents.logs);
+
             let mut trace = Trace::new();
             let mut first_span = true;
-            for span in spans {
+            for span in ddevents.spans {
                 let mut span = span.clone();
                 if first_span {
                     let mut dd_meta = self.config.default_tags.clone();
@@ -231,23 +268,31 @@ impl DatadogAdapter {
                             dd_meta.insert("http.client_ip".to_string(), ip.to_string());
                         }
                         if let Some(rl) = meta.http_request_content_length {
-                            dd_meta.insert("http.request.content_length".to_string(), rl.to_string());
+                            dd_meta
+                                .insert("http.request.content_length".to_string(), rl.to_string());
                         }
                         if let Some(rl) = meta.http_request_content_length_uncompressed {
-                            dd_meta.insert("http.request.content_length_uncompressed".to_string(), rl.to_string());
+                            dd_meta.insert(
+                                "http.request.content_length_uncompressed".to_string(),
+                                rl.to_string(),
+                            );
                         }
                         if let Some(rl) = meta.http_response_content_length {
-                            dd_meta.insert("http.response.content_length".to_string(), rl.to_string());
+                            dd_meta
+                                .insert("http.response.content_length".to_string(), rl.to_string());
                         }
                         if let Some(rl) = meta.http_response_content_length_uncompressed {
-                            dd_meta.insert("http.response.content_length_uncompressed".to_string(), rl.to_string());
+                            dd_meta.insert(
+                                "http.response.content_length_uncompressed".to_string(),
+                                rl.to_string(),
+                            );
                         }
                         if let Some(span_kind) = meta.span_kind {
                             dd_meta.insert("span.kind".to_string(), span_kind.to_string());
                         }
                     }
 
-                    span.meta = dd_meta;
+                    span.meta.extend(dd_meta);
                     first_span = false;
                 }
                 trace.push(span);
@@ -274,6 +319,35 @@ impl DatadogAdapter {
             // clear the traces because we've successfully submitted them
             self.trace_events.clear();
         }
+
+        // if metric_events.len() > 0 {
+        //     let socket = UdpSocket::bind("0.0.0.0:9999").unwrap();
+        //     for stat in metric_events {
+        //         // TODO we are just assumign they are statsd format but we can check stat.format
+        //         let message = format!("{}|#trace_id:{}", stat.message, stat.trace_id.unwrap());
+        //         // TODO get the host from config
+        //         socket
+        //             .send_to(message.as_bytes(), "127.0.0.1:8125")
+        //             .unwrap();
+        //     }
+        // }
+
+        // TODO find a better way to get logs to the agent
+
+        // if log_events.len() > 0 {
+        //     let file = OpenOptions::new()
+        //         .write(true)
+        //         .append(true)
+        //         .create(true)
+        //         .open("/tmp/planktonic.log")?;
+
+        //     let mut file_writer = io::BufWriter::new(file);
+        //     for evt in log_events {
+        //         dbg!(&evt);
+        //         file_writer.write_all(evt.message.as_bytes()).unwrap();
+        //     }
+        //     file_writer.flush()?;
+        // }
 
         Ok(())
     }
