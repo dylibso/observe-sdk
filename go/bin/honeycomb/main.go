@@ -6,7 +6,6 @@ import (
 	"os"
 	"time"
 
-	"github.com/dylibso/observe-sdk/go/adapter/datadog"
 	"github.com/dylibso/observe-sdk/go/adapter/honeycomb"
 	"github.com/tetratelabs/wazero"
 	"github.com/tetratelabs/wazero/imports/wasi_snapshot_preview1"
@@ -54,20 +53,12 @@ func main() {
 	defer m.Close(ctx)
 
 	// normally this metadata would be in your web-server framework
-	// or derived when you need them. we're just gonna initialize
-	// some example values here
-	resourceName := "my-resource"
-	httpUrl := "https://example.com/my-endpoint"
-	httpStatusCode := 200
-	spanKind := datadog.Server
-	clientIp := "66.210.227.34"
+	// or derived when you need them
 
-	meta := datadog.DatadogMetadata{
-		ResourceName:   &resourceName,
-		HttpUrl:        &httpUrl,
-		HttpStatusCode: &httpStatusCode,
-		SpanKind:       &spanKind,
-		HttpClientIp:   &clientIp,
+	meta := map[string]string{
+		"http.url":         "https://example.com/my-endpoint",
+		"http.status_code": "200",
+		"http.client_ip":   "66.210.227.34",
 	}
 	traceCtx.Metadata(meta)
 

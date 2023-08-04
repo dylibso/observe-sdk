@@ -37,6 +37,18 @@ func NewTrace(traceId string, serviceName string, spans []*trace.Span) *Trace {
 	}
 }
 
+func (t *Trace) SetMetadata(te *observe.TraceEvent, meta map[string]string) {
+	for _, rs := range t.TracesData.ResourceSpans {
+		for _, ss := range rs.ScopeSpans {
+			for _, span := range ss.Spans {
+				for key, value := range meta {
+					span.Attributes = append(span.Attributes, NewKeyValueString(key, value))
+				}
+			}
+		}
+	}
+}
+
 func NewSpan(traceId string, parentId []byte, name string, start, end time.Time) *trace.Span {
 	if parentId == nil {
 		parentId = []byte{}
