@@ -51,6 +51,9 @@ pub enum Event {
     Alloc(Allocation),
     TraceId(TelemetryId),
     Metadata(AdapterMetadata),
+    Tags(Tags),
+    Metric(Metric),
+    Log(Log),
     Shutdown,
 }
 
@@ -75,4 +78,30 @@ pub struct FunctionCall {
 pub struct Allocation {
     pub ts: SystemTime,
     pub amount: u32,
+}
+
+#[derive(Debug, Clone)]
+pub enum MetricFormat {
+    Statsd = 1,
+}
+
+#[derive(Debug, Clone)]
+pub struct Metric {
+    pub ts: SystemTime,
+    pub format: MetricFormat,
+    pub message: String,
+    pub trace_id: Option<u64>,
+}
+
+#[derive(Debug, Clone)]
+pub struct Tags {
+    pub ts: SystemTime,
+    pub tags: Vec<String>,
+}
+
+#[derive(Debug, Clone)]
+pub struct Log {
+    pub ts: SystemTime,
+    pub level: log::Level,
+    pub message: String,
 }
