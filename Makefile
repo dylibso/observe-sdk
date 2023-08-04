@@ -17,5 +17,3 @@ instrument:
 		rustc $$file --target=wasm32-wasi -C opt-level=3 -C debuginfo=0 -o $$file.wasm; \
 		curl -F wasm=@$$file.wasm https://compiler-preview.dylibso.com/instrument -X POST -H "Authorization: Bearer $(WASM_INSTR_API_KEY)" > $$file.instr.wasm; \
 	done
-	@cd test/rust && cargo build --target=wasm32-wasi && cd ../..
-	@cp test/rust/target/wasm32-wasi/debug/rust_guest.wasm test/rustapp.wasm

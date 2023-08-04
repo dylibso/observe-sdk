@@ -11,7 +11,12 @@ to the host layer.
 * `dylibso_observe.span_exit()`
 * `dylibso_observe.span_tags(i64, i32)`
 
-Ideally, you will not call this API layer directly but instead use language specific wrappers to call them. And for end users, eventually, open source observability clients will *export* data to this layer.
+Ideally, you will not call this API layer directly but instead use language specific bindings to call them. And for end users, eventually, open source observability clients will *export* data to this layer.
 
+## Language Bindings
 
+We currently provide language bindings to this API in [rust](rust/) and [c](c/).
+You can find examples on how to use these [for rust](test/rust/src/main) and [for c](test/c/main.c).
+
+More languages will come soon as well as tools built on top of these bindings. If you are planning on building your own tooling we suggest using or contributing one of these language specific bindings.
 
