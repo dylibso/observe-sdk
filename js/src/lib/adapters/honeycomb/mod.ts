@@ -1,4 +1,4 @@
-import { Adapter, ObserveEvent } from "../../mod.ts";
+import { Adapter, ObserveEvent, WASM } from "../../mod.ts";
 import { SpanCollector } from "../../collectors/span/mod.ts";
 import { traceFromEvents, Trace, TracesData } from "../../formatters/opentelemetry.ts";
 import { AdapterConfig } from "../../../lib/mod";
@@ -29,7 +29,7 @@ export class HoneycombAdapter extends Adapter {
         }
     }
 
-    public async start(wasm: Uint8Array): Promise<SpanCollector> {
+    public async start(wasm: WASM): Promise<SpanCollector> {
         super.startTraceInterval();
         const collector = new SpanCollector(this);
         await collector.setNames(wasm);

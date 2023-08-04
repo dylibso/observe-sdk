@@ -7,6 +7,7 @@ import {
   MemoryGrow,
   ObserveEvent,
   TelemetryId,
+  WASM,
 } from "../../mod.ts";
 import { SpanCollector } from "../../collectors/span/mod.ts";
 import { addAllocation, DatadogFormatter, Trace } from "./formatter.ts";
@@ -72,7 +73,7 @@ export interface DatadogMetadata {
 export class DatadogTraceContext implements Collector {
   constructor(
     private collector: SpanCollector,
-  ) {}
+  ) { }
   setMetadata(data: DatadogMetadata): void {
     this.collector.meta = data;
   }
@@ -111,7 +112,7 @@ export class DatadogAdapter extends Adapter {
   }
 
   public async start(
-    wasm: Uint8Array,
+    wasm: WASM,
   ): Promise<DatadogTraceContext> {
     const spanCollector = new SpanCollector(this);
     await spanCollector.setNames(wasm);

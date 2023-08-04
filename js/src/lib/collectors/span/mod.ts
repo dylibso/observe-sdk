@@ -14,6 +14,7 @@ import {
   NamesMap,
   now,
   ObserveEvent,
+  WASM
 } from "../../mod.ts";
 
 // @ts-ignore - The esbuild wasm plugin provides a `default` function to initialize the wasm
@@ -35,7 +36,7 @@ export class SpanCollector implements Collector {
     this.meta = data;
   }
 
-  public async setNames(wasm: ArrayBuffer | WebAssembly.Module) {
+  public async setNames(wasm: WASM) {
     let module = wasm;
     if (!(wasm instanceof WebAssembly.Module)) {
       module = await WebAssembly.compile(wasm)

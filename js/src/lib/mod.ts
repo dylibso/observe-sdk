@@ -4,6 +4,7 @@ export const now = (): Nanoseconds => {
   return (performance.now() + performance.timeOrigin) * 1000000;
 };
 
+export type WASM = Uint8Array | WebAssembly.Module;
 export type Nanoseconds = number;
 export type ObserveEvent = FunctionCall | MemoryGrow | CustomEvent;
 export type MemoryGrowAmount = number;
@@ -72,7 +73,7 @@ export abstract class Adapter {
   traceIntervalId: number | undefined | NodeJS.Timer = undefined;
   config: AdapterConfig;
 
-  abstract start(wasm?: Uint8Array): Promise<Collector>;
+  abstract start(wasm: WASM): Promise<Collector>;
 
   abstract collect(events: Array<ObserveEvent>, metadata: any): void;
 
