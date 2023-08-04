@@ -3,10 +3,10 @@ package honeycomb
 import (
 	"bytes"
 	"fmt"
-	"io"
 	"log"
 	"net/http"
 	"net/url"
+	"time"
 
 	observe "github.com/dylibso/observe-sdk/go"
 	otel "github.com/dylibso/observe-sdk/go/adapter/otel_formatter"
@@ -66,12 +66,20 @@ func (h *HoneycombAdapter) Flush(evts []observe.TraceEvent) error {
 			}
 		}
 
-		if len(allSpans) <= 1 {
+		if len(allSpans) == 0 {
 			log.Println("No spans built for honeycomb")
 			return nil
 		}
 
 		t := otel.NewTrace(traceId, h.Config.Dataset, allSpans)
+		if te.AdapterMeta != nil {
+			meta, ok := te.AdapterMeta.(map[string]string)
+			if ok {
+				t.SetMetadata(&te, meta)
+			} else {
+				log.Println("metadata must be of type map[string]string")
+			}
+		}
 		data, err := proto.Marshal(t.TracesData)
 		if err != nil {
 			log.Println("failed to marshal TracesData:", err)
@@ -84,7 +92,9 @@ func (h *HoneycombAdapter) Flush(evts []observe.TraceEvent) error {
 			return nil
 		}
 
-		client := http.Client{}
+		client := http.Client{
+			Timeout: time.Second * 2,
+		}
 		req, err := http.NewRequest("POST", url, bytes.NewBuffer(data))
 		if err != nil {
 			log.Println("failed to create honeycomb endpoint url:", err)
@@ -97,18 +107,11 @@ func (h *HoneycombAdapter) Flush(evts []observe.TraceEvent) error {
 
 		resp, err := client.Do(req)
 		if err != nil {
-			log.Println("failed to create http client", err)
+			log.Println("failed to send data to honeycomb", err)
 		}
 
 		if resp.StatusCode != http.StatusOK {
 			log.Println("unexpected status code from honeycomb:", resp.StatusCode)
-
-			body, err := io.ReadAll(resp.Body)
-			if err != nil {
-				log.Println("error reading response body:", err)
-			}
-			resp.Body.Close()
-			log.Println(string(body))
 		}
 	}
 

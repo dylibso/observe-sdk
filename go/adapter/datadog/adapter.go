@@ -9,7 +9,7 @@ import (
 	"net/url"
 	"time"
 
-	"github.com/dylibso/observe-sdk/go"
+	observe "github.com/dylibso/observe-sdk/go"
 	"github.com/dylibso/observe-sdk/go/adapter/datadog_formatter"
 )
 
@@ -86,7 +86,7 @@ func (d *DatadogAdapter) Flush(evts []observe.TraceEvent) error {
 			}
 		}
 
-		if len(allSpans) <= 1 {
+		if len(allSpans) == 0 {
 			log.Println("No spans built for datadog trace")
 			return nil
 		}
@@ -150,23 +150,32 @@ func (d *DatadogAdapter) Flush(evts []observe.TraceEvent) error {
 
 	data := bytes.NewBuffer(b)
 
-	host, err := url.JoinPath(d.Config.AgentHost, "v0.3", "traces")
+	url, err := url.JoinPath(d.Config.AgentHost, "v0.3", "traces")
 	if err != nil {
 		log.Println("failed to create datadog agent endpoint url:", err)
 		return nil
 	}
 
-	resp, err := http.Post(host, "application/json", data)
+	client := http.Client{
+		Timeout: time.Second * 2,
+	}
+	req, err := http.NewRequest("POST", url, data)
 	if err != nil {
-		log.Println("failed to send trace request to datadog:", err)
-		return nil
+		log.Println("failed to create datadog endpoint url:", err)
+	}
+
+	req.Header = http.Header{
+		"content-type": {"application/json"},
+	}
+
+	resp, err := client.Do(req)
+	if err != nil {
+		log.Println("failed to send data to datadog", err)
 	}
 
 	if resp.StatusCode != http.StatusOK {
-		log.Println("unexpected status code from datadog agent:", resp.StatusCode)
+		log.Println("unexpected status code from datadog:", resp.StatusCode)
 	}
-
-	log.Println("Submitted traces")
 
 	return nil
 }

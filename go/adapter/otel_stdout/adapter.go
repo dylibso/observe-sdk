@@ -48,7 +48,7 @@ func (o *OtelStdoutAdapter) Flush(evts []observe.TraceEvent) error {
 			}
 		}
 
-		if len(allSpans) <= 1 {
+		if len(allSpans) == 0 {
 			log.Println("No spans built for datadog trace")
 			return nil
 		}
