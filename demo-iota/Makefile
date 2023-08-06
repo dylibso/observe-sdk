@@ -19,9 +19,9 @@ build:
 	done
 
 iota-upload:
-	curl -F wasm=@$(wasm) "https://iota.dylibso.com/upload/$(app)/$(name)" -X POST
+	@curl -F wasm=@$(wasm) "https://iota.dylibso.com/upload/$(host)/$(name)" -X POST
 
 iota-run: 
 	@cat > $(STDIN_FILE)
-	curl "https://iota.dylibso.com/run/$(app)/$(adapter)/$(name)" -X POST -d "$$(cat $(STDIN_FILE))"
+	@curl "https://iota.dylibso.com/run/$(host)/$(adapter)/$(name)" -X POST -d "$$(cat $(STDIN_FILE))"
 	@rm $(STDIN_FILE)

@@ -17,27 +17,27 @@ deployed that can reach all Iotas through a single entrypoint.
 
 ### Upload a module:
 
-`POST https://iota.dylibso.com/upload/<app>/<name>`
+`POST https://iota.dylibso.com/upload/<host>/<name>`
 
-Where `<app>` is any of `go`, `rust`, `node`, `deno`, and the `<name>` is the
+Where `<host>` is any of `go`, `rust`, `node`, `deno`, and the `<name>` is the
 deployed code to execute.
 
 ```sh
 cd demo-iota
-make iota-upload app=rust wasm=functions/count_vowels.rs.inst.wasm name=count_vowels
+make iota-upload host=rust wasm=functions/count_vowels.rs.inst.wasm name=count_vowels
 ```
 
 ### Run a module:
 
-`POST https://iota.dylibso.com/run/<app>/<adapter>/<name>`
+`POST https://iota.dylibso.com/run/<host>/<adapter>/<name>`
 
-Where `<app>` is any of `go`, `rust`, `node`, `deno`, `<adapter>` is any
+Where `<host>` is any of `go`, `rust`, `node`, `deno`, `<adapter>` is any
 supported APM (`datadog`, `honeycomb`), and the `<name>` is the name is the
 deployed code to execute.
 
 ```sh
 cd demo-iota 
-echo "this is a test" | make iota-run app=rust adapter=datadog name=count_vowels
+echo "this is a test" | make iota-run host=rust adapter=datadog name=count_vowels
 4
 ```
 
