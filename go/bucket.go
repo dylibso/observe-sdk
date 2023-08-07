@@ -79,7 +79,7 @@ func (b *EventBucket) scheduleFlush(f Flusher) {
 			// TODO retry logic?
 			err := f.Flush(bucket[i:j])
 			if err != nil {
-				log.Fatal(err)
+				log.Println(err)
 			}
 		}
 	}()

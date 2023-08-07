@@ -25,6 +25,7 @@ const initDemangle = () =>
   });
 
 export class SpanCollector implements Collector {
+  meta?: any;
   names: NamesMap;
   stack: Array<FunctionCall>;
   events: ObserveEvent[];
@@ -35,19 +36,25 @@ export class SpanCollector implements Collector {
     this.names = new Map<FunctionId, string>();
   }
 
+  setMetadata(data: any): void {
+    this.meta = data;
+  }
+
   public async setNames(wasm: Uint8Array) {
     await initDemangle();
 
     const module = new WebAssembly.Module(wasm);
 
-    const mangledNames = parseNameSection(WebAssembly.Module.customSections(module, "name")[0]);
+    const mangledNames = parseNameSection(
+      WebAssembly.Module.customSections(module, "name")[0],
+    );
     mangledNames.forEach((value, key) => {
-      this.names.set(key, demangle(value))
-    })
+      this.names.set(key, demangle(value));
+    });
   }
 
   public send(to: Adapter): void {
-    to.collect(this.events);
+    to.collect(this.events, this.meta);
   }
 
   instrumentEnter = (funcId: FunctionId) => {

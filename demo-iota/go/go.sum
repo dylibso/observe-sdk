@@ -1,0 +1,16 @@
+github.com/davecgh/go-spew v1.1.1 h1:vj9j/u1bqnvCEfJOwUhtlOARqs3+rkHYY13jYWTU97c=
+github.com/dylibso/observe-sdk/go v0.0.0-20230627012040-a33ef418d181 h1:4VtTf5Qn4jnHEDI7bA71yueVKrkOjWk+JilJwmawUxk=
+github.com/dylibso/observe-sdk/go v0.0.0-20230627012040-a33ef418d181/go.mod h1:q7rVZhjfqpjzOX5YCIoZa+hExCRl5cYeQKaxTVNIKfg=
+github.com/dylibso/observe-sdk/go v0.0.0-20230627212343-0f334d69137f h1:NPjIcBJIDLn6Mjt5gxfE72UcglYiXPRDpYJC9dA0414=
+github.com/dylibso/observe-sdk/go v0.0.0-20230627212343-0f334d69137f/go.mod h1:q7rVZhjfqpjzOX5YCIoZa+hExCRl5cYeQKaxTVNIKfg=
+github.com/dylibso/observe-sdk/go v0.0.0-20230627221207-8daea0862c34 h1:z4+ykeHQ/BYMO5oQ+TnsOX6IvTa2w14Jw++FCUlMbkA=
+github.com/dylibso/observe-sdk/go v0.0.0-20230627221207-8daea0862c34/go.mod h1:q7rVZhjfqpjzOX5YCIoZa+hExCRl5cYeQKaxTVNIKfg=
+github.com/ianlancetaylor/demangle v0.0.0-20230524184225-eabc099b10ab h1:BA4a7pe6ZTd9F8kXETBoijjFJ/ntaa//1wiH9BZu4zU=
+github.com/ianlancetaylor/demangle v0.0.0-20230524184225-eabc099b10ab/go.mod h1:gx7rwoVhcfuVKG5uya9Hs3Sxj7EIvldVofAWIUtGouw=
+github.com/pmezard/go-difflib v1.0.0 h1:4DBwDE0NGyQoBHbLQYPwSUPoCMWR5BEzIk/f1lZbAQM=
+github.com/stretchr/testify v1.8.0 h1:pSgiaMZlXftHpm5L7V1+rVB+AZJydKsMxsQBIJw4PKk=
+github.com/tetratelabs/wabin v0.0.0-20230304001439-f6f874872834 h1:ZF+QBjOI+tILZjBaFj3HgFonKXUcwgJ4djLb6i42S3Q=
+github.com/tetratelabs/wabin v0.0.0-20230304001439-f6f874872834/go.mod h1:m9ymHTgNSEjuxvw8E7WWe4Pl4hZQHXONY8wE6dMLaRk=
+github.com/tetratelabs/wazero v1.2.1 h1:J4X2hrGzJvt+wqltuvcSjHQ7ujQxA9gb6PeMs4qlUWs=
+github.com/tetratelabs/wazero v1.2.1/go.mod h1:wYx2gNRg8/WihJfSDxA1TIL8H+GkfLYm+bIfbblu9VQ=
+gopkg.in/yaml.v3 v3.0.1 h1:fxVm/GzAzEWqLHuvctI91KS9hhNmmWOoWu0XTYJS7CA=
