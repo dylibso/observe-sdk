@@ -5,7 +5,7 @@ use anyhow::Result;
 
 use super::{
     otel_formatter::{OtelFormatter, ResourceSpan, Span},
-    Adapter, AdapterHandle,
+    Adapter, AdapterHandle, AdapterMetadata,
 };
 
 /// Config options for HoneycombAdapter
@@ -47,17 +47,35 @@ impl HoneycombAdapter {
         event: Event,
         parent_id: Option<String>,
         trace_id: String,
+        meta: &Option<AdapterMetadata>,
     ) -> Result<()> {
         match event {
             Event::Func(f) => {
                 let name = f.name.clone().unwrap_or("unknown-name".to_string());
 
-                let span = Span::new(trace_id.clone(), parent_id, name, f.start, f.end);
+                let mut span = Span::new(trace_id.clone(), parent_id, name, f.start, f.end);
                 let span_id = Some(span.span_id.clone());
+                if let Some(m) = meta {
+                    if let AdapterMetadata::OpenTelemetry(m) = m {
+                        for entry in m.iter() {
+                            if let Some(v) = entry.value.int_value {
+                                span.add_attribute_i64(entry.key.clone(), v)
+                            } else if let Some(v) = entry.value.string_value.clone() {
+                                span.add_attribute_string(entry.key.clone(), v)
+                            }
+                        }
+                    }
+                }
                 spans.push(span);
 
                 for e in f.within.iter() {
-                    self.event_to_spans(spans, e.to_owned(), span_id.clone(), trace_id.clone())?;
+                    self.event_to_spans(
+                        spans,
+                        e.to_owned(),
+                        span_id.clone(),
+                        trace_id.clone(),
+                        &meta,
+                    )?;
                 }
             }
             Event::Alloc(a) => {
@@ -77,7 +95,13 @@ impl HoneycombAdapter {
         for te in &self.trace_events {
             let trace_id = te.telemetry_id.to_hex_16();
             for span in &te.events {
-                self.event_to_spans(&mut spans, span.clone(), None, trace_id.clone())?;
+                self.event_to_spans(
+                    &mut spans,
+                    span.clone(),
+                    None,
+                    trace_id.clone(),
+                    &te.metadata,
+                )?;
             }
         }
         let dataset = &self.config.dataset.clone();

@@ -9,7 +9,7 @@ use crate::{
     Event, TelemetryId, TraceEvent,
 };
 
-use self::datadog::DatadogMetadata;
+use self::{datadog::DatadogMetadata, otel_formatter::Attribute};
 
 pub mod datadog;
 pub mod datadog_formatter;
@@ -102,4 +102,5 @@ impl AdapterHandle {
 #[derive(Clone, Debug)]
 pub enum AdapterMetadata {
     Datadog(DatadogMetadata),
+    OpenTelemetry(Vec<Attribute>),
 }

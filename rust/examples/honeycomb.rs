@@ -1,4 +1,6 @@
 use dylibso_observe_sdk::adapter::honeycomb::{HoneycombAdapter, HoneycombConfig};
+use dylibso_observe_sdk::adapter::otel_formatter::{Attribute, Value};
+use dylibso_observe_sdk::adapter::AdapterMetadata;
 
 #[tokio::main]
 pub async fn main() -> anyhow::Result<()> {
@@ -45,6 +47,33 @@ pub async fn main() -> anyhow::Result<()> {
 
     f.call(&mut store, &[], &mut []).unwrap();
 
+    let meta: Vec<Attribute> = vec![
+        Attribute {
+            key: "http.url".into(),
+            value: Value {
+                string_value: Some("https://example.com/things/123".into()),
+                int_value: None,
+            },
+        },
+        Attribute {
+            key: "http.client_ip".into(),
+            value: Value {
+                string_value: Some("23.123.15.145".into()),
+                int_value: None,
+            },
+        },
+        Attribute {
+            key: "http.status_code".into(),
+            value: Value {
+                string_value: None,
+                int_value: Some(200),
+            },
+        },
+    ];
+
+    trace_ctx
+        .set_metadata(AdapterMetadata::OpenTelemetry(meta))
+        .await;
     trace_ctx.shutdown().await;
 
     Ok(())
