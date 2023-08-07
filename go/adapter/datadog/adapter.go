@@ -2,6 +2,7 @@ package datadog
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
 	"fmt"
 	"log"
@@ -54,8 +55,8 @@ func NewDatadogAdapter(config *DatadogConfig) (*DatadogAdapter, error) {
 	return adapter, nil
 }
 
-func (d *DatadogAdapter) Start() {
-	d.AdapterBase.Start(d)
+func (d *DatadogAdapter) Start(ctx context.Context) {
+	d.AdapterBase.Start(d, ctx)
 }
 
 func (d *DatadogAdapter) Stop(wait bool) {

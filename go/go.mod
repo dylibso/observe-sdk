@@ -9,6 +9,7 @@ require (
 )
 
 require (
+	github.com/golang/protobuf v1.5.3
 	go.opentelemetry.io/proto/otlp v1.0.0
 	google.golang.org/protobuf v1.31.0 // indirect
 )

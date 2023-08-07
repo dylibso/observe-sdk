@@ -24,7 +24,7 @@ func main() {
 	}
 	adapter := honeycomb.NewHoneycombAdapter(conf)
 	defer adapter.Stop(true)
-	adapter.Start()
+	adapter.Start(ctx)
 
 	// Load WASM from disk
 	wasm, err := os.ReadFile(os.Args[1])
