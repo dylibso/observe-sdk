@@ -1,6 +1,7 @@
 package otel_stdout
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"log"
@@ -85,6 +86,6 @@ func (o *OtelStdoutAdapter) makeCallSpans(event observe.CallEvent, parentId []by
 	return spans
 }
 
-func (o *OtelStdoutAdapter) Start() {
-	o.AdapterBase.Start(o)
+func (o *OtelStdoutAdapter) Start(ctx context.Context) {
+	o.AdapterBase.Start(o, ctx)
 }

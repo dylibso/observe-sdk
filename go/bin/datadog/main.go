@@ -21,7 +21,7 @@ func main() {
 		log.Panicln(err)
 	}
 	defer adapter.Stop(true)
-	adapter.Start()
+	adapter.Start(ctx)
 
 	// Load WASM from disk
 	wasm, err := os.ReadFile(os.Args[1])

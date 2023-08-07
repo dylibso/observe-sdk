@@ -2,6 +2,7 @@ package honeycomb
 
 import (
 	"bytes"
+	"context"
 	"fmt"
 	"log"
 	"net/http"
@@ -39,8 +40,8 @@ func NewHoneycombAdapter(config *HoneycombConfig) *HoneycombAdapter {
 	return adapter
 }
 
-func (h *HoneycombAdapter) Start() {
-	h.AdapterBase.Start(h)
+func (h *HoneycombAdapter) Start(ctx context.Context) {
+	h.AdapterBase.Start(h, ctx)
 }
 
 func (h *HoneycombAdapter) HandleTraceEvent(te observe.TraceEvent) {

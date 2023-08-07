@@ -17,7 +17,7 @@ func main() {
 	// we only need to create and start once per instance of our host app
 	adapter := otel_stdout.NewOtelStdoutAdapter()
 	defer adapter.Stop(true)
-	adapter.Start()
+	adapter.Start(ctx)
 
 	// Load WASM from disk
 	wasm, err := os.ReadFile(os.Args[1])
