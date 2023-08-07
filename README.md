@@ -89,8 +89,8 @@ curl -F wasm=@code.wasm https://compiler-preview.dylibso.com/instrument -X POST 
 ### Manually instrument your Wasm
 
 The Host SDKs expose a series of host functions that make up our *Observe API*. You can code directly against this if you wish.
-Because we are still changing and experimenting with this API, we have not built much tooling or support for this yet.
-See [PR #51](https://github.com/dylibso/observe-sdk/pull/51) for a general idea of what this API looks like.
+Because we are still changing and experimenting with this API, we have not built much tooling or support for this yet. See [the Observe API README](observe-api/) to learn more about the API and the language bindings we provide.
+
 Expect to see some documentation and alpha tools by September 2023. We will be building out a lot of the language specific layers, but we hope the community
 can help by building tools on top of it and integrating with existing libraries like OpenTelemetry.
 
