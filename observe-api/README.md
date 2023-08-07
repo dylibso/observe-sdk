@@ -1,6 +1,6 @@
 # Observe API
 
-The *Observe API* is a set of *host* functions that each of our Host SDK supports.
+The *Observe API* is a set of *host* functions that are supported by each of our Host SDKs.
 This acts as the contract between the host and the guest layer. All data flows in one direction,
 from the guest to the host. Most of these APIs are simply ways to pass observability data as strings
 to the host layer.
