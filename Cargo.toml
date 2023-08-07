@@ -1,2 +1,3 @@
 [workspace]
 members = [ "rust" ]
+exclude = [ "observe-api/rust", "observe-api/test/rust" ]
