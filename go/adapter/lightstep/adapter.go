@@ -103,7 +103,7 @@ func (h *LightstepAdapter) Flush(evts []observe.TraceEvent) error {
 		}
 
 		req.Header = http.Header{
-			// "content-type":     {"application/protobuf"},
+			"content-type":           {"application/x-protobuf"},
 			"lightstep-access-token": {h.Config.ApiKey},
 		}
 
