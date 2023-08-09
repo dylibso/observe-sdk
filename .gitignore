@@ -1,3 +1,5 @@
 rust/target
 rust/Cargo.lock
 target
+.env
+build.js

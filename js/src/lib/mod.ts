@@ -1,20 +1,22 @@
-export const now = (): hrMillisecondsFromOrigin => {
-  return performance.now();
+export const now = (): Nanoseconds => {
+  // performance.now is in millis with greater precision than Date.now()
+  // https://developer.mozilla.org/en-US/docs/Web/API/Performance/now
+  return (performance.now() + performance.timeOrigin) * 1000000;
 };
 
-export type Milliseconds = number;
-export type hrMillisecondsFromOrigin = number;
+export type WASM = Uint8Array | WebAssembly.Module;
+export type Nanoseconds = number;
 export type ObserveEvent = FunctionCall | MemoryGrow | CustomEvent;
 export type MemoryGrowAmount = number;
 export type FunctionId = number;
 export type NamesMap = Map<FunctionId, string>;
 
 export class CustomEvent {
-  constructor(public readonly name: string, public readonly data: any) {}
+  constructor(public readonly name: string, public readonly data: any) { }
 }
 
 export class MemoryGrow {
-  start: Milliseconds;
+  start: Nanoseconds;
   constructor(public readonly amount: MemoryGrowAmount) {
     this.start = now();
   }
@@ -25,8 +27,8 @@ export class MemoryGrow {
 }
 
 export class FunctionCall {
-  start: Milliseconds;
-  end: Milliseconds;
+  start: Nanoseconds;
+  end: Nanoseconds;
   within: Array<ObserveEvent>;
 
   constructor(
@@ -34,7 +36,7 @@ export class FunctionCall {
     public readonly id: FunctionId,
   ) {
     this.start = now();
-    this.end = 0;
+    this.end = this.start;
     this.within = [];
   }
 
@@ -46,17 +48,13 @@ export class FunctionCall {
     this.end = now();
   }
 
-  public hrDuration(): hrMillisecondsFromOrigin {
+  public duration(): Nanoseconds {
     return this.end - this.start;
   }
+}
 
-  public startNano(): number {
-    return 1e6 * (performance.timeOrigin + this.start);
-  }
-
-  public duration(): number {
-    return Math.ceil(1e6 * this.hrDuration());
-  }
+export interface Formatter {
+  format(wasm?: Uint8Array): Promise<Collector>;
 }
 
 export interface Collector {
@@ -67,9 +65,36 @@ export interface Collector {
   stop(): void;
 }
 
-export interface Adapter {
-  start(wasm?: Uint8Array): Promise<Collector>;
-  collect(events: Array<ObserveEvent>, metadata: any): void;
+export interface AdapterConfig {
+  emitTracesInterval: number;
+}
+
+export abstract class Adapter {
+  traceIntervalId: number | undefined | NodeJS.Timer = undefined;
+  config: AdapterConfig;
+
+  abstract start(wasm: WASM): Promise<Collector>;
+
+  abstract collect(events: Array<ObserveEvent>, metadata: any): void;
+
+  abstract send?();
+
+  restartTraceInterval() {
+    if (this.traceIntervalId) {
+      clearInterval(this.traceIntervalId);
+      this.traceIntervalId = undefined;
+    }
+
+    this.startTraceInterval();
+  }
+
+  startTraceInterval() {
+    // @ts-ignore - return value of setInterval is definitely a `number`
+    this.traceIntervalId = setInterval(
+      async () => await this.send(),
+      this.config.emitTracesInterval,
+    );
+  }
 }
 
 export type TelemetryId = number;

@@ -14,15 +14,11 @@ import {
   NamesMap,
   now,
   ObserveEvent,
+  WASM
 } from "../../mod.ts";
 
-const initDemangle = () =>
-  new Promise(async (resolve, _) => {
-    // @ts-ignore
-    const bytes = await wasm.default();
-    __wbg_set_wasm(bytes);
-    resolve(true);
-  });
+// @ts-ignore - The esbuild wasm plugin provides a `default` function to initialize the wasm
+wasm.default().then((bytes) => __wbg_set_wasm(bytes));
 
 export class SpanCollector implements Collector {
   meta?: any;
@@ -40,10 +36,11 @@ export class SpanCollector implements Collector {
     this.meta = data;
   }
 
-  public async setNames(wasm: Uint8Array) {
-    await initDemangle();
-
-    const module = new WebAssembly.Module(wasm);
+  public async setNames(wasm: WASM) {
+    let module = wasm;
+    if (!(wasm instanceof WebAssembly.Module)) {
+      module = await WebAssembly.compile(wasm)
+    }
 
     const mangledNames = parseNameSection(
       WebAssembly.Module.customSections(module, "name")[0],
