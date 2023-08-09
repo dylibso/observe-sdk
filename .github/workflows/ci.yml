@@ -79,13 +79,18 @@ jobs:
         uses: actions-rs/cargo@v1
         with:
           command: test
+     
+      - name: Run cargo test sync
+        uses: actions-rs/cargo@v1
+        with:
+          command: test --no-default-features
 
       - name: Run basic example 
         uses: actions-rs/cargo@v1
         with:
           command: run
           args: --example=basic test/test.c.instr.wasm "Test"
-            
+                
       - name: Run many example 
         uses: actions-rs/cargo@v1
         with:
@@ -99,5 +104,3 @@ jobs:
             | head -n 1 \
             | jq '.resourceSpans[].scopeSpans[].spans[0].attributes[0]' \
             | jq '.key == "function_name", .value.stringValue == "_start"'
-
-

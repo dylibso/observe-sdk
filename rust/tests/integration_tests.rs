@@ -7,8 +7,19 @@ mod tests {
     #[test]
     fn integration_basic() -> Result<()> {
         // cargo run --example basic ../test/test.c.instr.wasm
+        #[cfg(feature = "async")]
+        let features = "";
+        #[cfg(not(feature = "async"))]
+        let features = "--no-default-features";
+
         let output = Command::new("cargo")
-            .args(&["run", "--example", "basic", "../test/test.c.instr.wasm"])
+            .args(&[
+                "run",
+                features,
+                "--example",
+                "basic",
+                "../test/test.c.instr.wasm",
+            ])
             .output()
             .expect("Failed to run the example `examples/basic`");
 

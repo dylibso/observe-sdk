@@ -1,5 +1,8 @@
 use anyhow::Result;
 use log::warn;
+#[cfg(not(feature = "async"))]
+use std::sync::mpsc::{channel, Sender};
+#[cfg(feature = "async")]
 use tokio::sync::mpsc::{channel, Sender};
 use wasmtime::Linker;
 
@@ -38,6 +41,7 @@ pub trait Adapter {
     fn handle_trace_event(&mut self, evt: TraceEvent) -> Result<()>;
 
     /// Spawns the tokio task and returns a cloneable handle to this adapter
+    #[cfg(feature = "async")]
     fn spawn(mut adapter: impl Adapter + Send + 'static) -> AdapterHandle {
         let (adapter_tx, mut adapter_rx) = channel(128);
         tokio::spawn(async move {
@@ -49,30 +53,85 @@ pub trait Adapter {
         });
         AdapterHandle { adapter_tx }
     }
+
+    /// Spawns the tokio task and returns a cloneable handle to this adapter
+    #[cfg(not(feature = "async"))]
+    fn spawn(mut adapter: impl Adapter + Send + 'static) -> AdapterHandle {
+        let (adapter_tx, adapter_rx) = channel::<TraceEvent>();
+        std::thread::spawn(move || {
+            while let Ok(evt) = adapter_rx.recv() {
+                let contains_shutdown = evt.events.iter().any(|x| match x {
+                    Event::Shutdown => true,
+                    _ => false,
+                });
+
+                if let Err(e) = adapter.handle_trace_event(evt) {
+                    warn!("Error handling events in adapter {e}");
+                }
+
+                if contains_shutdown {
+                    return;
+                }
+            }
+        });
+        AdapterHandle { adapter_tx }
+    }
 }
 
 /// Represents handle into the trace that is currently executing.
 #[derive(Clone, Debug)]
 pub struct TraceContext {
     collector: CollectorHandle,
+
+    #[cfg(not(feature = "async"))]
+    join_handle: std::sync::Arc<std::sync::Mutex<Option<std::thread::JoinHandle<()>>>>,
 }
 
 impl TraceContext {
+    #[cfg(feature = "async")]
     pub async fn set_trace_id(&self, id: TelemetryId) {
         if let Err(e) = self.collector.send(Event::TraceId(id)).await {
             warn!("Failed to set the trace id {}", e);
         }
     }
 
+    #[cfg(not(feature = "async"))]
+    pub fn set_trace_id(&self, id: TelemetryId) {
+        if let Err(e) = self.collector.send(Event::TraceId(id)) {
+            warn!("Failed to set the trace id {}", e);
+        }
+    }
+
+    #[cfg(feature = "async")]
     pub async fn set_metadata(&self, meta: AdapterMetadata) {
         if let Err(e) = self.collector.send(Event::Metadata(meta)).await {
             warn!("Failed to set the metdata {}", e);
         }
     }
 
+    #[cfg(not(feature = "async"))]
+    pub fn set_metadata(&self, meta: AdapterMetadata) {
+        if let Err(e) = self.collector.send(Event::Metadata(meta)) {
+            warn!("Failed to set the metdata {}", e);
+        }
+    }
+
+    #[cfg(feature = "async")]
     pub async fn shutdown(&self) {
         if let Err(e) = self.collector.send(Event::Shutdown).await {
             warn!("Failed to shutdown collector {}", e);
+        }
+    }
+
+    #[cfg(not(feature = "async"))]
+    pub fn shutdown(&self) {
+        if let Err(e) = self.collector.send(Event::Shutdown) {
+            warn!("Failed to shutdown collector {}", e);
+        }
+        if let Ok(mut lock) = self.join_handle.lock() {
+            if let Some(x) = lock.take() {
+                let _ = x.join();
+            }
         }
     }
 }
@@ -87,12 +146,28 @@ pub struct AdapterHandle {
 impl AdapterHandle {
     pub fn start<T: 'static>(&self, linker: &mut Linker<T>, data: &[u8]) -> Result<TraceContext> {
         let (collector, collector_rx) = add_to_linker(linker, data)?;
-        Collector::start(collector_rx, self.clone());
-        Ok(TraceContext { collector })
+
+        #[cfg(feature = "async")]
+        {
+            Collector::start(collector_rx, self.clone());
+            Ok(TraceContext { collector })
+        }
+
+        #[cfg(not(feature = "async"))]
+        {
+            let join_handle = Collector::start(collector_rx, self.clone());
+            Ok(TraceContext {
+                collector,
+                join_handle: std::sync::Arc::new(std::sync::Mutex::new(Some(join_handle))),
+            })
+        }
     }
 
     pub fn try_send(&self, event: TraceEvent) -> Result<()> {
+        #[cfg(feature = "async")]
         self.adapter_tx.try_send(event)?;
+        #[cfg(not(feature = "async"))]
+        self.adapter_tx.send(event)?;
         Ok(())
     }
 }
@@ -100,5 +175,5 @@ impl AdapterHandle {
 /// The different types of metadata we can send across to a Collector
 #[derive(Clone, Debug)]
 pub enum AdapterMetadata {
-    Datadog(DatadogMetadata)
+    Datadog(DatadogMetadata),
 }

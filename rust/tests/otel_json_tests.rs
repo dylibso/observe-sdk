@@ -11,9 +11,14 @@ mod tests {
     #[test]
     fn otel_stdout() -> Result<()> {
         // cargo run --example otel-stdout ../test/test.c.instr.wasm 'Test'
+        #[cfg(feature = "async")]
+        let features = "";
+        #[cfg(not(feature = "async"))]
+        let features = "--no-default-features";
         let output = Command::new("cargo")
             .args(&[
                 "run",
+                features,
                 "--example",
                 "otel-stdout",
                 "../test/test.c.instr.wasm",

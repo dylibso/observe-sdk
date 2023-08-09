@@ -8,8 +8,18 @@ mod tests {
     #[test]
     fn integration_many() -> Result<()> {
         // cargo run --example many ../test/test.c.instr.wasm
+        #[cfg(feature = "async")]
+        let features = "";
+        #[cfg(not(feature = "async"))]
+        let features = "--no-default-features";
         let output = Command::new("cargo")
-            .args(&["run", "--example", "many", "../test/test.c.instr.wasm"])
+            .args(&[
+                "run",
+                features,
+                "--example",
+                "many",
+                "../test/test.c.instr.wasm",
+            ])
             .output()
             .expect("Failed to run the example `examples/basic`");
 

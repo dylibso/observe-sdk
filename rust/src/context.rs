@@ -7,7 +7,12 @@ use std::{
     sync::{Arc, Mutex},
     time::SystemTime,
 };
+#[cfg(feature = "async")]
 use tokio::sync::mpsc::{channel, Receiver, Sender};
+
+#[cfg(not(feature = "async"))]
+use std::sync::mpsc::{channel, Receiver, Sender};
+
 use wasmtime::{Caller, FuncType, Linker, Val, ValType};
 
 use crate::{
@@ -42,7 +47,10 @@ impl InstrumentationContext {
     ) {
         // TODO: decide how big the buffer for this channel should be
         // this channel will block the module if it fills
+        #[cfg(feature = "async")]
         let (events_tx, events_rx) = channel(128);
+        #[cfg(not(feature = "async"))]
+        let (events_tx, events_rx) = channel();
         (
             Arc::new(Mutex::new(InstrumentationContext {
                 collector: events_tx.clone(),
@@ -86,8 +94,16 @@ impl InstrumentationContext {
 
             // only push the end of the final call onto the channel
             // this will contain all the other calls within it
+            #[cfg(feature = "async")]
             if self.stack.is_empty() {
                 if let Err(e) = self.collector.try_send(Event::Func(func)) {
+                    error!("error recording function exit: {}", e);
+                };
+            }
+
+            #[cfg(not(feature = "async"))]
+            if self.stack.is_empty() {
+                if let Err(e) = self.collector.send(Event::Func(func)) {
                     error!("error recording function exit: {}", e);
                 };
             }

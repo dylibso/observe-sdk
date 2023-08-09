@@ -1,8 +1,16 @@
 use anyhow::Result;
 use log::warn;
+
+#[cfg(feature = "async")]
 use tokio::sync::mpsc::{Receiver, Sender};
 
-use crate::{adapter::{AdapterHandle, AdapterMetadata}, new_trace_id, Event, TelemetryId, TraceEvent};
+#[cfg(not(feature = "async"))]
+use std::sync::mpsc::{Receiver, Sender};
+
+use crate::{
+    adapter::{AdapterHandle, AdapterMetadata},
+    new_trace_id, Event, TelemetryId, TraceEvent,
+};
 
 pub type CollectorHandle = Sender<Event>;
 
@@ -39,6 +47,7 @@ impl Collector {
 
     /// Spawns the collector in it's own task given an rx channel
     /// It needs the Event receiver and an AdapterHandle to send the TraceEvent to
+    #[cfg(feature = "async")]
     pub fn start(mut events_rx: Receiver<Event>, adapter: AdapterHandle) {
         tokio::spawn(async move {
             let mut collector = Collector::new(adapter);
@@ -48,6 +57,32 @@ impl Collector {
                 };
             }
         });
+    }
+
+    /// Spawns the collector in it's own task given an rx channel
+    /// It needs the Event receiver and an AdapterHandle to send the TraceEvent to
+    #[cfg(not(feature = "async"))]
+    pub fn start(
+        events_rx: Receiver<Event>,
+        adapter: AdapterHandle,
+    ) -> std::thread::JoinHandle<()> {
+        std::thread::spawn(move || {
+            let mut collector = Collector::new(adapter);
+            while let Ok(event) = events_rx.recv() {
+                let is_shutdown = if let Event::Shutdown = &event {
+                    true
+                } else {
+                    false
+                };
+                if let Err(e) = collector.handle_event(event) {
+                    warn!("Collector error occurred while handling event {e}");
+                };
+
+                if is_shutdown {
+                    return;
+                }
+            }
+        })
     }
 
     /// Events coming in from the InstrumentationContext
