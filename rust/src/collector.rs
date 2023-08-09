@@ -68,18 +68,16 @@ impl Collector {
     ) -> std::thread::JoinHandle<()> {
         std::thread::spawn(move || {
             let mut collector = Collector::new(adapter);
-            while let Ok(event) = events_rx.recv() {
-                let is_shutdown = if let Event::Shutdown = &event {
-                    true
-                } else {
-                    false
-                };
-                if let Err(e) = collector.handle_event(event) {
-                    warn!("Collector error occurred while handling event {e}");
-                };
 
-                if is_shutdown {
-                    return;
+            loop {
+                if *collector.adapter.done.lock().unwrap() {
+                    break;
+                }
+
+                if let Ok(event) = events_rx.try_recv() {
+                    if let Err(e) = collector.handle_event(event) {
+                        warn!("Collector error occurred while handling event {e}");
+                    };
                 }
             }
         })
@@ -106,8 +104,8 @@ impl Collector {
             Event::Metadata(meta) => {
                 self.metadata = Some(meta);
             }
-            _ => {
-                self.events.push(event.clone());
+            event => {
+                self.events.push(event);
             }
         }
         Ok(())

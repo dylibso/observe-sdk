@@ -58,23 +58,22 @@ pub trait Adapter {
     #[cfg(not(feature = "async"))]
     fn spawn(mut adapter: impl Adapter + Send + 'static) -> AdapterHandle {
         let (adapter_tx, adapter_rx) = channel::<TraceEvent>();
-        std::thread::spawn(move || {
-            while let Ok(evt) = adapter_rx.recv() {
-                let contains_shutdown = evt.events.iter().any(|x| match x {
-                    Event::Shutdown => true,
-                    _ => false,
-                });
-
+        let done = std::sync::Arc::new(std::sync::Mutex::new(false));
+        let d = done.clone();
+        std::thread::spawn(move || loop {
+            *d.lock().unwrap() = false;
+            if let Ok(evt) = adapter_rx.recv() {
                 if let Err(e) = adapter.handle_trace_event(evt) {
                     warn!("Error handling events in adapter {e}");
                 }
-
-                if contains_shutdown {
-                    return;
-                }
+                *d.lock().unwrap() = true;
             }
         });
-        AdapterHandle { adapter_tx }
+        AdapterHandle {
+            adapter_tx,
+            done,
+            shutdown: std::sync::Arc::new(std::sync::Mutex::new(false)),
+        }
     }
 }
 
@@ -84,7 +83,10 @@ pub struct TraceContext {
     collector: CollectorHandle,
 
     #[cfg(not(feature = "async"))]
-    join_handle: std::sync::Arc<std::sync::Mutex<Option<std::thread::JoinHandle<()>>>>,
+    pub(crate) join_handle: std::sync::Arc<std::sync::Mutex<Option<std::thread::JoinHandle<()>>>>,
+
+    #[cfg(not(feature = "async"))]
+    pub(crate) shutdown: std::sync::Arc<std::sync::Mutex<bool>>,
 }
 
 impl TraceContext {
@@ -128,6 +130,11 @@ impl TraceContext {
         if let Err(e) = self.collector.send(Event::Shutdown) {
             warn!("Failed to shutdown collector {}", e);
         }
+
+        if let Ok(mut lock) = self.shutdown.lock() {
+            *lock = true;
+        }
+
         if let Ok(mut lock) = self.join_handle.lock() {
             if let Some(x) = lock.take() {
                 let _ = x.join();
@@ -141,12 +148,19 @@ impl TraceContext {
 #[derive(Clone, Debug)]
 pub struct AdapterHandle {
     adapter_tx: Sender<TraceEvent>,
+
+    #[cfg(not(feature = "async"))]
+    pub(crate) done: std::sync::Arc<std::sync::Mutex<bool>>,
+
+    #[cfg(not(feature = "async"))]
+    pub(crate) shutdown: std::sync::Arc<std::sync::Mutex<bool>>,
 }
 
 impl AdapterHandle {
     pub fn start<T: 'static>(&self, linker: &mut Linker<T>, data: &[u8]) -> Result<TraceContext> {
         let (collector, collector_rx) = add_to_linker(linker, data)?;
 
+        #[cfg(not(feature = "async"))]
         #[cfg(feature = "async")]
         {
             Collector::start(collector_rx, self.clone());
@@ -159,6 +173,7 @@ impl AdapterHandle {
             Ok(TraceContext {
                 collector,
                 join_handle: std::sync::Arc::new(std::sync::Mutex::new(Some(join_handle))),
+                shutdown: self.shutdown.clone(),
             })
         }
     }
