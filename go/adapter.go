@@ -2,6 +2,7 @@ package observe
 
 import (
 	"context"
+	"log"
 	"time"
 
 	"github.com/tetratelabs/wazero"
@@ -16,7 +17,7 @@ type AdapterConfig struct {
 // or provide some custom logic. HandleTraceEvent is called after
 // an invocation of a wasm module is done and all events are collected.
 type Adapter interface {
-	Start()
+	Start(context.Context)
 	Stop(wait bool)
 	HandleTraceEvent(e TraceEvent)
 }
@@ -61,12 +62,15 @@ func (b *AdapterBase) HandleTraceEvent(te TraceEvent) {
 	b.eventBucket.addEvent(te, b.flusher)
 }
 
-func (b *AdapterBase) Start(a Adapter) {
+func (b *AdapterBase) Start(a Adapter, ctx context.Context) {
 	b.stop = make(chan bool)
 
 	go func() {
 		for {
 			select {
+			case <-ctx.Done():
+				log.Println("context cancelled")
+				return
 			case event := <-b.TraceEvents:
 				a.HandleTraceEvent(event)
 			case <-b.stop:

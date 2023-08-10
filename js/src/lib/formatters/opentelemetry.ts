@@ -1,6 +1,5 @@
 import { ObserveEvent, newTraceId, newSpanId, FunctionCall, MemoryGrow } from '../mod';
 import { TracesData, ResourceSpans, Span, Span_SpanKind } from '../../../proto/opentelemetry/proto/trace/v1/trace'
-import { InstrumentationScope } from '../../../proto/opentelemetry/proto/common/v1/common'
 
 export {
     TracesData
@@ -24,12 +23,7 @@ export function traceFromEvents(serviceName: string, events: ObserveEvent[]): Tr
     trace.resourceSpans = [{
         scopeSpans: [{
             spans: spans,
-            scope: {
-                name: "event",
-                version: "1.0.0",
-                attributes: [],
-                droppedAttributesCount: 0,
-            },
+            scope: undefined,
             schemaUrl: '',
         }],
         resource: {
