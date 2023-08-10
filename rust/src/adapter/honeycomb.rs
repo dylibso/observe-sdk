@@ -1,10 +1,11 @@
+use prost::Message;
 use std::time::Duration;
 
 use crate::{Event, TraceEvent};
 use anyhow::Result;
 
 use super::{
-    otel_formatter::{OtelFormatter, ResourceSpan, Span},
+    otel_formatter::{opentelemetry, OtelFormatter},
     Adapter, AdapterHandle, AdapterMetadata,
 };
 
@@ -43,9 +44,9 @@ impl HoneycombAdapter {
 
     fn event_to_spans(
         &self,
-        spans: &mut Vec<Span>,
+        spans: &mut Vec<opentelemetry::proto::trace::v1::Span>,
         event: Event,
-        parent_id: Option<String>,
+        parent_id: Vec<u8>,
         trace_id: String,
         meta: &Option<AdapterMetadata>,
     ) -> Result<()> {
@@ -53,15 +54,24 @@ impl HoneycombAdapter {
             Event::Func(f) => {
                 let name = f.name.clone().unwrap_or("unknown-name".to_string());
 
-                let mut span = Span::new(trace_id.clone(), parent_id, name, f.start, f.end);
-                let span_id = Some(span.span_id.clone());
+                let mut span =
+                    OtelFormatter::new_span(trace_id.clone(), parent_id, name, f.start, f.end);
+                let span_id = span.span_id.clone();
                 if let Some(m) = meta {
                     if let AdapterMetadata::OpenTelemetry(m) = m {
                         for entry in m.iter() {
                             if let Some(v) = entry.value.int_value {
-                                span.add_attribute_i64(entry.key.clone(), v)
+                                OtelFormatter::add_attribute_i64_to_span(
+                                    &mut span,
+                                    entry.key.clone(),
+                                    v,
+                                )
                             } else if let Some(v) = entry.value.string_value.clone() {
-                                span.add_attribute_string(entry.key.clone(), v)
+                                OtelFormatter::add_attribute_string_to_span(
+                                    &mut span,
+                                    entry.key.clone(),
+                                    v,
+                                )
                             }
                         }
                     }
@@ -79,8 +89,18 @@ impl HoneycombAdapter {
                 }
             }
             Event::Alloc(a) => {
-                let mut span = Span::new(trace_id, parent_id, "allocation".to_string(), a.ts, a.ts);
-                span.add_attribute_i64("amount".to_string(), a.amount.into());
+                let mut span = OtelFormatter::new_span(
+                    trace_id,
+                    parent_id,
+                    "allocation".to_string(),
+                    a.ts,
+                    a.ts,
+                );
+                OtelFormatter::add_attribute_i64_to_span(
+                    &mut span,
+                    "amount".to_string(),
+                    a.amount.into(),
+                );
                 spans.push(span);
             }
             _ => {}
@@ -89,8 +109,6 @@ impl HoneycombAdapter {
     }
 
     fn dump_traces(&mut self) -> Result<()> {
-        let mut otf = OtelFormatter::new();
-        let mut rs = ResourceSpan::new();
         let mut spans = vec![];
         for te in &self.trace_events {
             let trace_id = te.telemetry_id.to_hex_16();
@@ -98,38 +116,83 @@ impl HoneycombAdapter {
                 self.event_to_spans(
                     &mut spans,
                     span.clone(),
-                    None,
+                    vec![],
                     trace_id.clone(),
                     &te.metadata,
                 )?;
             }
         }
         let dataset = &self.config.dataset.clone();
-        rs.add_spans(spans);
-        rs = rs.add_attribute("service.name".into(), dataset.into());
-        otf.add_resource_span(rs);
+        let otf = OtelFormatter::new(spans, dataset.into());
 
         let host = url::Url::parse(&self.config.host)?;
         let url = host.join("/v1/traces")?.to_string();
-        let j = serde_json::json!(&otf);
-        let body = serde_json::to_string(&j)?;
 
         let response = ureq::post(&url)
             .timeout(Duration::from_secs(1))
-            .set("Content-Type", "application/json")
+            .set("content-type", "application/protobuf")
             .set("x-honeycomb-team", &self.config.api_key)
-            .send_string(&body)?;
+            .send_bytes(&otf.traces_data.encode_to_vec());
 
-        if response.status() != 200 {
-            log::warn!(
-                "Request to honeycomb agent failed with status: {:#?}",
-                response
-            );
-        } else {
-            // clear the traces because we've successfully submitted them
-            self.trace_events.clear();
+        match response {
+            Ok(r) => {
+                if r.status() != 200 {
+                    log::warn!("Request to honeycomb agent failed with status: {:#?}", r);
+                } else {
+                    // clear the traces because we've successfully submitted them
+                    self.trace_events.clear();
+                }
+            }
+            Err(e) => {
+                log::warn!("Request to honeycomb agent failed: {:#?}", e);
+            }
         }
 
         Ok(())
     }
+
+    // fn dump_traces(&mut self) -> Result<()> {
+    //     let mut otf = OtelFormatter::new();
+    //     let mut rs = ResourceSpan::new();
+    //     let mut spans = vec![];
+    //     for te in &self.trace_events {
+    //         let trace_id = te.telemetry_id.to_hex_16();
+    //         for span in &te.events {
+    //             self.event_to_spans(
+    //                 &mut spans,
+    //                 span.clone(),
+    //                 None,
+    //                 trace_id.clone(),
+    //                 &te.metadata,
+    //             )?;
+    //         }
+    //     }
+    //     let dataset = &self.config.dataset.clone();
+    //     rs.add_spans(spans);
+    //     rs = rs.add_attribute("service.name".into(), dataset.into());
+    //     otf.add_resource_span(rs);
+
+    //     let host = url::Url::parse(&self.config.host)?;
+    //     let url = host.join("/v1/traces")?.to_string();
+    //     let j = serde_json::json!(&otf);
+    //     let body = serde_json::to_string(&j)?;
+
+    //     let response = ureq::post(&url)
+    //         .timeout(Duration::from_secs(1))
+    //         .set("Content-Type", "application/json")
+    //         .set("x-honeycomb-team", &self.config.api_key)
+    //         .send_string(&body)?;
+
+    //     if response.status() != 200 {
+    //         log::warn!(
+    //             "Request to honeycomb agent failed with status: {:#?}",
+    //             response
+    //         );
+    //     } else {
+    //         // clear the traces because we've successfully submitted them
+    //         self.trace_events.clear();
+    //     }
+
+    //     Ok(())
+    // }
 }

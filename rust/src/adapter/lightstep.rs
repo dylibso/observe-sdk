@@ -5,7 +5,7 @@ use crate::{Event, TraceEvent};
 use anyhow::Result;
 
 use super::{
-    otlp_formatter::{opentelemetry, OtelFormatter},
+    otel_formatter::{opentelemetry, OtelFormatter},
     Adapter, AdapterHandle, AdapterMetadata,
 };
 
