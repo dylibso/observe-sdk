@@ -7,3 +7,9 @@ require (
 	github.com/tetratelabs/wabin v0.0.0-20230304001439-f6f874872834
 	github.com/tetratelabs/wazero v1.2.1
 )
+
+require (
+	github.com/golang/protobuf v1.5.3
+	go.opentelemetry.io/proto/otlp v1.0.0
+	google.golang.org/protobuf v1.31.0 // indirect
+)
