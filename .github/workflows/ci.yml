@@ -75,9 +75,8 @@ jobs:
           toolchain: stable
           override: true
       
-      - name: Install protoc
-        run: |
-          apt install -y protobuf-compiler
+      - name: Install Protoc
+        uses: arduino/setup-protoc@v2
 
       - name: Run cargo test
         uses: actions-rs/cargo@v1
