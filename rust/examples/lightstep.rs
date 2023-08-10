@@ -14,9 +14,9 @@ pub async fn main() -> anyhow::Result<()> {
     let module = wasmtime::Module::new(&engine, &data)?;
 
     let config = LightstepConfig {
-        api_key: String::from("YOUR_APIKEY_HERE"),
+        api_key: String::from(std::env::var("LIGHTSTEP_API_KEY")?),
         host: String::from("https://ingest.lightstep.com"),
-        dataset: String::from("rust"),
+        service_name: String::from("rust"),
     };
     let adapter = LightstepAdapter::create(config);
 

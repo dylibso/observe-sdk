@@ -14,7 +14,7 @@ pub async fn main() -> anyhow::Result<()> {
     let module = wasmtime::Module::new(&engine, &data)?;
 
     let config = HoneycombConfig {
-        api_key: String::from("YOUR_API_KEY_HERE"),
+        api_key: String::from(std::env::var("HONEYCOMB_API_KEY")?),
         host: String::from("https://api.honeycomb.io"),
         dataset: String::from("rust"),
     };

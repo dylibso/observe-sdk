@@ -14,7 +14,7 @@ use super::{
 pub struct LightstepConfig {
     pub api_key: String,
     pub host: String,
-    pub dataset: String,
+    pub service_name: String,
 }
 
 /// An adapter to send events from your module to lightstep using OpenTelemetry json format.
@@ -54,20 +54,28 @@ impl LightstepAdapter {
             Event::Func(f) => {
                 let name = f.name.clone().unwrap_or("unknown-name".to_string());
 
-                let span =
+                let mut span =
                     OtelFormatter::new_span(trace_id.clone(), parent_id, name, f.start, f.end);
                 let span_id = span.span_id.clone();
-                // if let Some(m) = meta {
-                // if let AdapterMetadata::OpenTelemetry(m) = m {
-                //     for entry in m.iter() {
-                //         if let Some(v) = entry.value.int_value {
-                //             span.add_attribute_i64(entry.key.clone(), v)
-                //         } else if let Some(v) = entry.value.string_value.clone() {
-                //             span.add_attribute_string(entry.key.clone(), v)
-                //         }
-                //     }
-                // }
-                // }
+                if let Some(m) = meta {
+                    if let AdapterMetadata::OpenTelemetry(m) = m {
+                        for entry in m.iter() {
+                            if let Some(v) = entry.value.int_value {
+                                OtelFormatter::add_attribute_i64_to_span(
+                                    &mut span,
+                                    entry.key.clone(),
+                                    v,
+                                )
+                            } else if let Some(v) = entry.value.string_value.clone() {
+                                OtelFormatter::add_attribute_string_to_span(
+                                    &mut span,
+                                    entry.key.clone(),
+                                    v,
+                                )
+                            }
+                        }
+                    }
+                }
                 spans.push(span);
 
                 for e in f.within.iter() {
@@ -81,14 +89,18 @@ impl LightstepAdapter {
                 }
             }
             Event::Alloc(a) => {
-                let span = OtelFormatter::new_span(
+                let mut span = OtelFormatter::new_span(
                     trace_id,
                     parent_id,
                     "allocation".to_string(),
                     a.ts,
                     a.ts,
                 );
-                // span.add_attribute_i64("amount".to_string(), a.amount.into());
+                OtelFormatter::add_attribute_i64_to_span(
+                    &mut span,
+                    "amount".to_string(),
+                    a.amount.into(),
+                );
                 spans.push(span);
             }
             _ => {}
@@ -110,22 +122,11 @@ impl LightstepAdapter {
                 )?;
             }
         }
-        let dataset = &self.config.dataset.clone();
-        let otf = OtelFormatter::new(spans, dataset.into());
-        println!("{}", otf.traces_data.resource_spans.len());
-        println!("{}", otf.traces_data.resource_spans[0].scope_spans.len());
-        println!(
-            "{}",
-            otf.traces_data.resource_spans[0].scope_spans[0].spans.len()
-        );
-        // rs.add_spans(spans);
-        // rs = rs.add_attribute("service.name".into(), dataset.into());
-        // otf.add_resource_span(rs);
+        let service_name = &self.config.service_name.clone();
+        let otf = OtelFormatter::new(spans, service_name.into());
 
         let host = url::Url::parse(&self.config.host)?;
         let url = host.join("traces/otlp/v0.9")?.to_string();
-        // let j = serde_json::json!(&otf);
-        // let body = serde_json::to_string(&j)?;
 
         let response = ureq::post(&url)
             .timeout(Duration::from_secs(1))
@@ -138,13 +139,12 @@ impl LightstepAdapter {
                 if r.status() != 200 {
                     log::warn!("Request to lightstep agent failed with status: {:#?}", r);
                 } else {
-                    println!("success!");
                     // clear the traces because we've successfully submitted them
                     self.trace_events.clear();
                 }
             }
             Err(e) => {
-                println!("{:?}", e);
+                log::warn!("Request to lightstep agent failed: {:#?}", e);
             }
         }
 

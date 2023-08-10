@@ -1,13 +1,12 @@
 include!(concat!(env!("OUT_DIR"), "/_includes.rs"));
 
-use crate::adapter::otlp_formatter::opentelemetry::proto::common::v1::any_value::Value::StringValue;
+use crate::adapter::otlp_formatter::opentelemetry::proto::common::v1::any_value::Value::{
+    IntValue, StringValue,
+};
 use crate::new_span_id;
 use std::time::SystemTime;
 
-// #[derive(Default, Debug, Clone, PartialEq, Serialize)]
-// #[serde(rename_all = "camelCase")]
 pub struct OtelFormatter {
-    // pub resource_spans: Vec<ResourceSpan>,
     pub traces_data: opentelemetry::proto::trace::v1::TracesData,
 }
 
@@ -54,6 +53,34 @@ impl OtelFormatter {
             trace_state: "".into(),
         }
     }
+
+    pub fn add_attribute_i64_to_span(
+        span: &mut opentelemetry::proto::trace::v1::Span,
+        key: String,
+        value: i64,
+    ) {
+        let attr = opentelemetry::proto::common::v1::KeyValue {
+            key: key.into(),
+            value: Some(opentelemetry::proto::common::v1::AnyValue {
+                value: Some(IntValue(value)),
+            }),
+        };
+        span.attributes.push(attr)
+    }
+
+    pub fn add_attribute_string_to_span(
+        span: &mut opentelemetry::proto::trace::v1::Span,
+        key: String,
+        value: String,
+    ) {
+        let attr = opentelemetry::proto::common::v1::KeyValue {
+            key: key.into(),
+            value: Some(opentelemetry::proto::common::v1::AnyValue {
+                value: Some(StringValue(value)),
+            }),
+        };
+        span.attributes.push(attr)
+    }
 }
 
 pub fn new_resource_spans(
@@ -79,85 +106,3 @@ pub fn new_resource_spans(
         schema_url: "".into(),
     }]
 }
-
-// impl ResourceSpan {
-//     pub fn new() -> ResourceSpan {
-//         ResourceSpan {
-//             scope_spans: vec![],
-//             resource: Resource {
-//                 attributes: Vec::new(),
-//             },
-//         }
-//     }
-
-//     pub fn add_attribute(mut self, key: String, value: String) -> ResourceSpan {
-//         let attribute = Attribute {
-//             key,
-//             value: Value {
-//                 string_value: Some(value),
-//                 int_value: None,
-//             },
-//         };
-//         self.resource.attributes.push(attribute);
-//         self
-//     }
-
-//     pub fn add_spans(&mut self, spans: Vec<Span>) {
-//         self.scope_spans = vec![ScopeSpan {
-//             scope: Scope {
-//                 name: "event".to_string(),
-//             },
-//             spans,
-//         }]
-//     }
-// }
-
-// impl Span {
-//     pub fn new(
-//         trace_id: String,
-//         parent_id: Option<String>,
-//         name: String,
-//         start_time: SystemTime,
-//         end_time: SystemTime,
-//     ) -> Span {
-//         Span {
-//             trace_id,
-//             span_id: new_span_id().to_hex_8(),
-//             parent_span_id: parent_id,
-//             name,
-//             kind: 1,
-//             start_time_unix_nano: start_time
-//                 .duration_since(SystemTime::UNIX_EPOCH)
-//                 .unwrap()
-//                 .as_nanos(),
-//             end_time_unix_nano: end_time
-//                 .duration_since(SystemTime::UNIX_EPOCH)
-//                 .unwrap()
-//                 .as_nanos(),
-//             attributes: Vec::new(),
-//             dropped_attributes_count: 0,
-//             dropped_events_count: 0,
-//             dropped_links_count: 0,
-//             status: Status {},
-//         }
-//     }
-
-//     pub fn add_attribute_string(&mut self, key: String, value: String) {
-//         self.attributes.push(Attribute {
-//             key,
-//             value: Value {
-//                 string_value: Some(value),
-//                 int_value: None,
-//             },
-//         });
-//     }
-//     pub fn add_attribute_i64(&mut self, key: String, value: i64) {
-//         self.attributes.push(Attribute {
-//             key,
-//             value: Value {
-//                 int_value: Some(value),
-//                 string_value: None,
-//             },
-//         });
-//     }
-// }
