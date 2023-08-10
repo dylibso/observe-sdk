@@ -1,4 +1,4 @@
-use dylibso_observe_sdk::adapter::honeycomb::{HoneycombAdapter, HoneycombConfig};
+use dylibso_observe_sdk::adapter::lightstep::{LightstepAdapter, LightstepConfig};
 use dylibso_observe_sdk::adapter::otel_formatter::{Attribute, Value};
 use dylibso_observe_sdk::adapter::AdapterMetadata;
 
@@ -13,12 +13,12 @@ pub async fn main() -> anyhow::Result<()> {
     let engine = wasmtime::Engine::new(&config)?;
     let module = wasmtime::Module::new(&engine, &data)?;
 
-    let config = HoneycombConfig {
-        api_key: String::from("YOUR_API_KEY_HERE"),
-        host: String::from("https://api.honeycomb.io"),
+    let config = LightstepConfig {
+        api_key: String::from("YOUR_APIKEY_HERE"),
+        host: String::from("https://ingest.lightstep.com"),
         dataset: String::from("rust"),
     };
-    let adapter = HoneycombAdapter::create(config);
+    let adapter = LightstepAdapter::create(config);
 
     // Setup WASI
     let wasi_ctx = wasmtime_wasi::WasiCtxBuilder::new()

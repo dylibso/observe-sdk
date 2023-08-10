@@ -19,3 +19,7 @@ serde_tuple = "0"
 ureq = "2"
 url = "2"
 wasmparser = "0.107.0"
+prost = "0.11.9"
+
+[build-dependencies]
+prost-build = { version = "0.11.9" }

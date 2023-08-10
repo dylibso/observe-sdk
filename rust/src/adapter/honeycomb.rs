@@ -5,12 +5,7 @@ use anyhow::Result;
 
 use super::{
     otel_formatter::{OtelFormatter, ResourceSpan, Span},
-    Adapter, AdapterHandle,
-};
-
-pub use super::{
-    otel_formatter::{Attribute, Value},
-    AdapterMetadata,
+    Adapter, AdapterHandle, AdapterMetadata,
 };
 
 /// Config options for HoneycombAdapter
