@@ -4,8 +4,8 @@ use std::time::Duration;
 use crate::{Event, TraceEvent};
 use anyhow::Result;
 
-use super::{
-    otel_formatter::{opentelemetry, OtelFormatter},
+pub use super::{
+    otel_formatter::{opentelemetry, Attribute, OtelFormatter, Value},
     Adapter, AdapterHandle, AdapterMetadata,
 };
 

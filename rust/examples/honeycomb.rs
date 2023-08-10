@@ -1,6 +1,6 @@
-use dylibso_observe_sdk::adapter::honeycomb::{HoneycombAdapter, HoneycombConfig};
-use dylibso_observe_sdk::adapter::otel_formatter::{Attribute, Value};
-use dylibso_observe_sdk::adapter::AdapterMetadata;
+use dylibso_observe_sdk::adapter::honeycomb::{
+    AdapterMetadata, Attribute, HoneycombAdapter, HoneycombConfig, Value,
+};
 
 #[tokio::main]
 pub async fn main() -> anyhow::Result<()> {

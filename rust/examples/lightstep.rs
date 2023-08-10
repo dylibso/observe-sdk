@@ -1,6 +1,6 @@
-use dylibso_observe_sdk::adapter::lightstep::{LightstepAdapter, LightstepConfig};
-use dylibso_observe_sdk::adapter::otel_formatter::{Attribute, Value};
-use dylibso_observe_sdk::adapter::AdapterMetadata;
+use dylibso_observe_sdk::adapter::lightstep::{
+    AdapterMetadata, Attribute, LightstepAdapter, LightstepConfig, Value,
+};
 
 #[tokio::main]
 pub async fn main() -> anyhow::Result<()> {

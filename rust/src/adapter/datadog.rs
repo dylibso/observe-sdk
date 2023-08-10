@@ -15,7 +15,7 @@ use url::Url;
 
 use crate::{Event, Log, Metric, TraceEvent};
 
-use super::{
+pub use super::{
     datadog_formatter::{DatadogFormatter, Span, Trace},
     Adapter, AdapterHandle, AdapterMetadata,
 };
