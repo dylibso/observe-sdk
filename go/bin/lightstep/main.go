@@ -18,7 +18,7 @@ func main() {
 	// we only need to create and start once per instance of our host app
 	conf := &lightstep.LightstepConfig{
 		ApiKey:             os.Getenv("LIGHTSTEP_API_KEY"),
-		Dataset:            "golang",
+		ServiceName:        "golang",
 		EmitTracesInterval: 1000,
 		TraceBatchMax:      100,
 		Host:               "https://ingest.lightstep.com",

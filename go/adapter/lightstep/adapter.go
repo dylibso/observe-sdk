@@ -18,7 +18,7 @@ import (
 
 type LightstepConfig struct {
 	ApiKey             string
-	Dataset            string
+	ServiceName        string
 	EmitTracesInterval uint32
 	TraceBatchMax      uint32
 	Host               string
@@ -73,7 +73,7 @@ func (h *LightstepAdapter) Flush(evts []observe.TraceEvent) error {
 			return nil
 		}
 
-		t := otel.NewTrace(traceId, h.Config.Dataset, allSpans)
+		t := otel.NewTrace(traceId, h.Config.ServiceName, allSpans)
 		if te.AdapterMeta != nil {
 			meta, ok := te.AdapterMeta.(map[string]string)
 			if ok {
