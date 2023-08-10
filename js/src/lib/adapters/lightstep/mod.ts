@@ -54,7 +54,6 @@ export class LightstepAdapter extends Adapter {
         this.traces.forEach(async (trace) => {
             const controller = new AbortController();
             const id = setTimeout(() => controller.abort(), 1000);
-            delete trace.traceId
             const bytes = TracesData.encode(trace).finish();
             try {
                 const resp = await fetch(this.tracesEndpoint(), {
