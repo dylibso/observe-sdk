@@ -4,7 +4,6 @@ import (
 	"bytes"
 	"context"
 	"fmt"
-	"io"
 	"log"
 	"net/http"
 	"net/url"
@@ -114,16 +113,6 @@ func (h *LightstepAdapter) Flush(evts []observe.TraceEvent) error {
 
 		if resp.StatusCode != http.StatusOK {
 			log.Println("unexpected status code from lightstep:", resp.StatusCode)
-			// read response body
-			body, error := io.ReadAll(resp.Body)
-			if error != nil {
-				fmt.Println(error)
-			}
-			// close response body
-			resp.Body.Close()
-
-			// print response body
-			fmt.Println(string(body))
 		}
 
 	}
