@@ -5,15 +5,15 @@ import { AdapterConfig } from "../../mod.ts";
 
 const defaultConfig: LightstepConfig = {
     apiKey: '',
-    dataset: 'default-dataset',
+    serviceName: 'default-service-name',
     emitTracesInterval: 1000,
     traceBatchMax: 100,
-    host: 'https://ingest.lightstep.com/',
+    host: 'https://ingest.lightstep.com',
 }
 
 export interface LightstepConfig extends AdapterConfig {
     apiKey: string;
-    dataset: string;
+    serviceName: string;
     traceBatchMax: number;
     host: string,
 }
@@ -37,7 +37,7 @@ export class LightstepAdapter extends Adapter {
     }
 
     public collect(events: ObserveEvent[]): void {
-        this.traces.push(traceFromEvents(this.config.dataset, events));
+        this.traces.push(traceFromEvents(this.config.serviceName, events));
         if (this.traces.length > this.config.traceBatchMax) {
             this.send();
             this.restartTraceInterval();
@@ -46,7 +46,7 @@ export class LightstepAdapter extends Adapter {
 
     private tracesEndpoint() {
         const endpoint = new URL(this.config.host);
-        endpoint.pathname = `traces/otlp/v0.9`;
+        endpoint.pathname = `/traces/otlp/v0.9`;
         return endpoint;
     }
 
@@ -55,12 +55,11 @@ export class LightstepAdapter extends Adapter {
             const controller = new AbortController();
             const id = setTimeout(() => controller.abort(), 1000);
             delete trace.traceId
-            console.log(trace)
             const bytes = TracesData.encode(trace).finish();
             try {
                 const resp = await fetch(this.tracesEndpoint(), {
                     headers: {
-                        // "content-type": "application/json",
+                        "content-type": "application/x-protobuf",
                         "lightstep-access-token": this.config.apiKey,
                     },
                     method: "POST",
@@ -68,14 +67,11 @@ export class LightstepAdapter extends Adapter {
                     signal: controller.signal,
                 });
                 if (!resp.ok) {
-                    // const msg = await resp.json();
-                    const txt = await resp.text();
+                    const msg = await resp.text();
                     console.error(
                         "Request to lightstep failed with status:",
                         resp.status,
-                        resp.statusText,
-                        txt,
-                        // msg
+                        msg,
                     );
                 }
             } catch (e) {

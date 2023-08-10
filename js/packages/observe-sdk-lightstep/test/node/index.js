@@ -1,7 +1,7 @@
 const fs = require("fs");
 const { WASI } = require("wasi");
 const { env, argv } = require('node:process');
-const { HoneycombAdapter } = require("@dylibso/observe-sdk-honeycomb");
+const { LightstepAdapter } = require("@dylibso/observe-sdk-lightstep");
 require('dotenv').config();
 
 const wasi = new WASI({
@@ -11,13 +11,13 @@ const wasi = new WASI({
 });
 
 const config = {
-  apiKey: process.env.HONEYCOMB_API_KEY,
-  dataset: 'node',
+  apiKey: process.env.LIGHTSTEP_API_KEY,
+  serviceName: 'node',
   emitTracesInterval: 1000,
   traceBatchMax: 100,
-  host: 'https://api.honeycomb.io',
+  host: 'https://ingest.lightstep.com',
 }
-const adapter = new HoneycombAdapter(config);
+const adapter = new LightstepAdapter(config);
 
 const bytes = fs.readFileSync("../../test-data/test.c.instr.wasm");
 adapter.start(bytes).then((traceContext) => {

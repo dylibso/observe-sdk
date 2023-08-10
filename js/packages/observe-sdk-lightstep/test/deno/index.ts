@@ -7,10 +7,10 @@ const apiKey = env["LIGHTSTEP_API_KEY"];
 
 const config: LightstepConfig = {
   apiKey: apiKey,
-  dataset: 'deno',
+  serviceName: 'deno',
   emitTracesInterval: 1000,
   traceBatchMax: 100,
-  host: 'https://ingest.lightstep.com/',
+  host: 'https://ingest.lightstep.com',
 }
 const adapter = new LightstepAdapter(config);
 

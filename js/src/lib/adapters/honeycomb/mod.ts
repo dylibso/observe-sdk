@@ -8,7 +8,7 @@ const defaultConfig: HoneycombConfig = {
     dataset: 'default-dataset',
     emitTracesInterval: 1000,
     traceBatchMax: 100,
-    host: 'https://api.honeycomb.io/',
+    host: 'https://api.honeycomb.io',
 }
 
 export interface HoneycombConfig extends AdapterConfig {
@@ -46,7 +46,7 @@ export class HoneycombAdapter extends Adapter {
 
     private tracesEndpoint() {
         const endpoint = new URL(this.config.host);
-        endpoint.pathname = `v1/traces`;
+        endpoint.pathname = `/v1/traces`;
         return endpoint;
     }
 
