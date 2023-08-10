@@ -1,7 +1,6 @@
 import {
-  hrMillisecondsFromOrigin,
+  Nanoseconds,
   MemoryGrowAmount,
-  Milliseconds,
   newSpanId,
   newTraceId,
   TelemetryId,
@@ -43,7 +42,7 @@ export const addAllocation = (span: Span, amount: MemoryGrowAmount) => {
 };
 
 export class DatadogFormatter {
-  constructor(public traces: Trace[]) {}
+  constructor(public traces: Trace[]) { }
 
   public addTrace(trace: Trace) {
     this.traces.push(trace);
@@ -62,8 +61,8 @@ export class DatadogFormatter {
     serviceName: string,
     traceId: number,
     name: string,
-    start: Milliseconds,
-    duration: hrMillisecondsFromOrigin,
+    start: Nanoseconds,
+    duration: Nanoseconds,
     parentId?: number,
   ): Span {
     return {

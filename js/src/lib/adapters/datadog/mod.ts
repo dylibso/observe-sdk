@@ -1,11 +1,13 @@
 import {
   Adapter,
+  AdapterConfig,
   Collector,
   CustomEvent,
   FunctionCall,
   MemoryGrow,
   ObserveEvent,
   TelemetryId,
+  WASM,
 } from "../../mod.ts";
 import { SpanCollector } from "../../collectors/span/mod.ts";
 import { addAllocation, DatadogFormatter, Trace } from "./formatter.ts";
@@ -35,7 +37,7 @@ export enum DatadogLanguage {
   Python = "python",
 }
 
-export interface DatadogConfig {
+export interface DatadogConfig extends AdapterConfig {
   agentHost: URL;
   serviceName: string;
   defaultTags: Map<string, string>;
@@ -71,7 +73,7 @@ export interface DatadogMetadata {
 export class DatadogTraceContext implements Collector {
   constructor(
     private collector: SpanCollector,
-  ) {}
+  ) { }
   setMetadata(data: DatadogMetadata): void {
     this.collector.meta = data;
   }
@@ -93,40 +95,24 @@ export class DatadogTraceContext implements Collector {
   }
 }
 
-const CLEAR_TRACE_INTERVAL_ID = undefined;
 
-export class DatadogAdapter implements Adapter {
+
+export class DatadogAdapter extends Adapter {
   formatter: DatadogFormatter;
   config: DatadogConfig;
   traceIntervalId: number | undefined | NodeJS.Timer;
 
   constructor(config?: DatadogConfig) {
+    super();
     this.config = DefaultDatadogConfig;
     if (config) {
       this.config = config;
     }
     this.formatter = new DatadogFormatter([]);
-    this.traceIntervalId = CLEAR_TRACE_INTERVAL_ID;
-  }
-
-  private restartTraceInterval() {
-    if (this.traceIntervalId) {
-      clearInterval(this.traceIntervalId);
-      this.traceIntervalId = CLEAR_TRACE_INTERVAL_ID;
-    }
-
-    this.startTraceInterval();
-  }
-
-  private startTraceInterval() {
-    this.traceIntervalId = setInterval(
-      async () => await this.send(),
-      this.config.emitTracesInterval,
-    );
   }
 
   public async start(
-    wasm: Uint8Array,
+    wasm: WASM,
   ): Promise<DatadogTraceContext> {
     const spanCollector = new SpanCollector(this);
     await spanCollector.setNames(wasm);
@@ -174,7 +160,7 @@ export class DatadogAdapter implements Adapter {
       this.config.serviceName,
       trace.trace_id,
       fn.name,
-      fn.startNano(),
+      fn.start,
       fn.duration(),
       parentId,
     );
@@ -199,7 +185,7 @@ export class DatadogAdapter implements Adapter {
     return endpoint;
   }
 
-  private async send() {
+  async send() {
     if (this.formatter.traces.length > 0) {
       for (const trace of this.formatter.traces) {
         const span = trace.spans[0];
@@ -256,6 +242,7 @@ export class DatadogAdapter implements Adapter {
           console.error(
             "Request to datadog agent failed with status:",
             resp.status,
+            resp.statusText
           );
         } else {
           this.formatter.traces = [];
