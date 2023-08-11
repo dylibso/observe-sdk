@@ -1,28 +1,28 @@
 import { Adapter, ObserveEvent, WASM } from "../../mod.ts";
 import { SpanCollector } from "../../collectors/span/mod.ts";
 import { traceFromEvents, Trace, TracesData } from "../../formatters/opentelemetry.ts";
-import { AdapterConfig } from "../../../lib/mod";
+import { AdapterConfig } from "../../mod.ts";
 
-const defaultConfig: HoneycombConfig = {
+const defaultConfig: LightstepConfig = {
     apiKey: '',
-    dataset: 'default-dataset',
+    serviceName: 'default-service-name',
     emitTracesInterval: 1000,
     traceBatchMax: 100,
-    host: 'https://api.honeycomb.io',
+    host: 'https://ingest.lightstep.com',
 }
 
-export interface HoneycombConfig extends AdapterConfig {
+export interface LightstepConfig extends AdapterConfig {
     apiKey: string;
-    dataset: string;
+    serviceName: string;
     traceBatchMax: number;
     host: string,
 }
 
-export class HoneycombAdapter extends Adapter {
-    config: HoneycombConfig = defaultConfig;
+export class LightstepAdapter extends Adapter {
+    config: LightstepConfig = defaultConfig;
     traces: Trace[] = [];
 
-    constructor(config?: HoneycombConfig) {
+    constructor(config?: LightstepConfig) {
         super();
         if (config) {
             this.config = config;
@@ -37,7 +37,7 @@ export class HoneycombAdapter extends Adapter {
     }
 
     public collect(events: ObserveEvent[]): void {
-        this.traces.push(traceFromEvents(this.config.dataset, events));
+        this.traces.push(traceFromEvents(this.config.serviceName, events));
         if (this.traces.length > this.config.traceBatchMax) {
             this.send();
             this.restartTraceInterval();
@@ -46,7 +46,7 @@ export class HoneycombAdapter extends Adapter {
 
     private tracesEndpoint() {
         const endpoint = new URL(this.config.host);
-        endpoint.pathname = `/v1/traces`;
+        endpoint.pathname = `/traces/otlp/v0.9`;
         return endpoint;
     }
 
@@ -58,23 +58,23 @@ export class HoneycombAdapter extends Adapter {
             try {
                 const resp = await fetch(this.tracesEndpoint(), {
                     headers: {
-                        "content-type": "application/protobuf",
-                        "x-honeycomb-team": this.config.apiKey,
+                        "content-type": "application/x-protobuf",
+                        "lightstep-access-token": this.config.apiKey,
                     },
                     method: "POST",
                     body: bytes,
                     signal: controller.signal,
                 });
                 if (!resp.ok) {
-                    const msg = await resp.json();
+                    const msg = await resp.text();
                     console.error(
-                        "Request to honeycomb failed with status:",
+                        "Request to lightstep failed with status:",
                         resp.status,
-                        msg
+                        msg,
                     );
                 }
             } catch (e) {
-                console.error("Request to honeycomb failed:", e);
+                console.error("Request to lightstep failed:", e);
             } finally {
                 clearTimeout(id);
             }

@@ -1,15 +1,15 @@
-import { HoneycombAdapter } from "@dylibso/observe-sdk-honeycomb";
+import { LightstepAdapter } from "@dylibso/observe-sdk-lightstep";
 import { File, OpenFile, WASI } from "@bjorn3/browser_wasi_shim";
 
 const f = async () => {
   const config = {
     apiKey: 'YOUR_API_KEY_HERE',
-    dataset: 'web',
+    serviceName: 'web',
     emitTracesInterval: 1000,
     traceBatchMax: 100,
-    host: 'https://api.honeycomb.io',
+    host: 'https://ingest.lightstep.com',
   }
-  const adapter = new HoneycombAdapter(config);
+  const adapter = new LightstepAdapter(config);
   const resp = await fetch("test.c.instr.wasm");
 
   const bytes = await resp.arrayBuffer();
