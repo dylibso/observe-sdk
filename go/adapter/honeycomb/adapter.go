@@ -18,7 +18,7 @@ import (
 type HoneycombConfig struct {
 	ApiKey             string
 	Dataset            string
-	EmitTracesInterval uint32
+	EmitTracesInterval time.Duration
 	TraceBatchMax      uint32
 	Host               string
 }
@@ -68,7 +68,6 @@ func (h *HoneycombAdapter) Flush(evts []observe.TraceEvent) error {
 		}
 
 		if len(allSpans) == 0 {
-			log.Println("No spans built for honeycomb")
 			return nil
 		}
 

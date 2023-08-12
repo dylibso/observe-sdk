@@ -19,7 +19,7 @@ func main() {
 	conf := &lightstep.LightstepConfig{
 		ApiKey:             os.Getenv("LIGHTSTEP_API_KEY"),
 		ServiceName:        "golang",
-		EmitTracesInterval: 1000,
+		EmitTracesInterval: time.Second * 1,
 		TraceBatchMax:      100,
 		Host:               "https://ingest.lightstep.com",
 	}

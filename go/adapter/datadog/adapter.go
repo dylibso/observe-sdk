@@ -88,7 +88,6 @@ func (d *DatadogAdapter) Flush(evts []observe.TraceEvent) error {
 		}
 
 		if len(allSpans) == 0 {
-			log.Println("No spans built for datadog trace")
 			return nil
 		}
 

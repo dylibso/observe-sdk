@@ -18,7 +18,7 @@ func main() {
 	conf := &honeycomb.HoneycombConfig{
 		ApiKey:             os.Getenv("HONEYCOMB_API_KEY"),
 		Dataset:            "golang",
-		EmitTracesInterval: 1000,
+		EmitTracesInterval: time.Second * 1,
 		TraceBatchMax:      100,
 		Host:               "https://api.honeycomb.io",
 	}
