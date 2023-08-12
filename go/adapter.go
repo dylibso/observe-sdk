@@ -8,10 +8,6 @@ import (
 	"github.com/tetratelabs/wazero"
 )
 
-type AdapterConfig struct {
-	FlushPeriod int
-}
-
 // The primary interface that every Adapter needs to follow
 // Start() and Stop() can just call the implementations on AdapterBase
 // or provide some custom logic. HandleTraceEvent is called after
@@ -35,7 +31,6 @@ type AdapterBase struct {
 	TraceEvents chan TraceEvent
 	stop        chan bool
 	eventBucket *EventBucket
-	config      AdapterConfig
 	flusher     Flusher
 }
 

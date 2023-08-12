@@ -1,0 +1,18 @@
+{
+    "include": [
+        "index.ts",
+    ],
+    "compilerOptions": {
+        "allowJs": true,
+        "declaration": true,
+        "emitDeclarationOnly": true,
+        "outDir": "dist/types",
+        "outFile": "dist/types/index.d.ts",
+        "declarationMap": true,
+        "allowImportingTsExtensions": true,
+        "lib": [
+            "DOM",
+            "ESNext",
+        ]
+    }
+}
