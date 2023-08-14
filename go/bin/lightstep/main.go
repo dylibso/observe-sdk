@@ -6,7 +6,8 @@ import (
 	"os"
 	"time"
 
-	"github.com/dylibso/observe-sdk/go/adapter/honeycomb"
+	"github.com/dylibso/observe-sdk/go/adapter/lightstep"
+
 	"github.com/tetratelabs/wazero"
 	"github.com/tetratelabs/wazero/imports/wasi_snapshot_preview1"
 )
@@ -15,14 +16,14 @@ func main() {
 	ctx := context.Background()
 
 	// we only need to create and start once per instance of our host app
-	conf := &honeycomb.HoneycombConfig{
-		ApiKey:             os.Getenv("HONEYCOMB_API_KEY"),
-		Dataset:            "golang",
+	conf := &lightstep.LightstepConfig{
+		ApiKey:             os.Getenv("LIGHTSTEP_API_KEY"),
+		ServiceName:        "golang",
 		EmitTracesInterval: time.Second * 1,
 		TraceBatchMax:      100,
-		Host:               "https://api.honeycomb.io",
+		Host:               "https://ingest.lightstep.com",
 	}
-	adapter := honeycomb.NewHoneycombAdapter(conf)
+	adapter := lightstep.NewLightstepAdapter(conf)
 	defer adapter.Stop(true)
 	adapter.Start(ctx)
 

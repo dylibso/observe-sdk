@@ -1,4 +1,4 @@
-package honeycomb
+package lightstep
 
 import (
 	"bytes"
@@ -15,22 +15,22 @@ import (
 	proto "google.golang.org/protobuf/proto"
 )
 
-type HoneycombConfig struct {
+type LightstepConfig struct {
 	ApiKey             string
-	Dataset            string
+	ServiceName        string
 	EmitTracesInterval time.Duration
 	TraceBatchMax      uint32
 	Host               string
 }
 
-type HoneycombAdapter struct {
+type LightstepAdapter struct {
 	*observe.AdapterBase
-	Config *HoneycombConfig
+	Config *LightstepConfig
 }
 
-func NewHoneycombAdapter(config *HoneycombConfig) *HoneycombAdapter {
+func NewLightstepAdapter(config *LightstepConfig) *LightstepAdapter {
 	base := observe.NewAdapterBase(1, 0)
-	adapter := &HoneycombAdapter{
+	adapter := &LightstepAdapter{
 		AdapterBase: &base,
 		Config:      config,
 	}
@@ -40,15 +40,15 @@ func NewHoneycombAdapter(config *HoneycombConfig) *HoneycombAdapter {
 	return adapter
 }
 
-func (h *HoneycombAdapter) Start(ctx context.Context) {
+func (h *LightstepAdapter) Start(ctx context.Context) {
 	h.AdapterBase.Start(h, ctx)
 }
 
-func (h *HoneycombAdapter) HandleTraceEvent(te observe.TraceEvent) {
+func (h *LightstepAdapter) HandleTraceEvent(te observe.TraceEvent) {
 	h.AdapterBase.HandleTraceEvent(te)
 }
 
-func (h *HoneycombAdapter) Flush(evts []observe.TraceEvent) error {
+func (h *LightstepAdapter) Flush(evts []observe.TraceEvent) error {
 	for _, te := range evts {
 		traceId := te.TelemetryId.ToHex16()
 
@@ -63,7 +63,7 @@ func (h *HoneycombAdapter) Flush(evts []observe.TraceEvent) error {
 			case observe.MemoryGrowEvent:
 				log.Println("MemoryGrowEvent should be attached to a span")
 			case observe.CustomEvent:
-				log.Println("Honeycomb adapter does not respect custom events")
+				log.Println("lightstep adapter does not respect custom events")
 			}
 		}
 
@@ -71,7 +71,7 @@ func (h *HoneycombAdapter) Flush(evts []observe.TraceEvent) error {
 			return nil
 		}
 
-		t := otel.NewTrace(traceId, h.Config.Dataset, allSpans)
+		t := otel.NewTrace(traceId, h.Config.ServiceName, allSpans)
 		if te.AdapterMeta != nil {
 			meta, ok := te.AdapterMeta.(map[string]string)
 			if ok {
@@ -86,9 +86,9 @@ func (h *HoneycombAdapter) Flush(evts []observe.TraceEvent) error {
 			return nil
 		}
 
-		url, err := url.JoinPath(h.Config.Host, "v1", "traces")
+		url, err := url.JoinPath(h.Config.Host, "traces", "otlp", "v0.9")
 		if err != nil {
-			log.Println("failed to create honeycomb endpoint url:", err)
+			log.Println("failed to create lightstep endpoint url:", err)
 			return nil
 		}
 
@@ -97,28 +97,29 @@ func (h *HoneycombAdapter) Flush(evts []observe.TraceEvent) error {
 		}
 		req, err := http.NewRequest("POST", url, bytes.NewBuffer(data))
 		if err != nil {
-			log.Println("failed to create honeycomb endpoint url:", err)
+			log.Println("failed to create lightstep endpoint url:", err)
 		}
 
 		req.Header = http.Header{
-			"content-type":     {"application/protobuf"},
-			"x-honeycomb-team": {h.Config.ApiKey},
+			"content-type":           {"application/x-protobuf"},
+			"lightstep-access-token": {h.Config.ApiKey},
 		}
 
 		resp, err := client.Do(req)
 		if err != nil {
-			log.Println("failed to send data to honeycomb", err)
+			log.Println("failed to send data to lightstep", err)
 		}
 
 		if resp.StatusCode != http.StatusOK {
-			log.Println("unexpected status code from honeycomb:", resp.StatusCode)
+			log.Println("unexpected status code from lightstep:", resp.StatusCode)
 		}
+
 	}
 
 	return nil
 }
 
-func (h *HoneycombAdapter) makeCallSpans(event observe.CallEvent, parentId []byte, traceId string) []*trace.Span {
+func (h *LightstepAdapter) makeCallSpans(event observe.CallEvent, parentId []byte, traceId string) []*trace.Span {
 	name := event.FunctionName()
 	span := otel.NewSpan(traceId, parentId, name, event.Time, event.Time.Add(event.Duration))
 	span.Attributes = append(span.Attributes, otel.NewKeyValueString("function-name", fmt.Sprintf("function-call-%s", name)))
