@@ -69,7 +69,7 @@ impl Span {
 
     pub fn add_allocation(&mut self, amount: u32) {
         self.meta
-            .insert("allocations".to_string(), amount.to_string());
+            .insert("allocation".to_string(), amount.to_string());
     }
 
     pub fn add_tag(&mut self, tag: String) {

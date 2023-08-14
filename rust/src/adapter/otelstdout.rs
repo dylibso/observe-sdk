@@ -53,19 +53,13 @@ impl OtelStdoutAdapter {
                 }
             }
             Event::Alloc(a) => {
-                let mut span = OtelFormatter::new_span(
-                    trace_id,
-                    parent_id,
-                    "allocation".to_string(),
-                    a.ts,
-                    a.ts,
-                );
-                OtelFormatter::add_attribute_i64_to_span(
-                    &mut span,
-                    "amount".to_string(),
-                    a.amount.into(),
-                );
-                spans.push(span);
+                if let Some(span) = spans.last_mut() {
+                    OtelFormatter::add_attribute_i64_to_span(
+                        span,
+                        "allocation".to_string(),
+                        a.amount.into(),
+                    );
+                }
             }
             _ => {}
         }

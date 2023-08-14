@@ -74,9 +74,11 @@ jobs:
           profile: minimal
           toolchain: stable
           override: true
-      
+
       - name: Install Protoc
         uses: arduino/setup-protoc@v2
+        with:
+          version: "3.12.4"
 
       - name: Run cargo test
         uses: actions-rs/cargo@v1

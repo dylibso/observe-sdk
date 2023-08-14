@@ -4,9 +4,14 @@ use std::time::Duration;
 use crate::{Event, TraceEvent};
 use anyhow::Result;
 
+use super::{
+    otel_formatter::{opentelemetry, OtelFormatter},
+    Adapter, AdapterHandle,
+};
+
 pub use super::{
-    otel_formatter::{opentelemetry, Attribute, OtelFormatter, Value},
-    Adapter, AdapterHandle, AdapterMetadata,
+    otel_formatter::{Attribute, Value},
+    AdapterMetadata,
 };
 
 /// Config options for LightstepAdapter
@@ -89,19 +94,13 @@ impl LightstepAdapter {
                 }
             }
             Event::Alloc(a) => {
-                let mut span = OtelFormatter::new_span(
-                    trace_id,
-                    parent_id,
-                    "allocation".to_string(),
-                    a.ts,
-                    a.ts,
-                );
-                OtelFormatter::add_attribute_i64_to_span(
-                    &mut span,
-                    "amount".to_string(),
-                    a.amount.into(),
-                );
-                spans.push(span);
+                if let Some(span) = spans.last_mut() {
+                    OtelFormatter::add_attribute_i64_to_span(
+                        span,
+                        "allocation".to_string(),
+                        a.amount.into(),
+                    );
+                }
             }
             _ => {}
         }

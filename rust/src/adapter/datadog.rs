@@ -15,10 +15,12 @@ use url::Url;
 
 use crate::{Event, Log, Metric, TraceEvent};
 
-pub use super::{
+use super::{
     datadog_formatter::{DatadogFormatter, Span, Trace},
-    Adapter, AdapterHandle, AdapterMetadata,
+    Adapter, AdapterHandle,
 };
+
+pub use super::AdapterMetadata;
 
 #[derive(Debug, Clone)]
 pub enum DatadogTraceType {
