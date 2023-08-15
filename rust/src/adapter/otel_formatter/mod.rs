@@ -44,14 +44,7 @@ impl OtelFormatter {
                 .duration_since(SystemTime::UNIX_EPOCH)
                 .unwrap()
                 .as_nanos() as u64,
-            attributes: Vec::new(),
-            dropped_attributes_count: 0,
-            dropped_events_count: 0,
-            dropped_links_count: 0,
-            status: None,
-            events: vec![],
-            links: vec![],
-            trace_state: "".into(),
+            ..Default::default()
         }
     }
 
