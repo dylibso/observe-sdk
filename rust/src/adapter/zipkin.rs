@@ -54,9 +54,9 @@ impl ZipkinAdapter {
                 }
             }
             Event::Alloc(a) => {
-                let mut span = Span::new(trace_id, parent_id, "allocation".to_string(), a.ts, a.ts);
-                span.add_tag_i64("amount".to_string(), a.amount.into());
-                spans.push(span);
+                if let Some(span) = spans.last_mut() {
+                    span.add_tag_i64("amount".to_string(), a.amount.into());
+                }
             }
             _ => {}
         }

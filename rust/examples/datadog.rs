@@ -1,6 +1,5 @@
-use dylibso_observe_sdk::adapter::{
-    datadog::{DatadogAdapter, DatadogConfig, DatadogMetadata},
-    AdapterMetadata,
+use dylibso_observe_sdk::adapter::datadog::{
+    AdapterMetadata, DatadogAdapter, DatadogConfig, DatadogMetadata,
 };
 
 /// You need the datadog agent running on localhost for this example to work
