@@ -4,7 +4,7 @@ const multer = require('multer')
 const fs = require('fs');
 const { WASI } = require('wasi');
 const { env, argv } = require('node:process');
-const { DatadogAdapter, DatadogConfig } = require('../../../js/packages/observe-sdk-datadog');
+const { DatadogAdapter } = require('../../../js/packages/observe-sdk-datadog');
 
 const storage = multer.diskStorage(
     {
@@ -16,6 +16,16 @@ const storage = multer.diskStorage(
 )
 const upload = multer({ storage })
 const app = express()
+
+const config = {
+    agentHost: new URL("http://ddagent:8126"),
+    serviceName: "iota-node",
+    defaultTags: new Map(),
+    traceType: "node",
+    emitTracesInterval: 1000, // milliseconds
+    traceBatchMax: 100
+};
+const adapter = new DatadogAdapter(config);
 
 app.get('/', (req, res) => {
     res.send('Hello World!')
@@ -40,7 +50,6 @@ app.post('/run', async (req, res) => {
             args: argv.slice(1),
             env,
         })
-        const adapter = new DatadogAdapter();
         const bytes = fs.readFileSync(`${os.tmpdir()}/${req.query['name']}.wasm`)
 
         const traceContext = await adapter.start(bytes)
