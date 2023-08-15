@@ -3,3 +3,4 @@ rust/Cargo.lock
 target
 .env
 build.js
+node_modules
