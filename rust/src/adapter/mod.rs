@@ -9,16 +9,19 @@ use crate::{
     Event, TelemetryId, TraceEvent,
 };
 
-use self::{datadog::DatadogMetadata, otel_formatter::Attribute};
+use self::datadog::DatadogMetadata;
 
 pub mod datadog;
 pub mod datadog_formatter;
 pub mod honeycomb;
+pub mod lightstep;
 pub mod otel_formatter;
 pub mod otelstdout;
 pub mod stdout;
 pub mod zipkin;
 pub mod zipkin_formatter;
+
+pub use self::otel_formatter::Attribute;
 
 /// An adapter represents a sink for events and is mostly implementation specific
 /// to the sink that the data is being sent to and the format that the data is in.

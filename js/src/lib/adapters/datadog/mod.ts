@@ -95,8 +95,6 @@ export class DatadogTraceContext implements Collector {
   }
 }
 
-
-
 export class DatadogAdapter extends Adapter {
   formatter: DatadogFormatter;
   config: DatadogConfig;
