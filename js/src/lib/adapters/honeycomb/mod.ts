@@ -1,7 +1,7 @@
 import { Adapter, ObserveEvent, WASM } from "../../mod.ts";
 import { SpanCollector } from "../../collectors/span/mod.ts";
 import { traceFromEvents, Trace, TracesData } from "../../formatters/opentelemetry.ts";
-import { AdapterConfig } from "../../../lib/mod";
+import { AdapterConfig } from "../../../lib/mod.ts";
 
 const defaultConfig: HoneycombConfig = {
     apiKey: '',

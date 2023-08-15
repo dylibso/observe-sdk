@@ -6,6 +6,7 @@ export const now = (): Nanoseconds => {
 
 export type WASM = Uint8Array | WebAssembly.Module;
 export type Nanoseconds = number;
+export type Microseconds = number;
 export type ObserveEvent = FunctionCall | MemoryGrow | CustomEvent;
 export type MemoryGrowAmount = number;
 export type FunctionId = number;

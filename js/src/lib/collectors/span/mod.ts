@@ -2,6 +2,7 @@ import * as wasm from "./modsurfer-demangle/modsurfer_demangle_bg.wasm";
 import { __wbg_set_wasm } from "./modsurfer-demangle/modsurfer_demangle_bg.js";
 import { demangle } from "./modsurfer-demangle/modsurfer_demangle.js";
 import { parseNameSection } from "../../parser/mod.ts";
+import { Microseconds } from "../../mod.ts";
 
 import {
   Adapter,
@@ -20,13 +21,23 @@ import {
 // @ts-ignore - The esbuild wasm plugin provides a `default` function to initialize the wasm
 wasm.default().then((bytes) => __wbg_set_wasm(bytes));
 
+export interface SpanFilter {
+  minimumDurationMicroseconds: Microseconds
+}
+
+export class CollectorConfig {
+  spanFilter: SpanFilter = {
+    minimumDurationMicroseconds: 0
+  }
+}
+
 export class SpanCollector implements Collector {
   meta?: any;
   names: NamesMap;
   stack: Array<FunctionCall>;
   events: ObserveEvent[];
 
-  constructor(private adapter: Adapter) {
+  constructor(private adapter: Adapter, private config: CollectorConfig = new CollectorConfig()) {
     this.stack = [];
     this.events = [];
     this.names = new Map<FunctionId, string>();
@@ -70,6 +81,9 @@ export class SpanCollector implements Collector {
       return;
     }
     fn.stop(end);
+    if (fn.duration() * 1e-3 < this.config.spanFilter.minimumDurationMicroseconds) {
+      return;
+    }
 
     if (this.stack.length === 0) {
       this.events.push(fn);
