@@ -27,13 +27,13 @@ const config = {
 };
 const adapter = new DatadogAdapter(config);
 
-app.get('/', (req, res) => {
-    res.send('Hello World!')
+app.get('/', (_, res) => {
+    res.send('Hi')
 })
 
 app.post('/upload', upload.single('wasm'), (req, res) => {
     try {
-        const f = fs.readFileSync(`${os.tmpdir()}/${req.query['name']}.wasm`)
+        const _ = fs.readFileSync(`${os.tmpdir()}/${req.query['name']}.wasm`)
         console.log(`Successfully uploaded ${req.query['name']}.wasm`)
         res.status(200)
         res.send('/upload request complete')
@@ -74,5 +74,5 @@ app.post('/run', async (req, res) => {
 
 const port = 3000
 app.listen(port, () => {
-    console.log(`Example app listening on port ${port}`)
+    console.log(`Listening on port ${port}`)
 })
