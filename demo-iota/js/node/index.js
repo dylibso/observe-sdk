@@ -24,8 +24,8 @@ const config = {
     traceType: "node",
     emitTracesInterval: 1000, // milliseconds
     traceBatchMax: 100
-};
-const adapter = new DatadogAdapter(config);
+}
+const adapter = new DatadogAdapter(config)
 
 app.get('/', (_, res) => {
     res.send('Hi')
