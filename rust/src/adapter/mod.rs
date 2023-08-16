@@ -129,7 +129,7 @@ pub struct Options {
 pub fn default_options() -> Options {
     Options {
         span_filter: SpanFilter {
-            min_duration_microseconds: std::time::Duration::from_micros(0),
+            min_duration_microseconds: std::time::Duration::from_micros(50),
         },
     }
 }
