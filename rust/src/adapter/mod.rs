@@ -89,8 +89,13 @@ pub struct AdapterHandle {
 }
 
 impl AdapterHandle {
-    pub fn start<T: 'static>(&self, linker: &mut Linker<T>, data: &[u8]) -> Result<TraceContext> {
-        let (collector, collector_rx) = add_to_linker(linker, data)?;
+    pub fn start<T: 'static>(
+        &self,
+        linker: &mut Linker<T>,
+        data: &[u8],
+        options: Options,
+    ) -> Result<TraceContext> {
+        let (collector, collector_rx) = add_to_linker(linker, data, options)?;
         Collector::start(collector_rx, self.clone());
         Ok(TraceContext { collector })
     }
@@ -106,4 +111,25 @@ impl AdapterHandle {
 pub enum AdapterMetadata {
     Datadog(DatadogMetadata),
     OpenTelemetry(Vec<Attribute>),
+}
+
+/// SpanFilter allows for specification of how to filter out spans
+#[derive(Clone)]
+pub struct SpanFilter {
+    pub min_duration_microseconds: std::time::Duration,
+}
+
+/// Options allow you to tune certain characteristics of your telemetry
+#[derive(Clone)]
+pub struct Options {
+    pub span_filter: SpanFilter,
+}
+
+/// default_options is a convenience method for setting sane default options
+pub fn default_options() -> Options {
+    Options {
+        span_filter: SpanFilter {
+            min_duration_microseconds: std::time::Duration::from_micros(0),
+        },
+    }
 }

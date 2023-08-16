@@ -11,7 +11,7 @@ use super::{
 
 pub use super::{
     otel_formatter::{Attribute, Value},
-    AdapterMetadata,
+    AdapterMetadata, Options, SpanFilter,
 };
 
 /// Config options for LightstepAdapter
