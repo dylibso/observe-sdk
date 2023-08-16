@@ -36,7 +36,7 @@ jobs:
       - name: Run Node test
         run: |
           cd js/packages/observe-sdk-stdout
-          npm run build:cjs
+          npm run build
           npm link
           pushd test/node
           npm link @dylibso/observe-sdk-stdout
