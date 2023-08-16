@@ -10,13 +10,8 @@ const wasi = new WASI({
 });
 
 const adapter = new StdOutAdapter();
-const opts = {
-  spanFilter: {
-    minimumDurationMicroseconds: 100,
-  }
-};
 const bytes = fs.readFileSync("../../test-data/test.c.instr.wasm");
-adapter.start(bytes, opts).then((traceContext) => {
+adapter.start(bytes).then((traceContext) => {
   const module = new WebAssembly.Module(bytes);
 
   WebAssembly.instantiate(module, {

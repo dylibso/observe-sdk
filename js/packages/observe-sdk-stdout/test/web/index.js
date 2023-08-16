@@ -3,15 +3,10 @@ import { File, OpenFile, WASI } from "@bjorn3/browser_wasi_shim";
 
 const f = async () => {
   const adapter = new StdOutAdapter();
-  const opts = {
-    spanFilter: {
-      minimumDurationMicroseconds: 100,
-    }
-  };
   const resp = await fetch("count_vowels.instr.wasm");
 
   const bytes = await resp.arrayBuffer();
-  const traceContext = await adapter.start(bytes, opts);
+  const traceContext = await adapter.start(bytes);
 
   let fds = [
     new OpenFile(
