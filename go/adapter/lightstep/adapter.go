@@ -41,7 +41,7 @@ func NewLightstepAdapter(config *LightstepConfig) *LightstepAdapter {
 }
 
 func (h *LightstepAdapter) Start(ctx context.Context) {
-	h.AdapterBase.Start(h, ctx)
+	h.AdapterBase.Start(ctx, h)
 }
 
 func (h *LightstepAdapter) HandleTraceEvent(te observe.TraceEvent) {

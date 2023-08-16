@@ -15,29 +15,19 @@ import {
   NamesMap,
   now,
   ObserveEvent,
+  Options,
   WASM
 } from "../../mod.ts";
 
 // @ts-ignore - The esbuild wasm plugin provides a `default` function to initialize the wasm
 wasm.default().then((bytes) => __wbg_set_wasm(bytes));
-
-export interface SpanFilter {
-  minimumDurationMicroseconds: Microseconds
-}
-
-export class CollectorConfig {
-  spanFilter: SpanFilter = {
-    minimumDurationMicroseconds: 0
-  }
-}
-
 export class SpanCollector implements Collector {
   meta?: any;
   names: NamesMap;
   stack: Array<FunctionCall>;
   events: ObserveEvent[];
 
-  constructor(private adapter: Adapter, private config: CollectorConfig = new CollectorConfig()) {
+  constructor(private adapter: Adapter, private opts: Options = new Options()) {
     this.stack = [];
     this.events = [];
     this.names = new Map<FunctionId, string>();
@@ -81,7 +71,7 @@ export class SpanCollector implements Collector {
       return;
     }
     fn.stop(end);
-    if (fn.duration() * 1e-3 < this.config.spanFilter.minimumDurationMicroseconds) {
+    if (fn.duration() * 1e-3 < this.opts.spanFilter.minimumDurationMicroseconds) {
       return;
     }
 

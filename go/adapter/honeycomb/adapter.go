@@ -41,7 +41,7 @@ func NewHoneycombAdapter(config *HoneycombConfig) *HoneycombAdapter {
 }
 
 func (h *HoneycombAdapter) Start(ctx context.Context) {
-	h.AdapterBase.Start(h, ctx)
+	h.AdapterBase.Start(ctx, h)
 }
 
 func (h *HoneycombAdapter) HandleTraceEvent(te observe.TraceEvent) {

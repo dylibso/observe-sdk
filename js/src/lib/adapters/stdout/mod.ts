@@ -1,9 +1,9 @@
-import { Adapter, FunctionCall, MemoryGrow, ObserveEvent, WASM } from "../../mod.ts";
+import { Adapter, FunctionCall, MemoryGrow, ObserveEvent, Options, WASM } from "../../mod.ts";
 import { SpanCollector } from "../../collectors/span/mod.ts";
 
 export class StdOutAdapter extends Adapter {
-  public async start(wasm: WASM): Promise<SpanCollector> {
-    const collector = new SpanCollector(this);
+  public async start(wasm: WASM, opts?: Options): Promise<SpanCollector> {
+    const collector = new SpanCollector(this, opts);
     await collector.setNames(wasm);
     return collector;
   }

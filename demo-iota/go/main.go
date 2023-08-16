@@ -10,7 +10,6 @@ import (
 	"os"
 	"path/filepath"
 
-	"github.com/dylibso/observe-sdk/go"
 	"github.com/dylibso/observe-sdk/go/adapter/datadog"
 	"github.com/tetratelabs/wazero"
 	"github.com/tetratelabs/wazero/imports/wasi_snapshot_preview1"
@@ -122,7 +121,7 @@ func (s *server) runModule(res http.ResponseWriter, req *http.Request) {
 
 	//
 	// Collector API
-	collector := observe.NewCollector(nil)
+	collector := observe.NewCollector(nil) // Unable to locate this function
 	ctx, r, err := collector.InitRuntime()
 	if err != nil {
 		log.Panicln(err)
@@ -134,7 +133,7 @@ func (s *server) runModule(res http.ResponseWriter, req *http.Request) {
 	config := wazero.NewModuleConfig().WithStdin(req.Body).WithStdout(output)
 	defer req.Body.Close()
 
-	s.adapter.Start(collector, wasm)
+	s.adapter.Start(collector, wasm) // params dont match start func definition
 	mod, err := r.InstantiateWithConfig(ctx, wasm, config)
 	if err != nil {
 		log.Println("module instance error:", err)
@@ -142,7 +141,7 @@ func (s *server) runModule(res http.ResponseWriter, req *http.Request) {
 		res.Write([]byte("Internal Service Error"))
 		return
 	}
-	s.adapter.Stop(collector)
+	s.adapter.Stop(collector) // Stop takes a bool
 	log.Println("stopped collector, sent to datadog")
 	defer mod.Close(ctx)
 

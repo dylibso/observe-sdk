@@ -18,9 +18,14 @@ const config = {
   host: 'https://ingest.lightstep.com',
 }
 const adapter = new LightstepAdapter(config);
+const opts = {
+  spanFilter: {
+    minimumDurationMicroseconds: 100,
+  }
+};
 
 const bytes = fs.readFileSync("../../test-data/test.c.instr.wasm");
-adapter.start(bytes).then((traceContext) => {
+adapter.start(bytes, opts).then((traceContext) => {
   const module = new WebAssembly.Module(bytes);
 
   WebAssembly.instantiate(module, {

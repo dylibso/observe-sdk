@@ -56,7 +56,7 @@ func NewDatadogAdapter(config *DatadogConfig) (*DatadogAdapter, error) {
 }
 
 func (d *DatadogAdapter) Start(ctx context.Context) {
-	d.AdapterBase.Start(d, ctx)
+	d.AdapterBase.Start(ctx, d)
 }
 
 func (d *DatadogAdapter) Stop(wait bool) {

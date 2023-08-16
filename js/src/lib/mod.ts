@@ -74,7 +74,7 @@ export abstract class Adapter {
   traceIntervalId: number | undefined | NodeJS.Timer = undefined;
   config: AdapterConfig;
 
-  abstract start(wasm: WASM): Promise<Collector>;
+  abstract start(wasm: WASM, opts?: Options): Promise<Collector>;
 
   abstract collect(events: Array<ObserveEvent>, metadata: any): void;
 
@@ -111,3 +111,12 @@ export const newSpanId = (): TelemetryId => {
 export const newTraceId = (): TelemetryId => {
   return newTelemetryId();
 };
+export interface SpanFilter {
+  minimumDurationMicroseconds: Microseconds
+}
+
+export class Options {
+  spanFilter: SpanFilter = {
+    minimumDurationMicroseconds: 0
+  }
+}
