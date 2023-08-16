@@ -26,7 +26,7 @@ jobs:
       - name: Run Deno test
         run: |
           cd js/packages/observe-sdk-stdout
-          npm run build:esm
+          npm run build
           npm run test:deno > out.txt
 
           # test the expected content of the formatted output

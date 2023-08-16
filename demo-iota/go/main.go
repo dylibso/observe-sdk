@@ -148,9 +148,9 @@ func (s *server) runModule(res http.ResponseWriter, req *http.Request) {
 		SpanKind:       datadog.Server,
 		HttpClientIp:   req.RemoteAddr,
 	}
-	log.Println("stopped collector, sent to datadog")
 	traceCtx.Metadata(meta)
 	traceCtx.Finish()
+	log.Println("stopped collector, sent to datadog")
 
 	res.WriteHeader(http.StatusOK)
 	res.Header().Add("content-type", "application/json")

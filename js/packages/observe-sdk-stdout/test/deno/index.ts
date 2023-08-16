@@ -3,7 +3,11 @@ import Context from "https://deno.land/std@0.192.0/wasi/snapshot_preview1.ts";
 
 const adapter = new StdOutAdapter();
 const bytes = await Deno.readFile("../../test-data/test.c.instr.wasm");
-const traceContext = await adapter.start(bytes);
+const traceContext = await adapter.start(bytes, {
+  spanFilter: {
+    minimumDurationMicroseconds: 0,
+  }
+});
 const module = new WebAssembly.Module(bytes);
 
 const runtime = new Context({
