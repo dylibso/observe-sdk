@@ -5,7 +5,7 @@ const f = async () => {
   const adapter = new DatadogAdapter();
   const opts = {
     spanFilter: {
-      minimumDurationMicroseconds: 100,
+      minDurationMicroseconds: 100,
     }
   };
   const resp = await fetch("count_vowels.instr.wasm");

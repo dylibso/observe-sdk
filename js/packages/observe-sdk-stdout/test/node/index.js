@@ -13,7 +13,7 @@ const adapter = new StdOutAdapter();
 const bytes = fs.readFileSync("../../test-data/test.c.instr.wasm");
 adapter.start(bytes, {
   spanFilter: {
-    minimumDurationMicroseconds: 0,
+    minDurationMicroseconds: 0,
   }
 }).then((traceContext) => {
   const module = new WebAssembly.Module(bytes);

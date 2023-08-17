@@ -79,7 +79,9 @@ export class SpanCollector implements Collector {
     }
 
     // if the function duration is less than minimum duration, disregard
-    if (fn.duration() * 1e-3 < this.opts.spanFilter.minimumDurationMicroseconds) {
+    const funcDuration = fn.duration() * 1e-3;
+    const minSpanDuration = this.opts.spanFilter.minDurationMicroseconds;
+    if (funcDuration < minSpanDuration) {
       return;
     }
 

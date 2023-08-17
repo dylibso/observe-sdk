@@ -20,7 +20,7 @@ const config = {
 const adapter = new LightstepAdapter(config);
 const opts = {
   spanFilter: {
-    minimumDurationMicroseconds: 100,
+    minDurationMicroseconds: 100,
   }
 };
 

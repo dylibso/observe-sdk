@@ -12,7 +12,7 @@ const wasi = new WASI({
 const adapter = new DatadogAdapter();
 const opts = {
   spanFilter: {
-    minimumDurationMicroseconds: 100,
+    minDurationMicroseconds: 100,
   }
 };
 

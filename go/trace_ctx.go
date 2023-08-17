@@ -115,8 +115,10 @@ func (t *TraceCtx) init(ctx context.Context, r wazero.Runtime) error {
 			return
 		}
 
-		// if the function did not take longer than the minimum duration, disregard it
-		if fn.Duration.Microseconds() < t.Options.SpanFilter.MinDuration.Microseconds() {
+		// if the function duration is less than minimum duration, disregard
+		funcDuration := fn.Duration.Microseconds()
+		minSpanDuration := t.Options.SpanFilter.MinDuration.Microseconds()
+		if funcDuration < minSpanDuration {
 			return
 		}
 

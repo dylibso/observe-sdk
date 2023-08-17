@@ -5,7 +5,7 @@ const adapter = new StdOutAdapter();
 const bytes = await Deno.readFile("../../test-data/test.c.instr.wasm");
 const traceContext = await adapter.start(bytes, {
   spanFilter: {
-    minimumDurationMicroseconds: 0,
+    minDurationMicroseconds: 0,
   }
 });
 const module = new WebAssembly.Module(bytes);

@@ -90,13 +90,13 @@ impl InstrumentationContext {
                 };
             } else {
                 // if the function duration is less than minimum duration, disregard
-                if func.end.duration_since(func.start)?.as_micros()
-                    < self
-                        .options
-                        .span_filter
-                        .min_duration_microseconds
-                        .as_micros()
-                {
+                let func_duration = func.end.duration_since(func.start)?.as_micros();
+                let min_span_duration = self
+                    .options
+                    .span_filter
+                    .min_duration_microseconds
+                    .as_micros();
+                if func_duration < min_span_duration {
                     return Ok(());
                 }
 

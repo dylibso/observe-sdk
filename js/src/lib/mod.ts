@@ -112,11 +112,11 @@ export const newTraceId = (): TelemetryId => {
   return newTelemetryId();
 };
 export interface SpanFilter {
-  minimumDurationMicroseconds: Microseconds
+  minDurationMicroseconds: Microseconds
 }
 
 export class Options {
   spanFilter: SpanFilter = {
-    minimumDurationMicroseconds: 20
+    minDurationMicroseconds: 20
   }
 }

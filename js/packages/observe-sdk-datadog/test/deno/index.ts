@@ -7,7 +7,7 @@ const bytes = await Deno.readFile("../../test-data/test.c.instr.wasm");
 
 const opts = {
   spanFilter: {
-    minimumDurationMicroseconds: 100,
+    minDurationMicroseconds: 100,
   }
 };
 const traceContext = await adapter.start(bytes, opts);

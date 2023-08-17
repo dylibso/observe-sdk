@@ -12,7 +12,7 @@ const f = async () => {
   const adapter = new LightstepAdapter(config);
   const opts = {
     spanFilter: {
-      minimumDurationMicroseconds: 100,
+      minDurationMicroseconds: 100,
     }
   };
   const resp = await fetch("test.c.instr.wasm");

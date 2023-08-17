@@ -15,7 +15,7 @@ const config: HoneycombConfig = {
 const adapter = new HoneycombAdapter(config);
 const opts = {
   spanFilter: {
-    minimumDurationMicroseconds: 100,
+    minDurationMicroseconds: 100,
   }
 };
 
