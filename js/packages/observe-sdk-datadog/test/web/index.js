@@ -3,10 +3,15 @@ import { File, OpenFile, WASI } from "@bjorn3/browser_wasi_shim";
 
 const f = async () => {
   const adapter = new DatadogAdapter();
+  const opts = {
+    spanFilter: {
+      minDurationMicroseconds: 100,
+    }
+  };
   const resp = await fetch("count_vowels.instr.wasm");
 
   const bytes = await resp.arrayBuffer();
-  const traceContext = await adapter.start(bytes);
+  const traceContext = await adapter.start(bytes, opts);
 
   let fds = [
     new OpenFile(

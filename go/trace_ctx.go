@@ -10,18 +10,6 @@ import (
 	"github.com/tetratelabs/wazero/experimental"
 )
 
-// The configuration object for the observe SDK
-type Config struct {
-	ChannelBufferSize int
-}
-
-// Create a default configuration
-func NewDefaultConfig() *Config {
-	return &Config{
-		ChannelBufferSize: 1024,
-	}
-}
-
 // TraceCtx holds the context for a trace, or wasm module invocation.
 // It collects holds a channel to the Adapter and from the wazero Listener
 // It will collect events throughout the invocation of the function. Calling
@@ -31,14 +19,14 @@ type TraceCtx struct {
 	raw         chan RawEvent
 	events      []Event
 	stack       []CallEvent
-	Config      *Config
+	Options     *Options
 	names       map[uint32]string
 	telemetryId TelemetryId
 	adapterMeta interface{}
 }
 
 // Creates a new TraceCtx. Used internally by the Adapter. The user should create the trace context from the Adapter.
-func newTraceCtx(ctx context.Context, eventsChan chan TraceEvent, r wazero.Runtime, data []byte, config *Config) (*TraceCtx, error) {
+func newTraceCtx(ctx context.Context, eventsChan chan TraceEvent, r wazero.Runtime, data []byte, opts *Options) (*TraceCtx, error) {
 	names, err := parseNames(data)
 	if err != nil {
 		return nil, err
@@ -46,10 +34,10 @@ func newTraceCtx(ctx context.Context, eventsChan chan TraceEvent, r wazero.Runti
 
 	traceCtx := &TraceCtx{
 		adapter:     eventsChan,
-		raw:         make(chan RawEvent, config.ChannelBufferSize),
+		raw:         make(chan RawEvent, opts.ChannelBufferSize),
 		names:       names,
 		telemetryId: NewTraceId(),
-		Config:      config,
+		Options:     opts,
 	}
 
 	err = traceCtx.init(ctx, r)
@@ -120,14 +108,27 @@ func (t *TraceCtx) init(ctx context.Context, r wazero.Runtime) error {
 		fn.Stop(end)
 		fn.Raw = append(fn.Raw, ev)
 
-		f, ok := t.popFunction()
+		// if there is no function left to pop, we are exiting the root function of the trace
+		f, ok := t.peekFunction()
 		if !ok {
 			t.events = append(t.events, fn)
 			return
 		}
 
-		f.within = append(f.within, fn)
-		t.pushFunction(f)
+		// if the function duration is less than minimum duration, disregard
+		funcDuration := fn.Duration.Microseconds()
+		minSpanDuration := t.Options.SpanFilter.MinDuration.Microseconds()
+		if funcDuration < minSpanDuration {
+			return
+		}
+
+		// the function is within another function
+		f, ok = t.popFunction()
+		if ok {
+			f.within = append(f.within, fn)
+			t.pushFunction(f)
+		}
+
 	}).Export("instrument_exit")
 
 	functions.WithFunc(func(ctx context.Context, amt int32) {

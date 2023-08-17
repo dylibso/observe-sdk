@@ -59,5 +59,5 @@ func (s *StdoutAdapter) printEvents(event observe.CallEvent, indentation int) {
 }
 
 func (s *StdoutAdapter) Start(ctx context.Context) {
-	s.AdapterBase.Start(s, ctx)
+	s.AdapterBase.Start(ctx, s)
 }

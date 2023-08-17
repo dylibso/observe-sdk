@@ -1,4 +1,4 @@
-import { Adapter, ObserveEvent, WASM } from "../../mod.ts";
+import { Adapter, ObserveEvent, Options, WASM } from "../../mod.ts";
 import { SpanCollector } from "../../collectors/span/mod.ts";
 import { traceFromEvents, Trace, TracesData } from "../../formatters/opentelemetry.ts";
 import { AdapterConfig } from "../../mod.ts";
@@ -29,9 +29,9 @@ export class LightstepAdapter extends Adapter {
         }
     }
 
-    public async start(wasm: WASM): Promise<SpanCollector> {
+    public async start(wasm: WASM, opts?: Options): Promise<SpanCollector> {
         super.startTraceInterval();
-        const collector = new SpanCollector(this);
+        const collector = new SpanCollector(this, opts);
         await collector.setNames(wasm);
         return collector;
     }

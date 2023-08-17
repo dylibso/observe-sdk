@@ -34,11 +34,11 @@ type AdapterBase struct {
 	flusher     Flusher
 }
 
-func (a *AdapterBase) NewTraceCtx(ctx context.Context, r wazero.Runtime, wasm []byte, config *Config) (*TraceCtx, error) {
-	if config == nil {
-		config = NewDefaultConfig()
+func (a *AdapterBase) NewTraceCtx(ctx context.Context, r wazero.Runtime, wasm []byte, opts *Options) (*TraceCtx, error) {
+	if opts == nil {
+		opts = NewDefaultOptions()
 	}
-	return newTraceCtx(ctx, a.TraceEvents, r, wasm, config)
+	return newTraceCtx(ctx, a.TraceEvents, r, wasm, opts)
 }
 
 func NewAdapterBase(batchSize int, flushPeriod time.Duration) AdapterBase {
@@ -57,7 +57,7 @@ func (b *AdapterBase) HandleTraceEvent(te TraceEvent) {
 	b.eventBucket.addEvent(te, b.flusher)
 }
 
-func (b *AdapterBase) Start(a Adapter, ctx context.Context) {
+func (b *AdapterBase) Start(ctx context.Context, a Adapter) {
 	b.stop = make(chan bool)
 
 	go func() {
@@ -81,5 +81,26 @@ func (b *AdapterBase) Stop(wait bool) {
 	b.stop <- true
 	if wait {
 		b.eventBucket.Wait()
+	}
+}
+
+// Definition of how to filter our Spans to reduce noise
+type SpanFilter struct {
+	MinDuration time.Duration
+}
+
+// Specify options to change what or how the adapter receives ObserveEvents
+type Options struct {
+	SpanFilter        *SpanFilter
+	ChannelBufferSize int
+}
+
+// Create a default configuration
+func NewDefaultOptions() *Options {
+	return &Options{
+		ChannelBufferSize: 1024,
+		SpanFilter: &SpanFilter{
+			MinDuration: time.Microsecond * 20,
+		},
 	}
 }

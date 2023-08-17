@@ -1,5 +1,5 @@
 use dylibso_observe_sdk::adapter::datadog::{
-    AdapterMetadata, DatadogAdapter, DatadogConfig, DatadogMetadata,
+    AdapterMetadata, DatadogAdapter, DatadogConfig, DatadogMetadata, Options, SpanFilter,
 };
 
 /// You need the datadog agent running on localhost for this example to work
@@ -28,10 +28,15 @@ pub async fn main() -> anyhow::Result<()> {
     let mut linker = wasmtime::Linker::new(&engine);
     wasmtime_wasi::add_to_linker(&mut linker, |wasi| wasi)?;
 
+    let options = Options {
+        span_filter: SpanFilter {
+            min_duration_microseconds: std::time::Duration::from_micros(100),
+        },
+    };
     // Provide the observability functions to the `Linker` to be made available
     // to the instrumented guest code. These are safe to add and are a no-op
     // if guest code is uninstrumented.
-    let trace_ctx = adapter.start(&mut linker, &data)?;
+    let trace_ctx = adapter.start(&mut linker, &data, options)?;
 
     let instance = linker.instantiate(&mut store, &module)?;
 

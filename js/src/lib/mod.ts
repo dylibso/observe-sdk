@@ -6,6 +6,7 @@ export const now = (): Nanoseconds => {
 
 export type WASM = Uint8Array | WebAssembly.Module;
 export type Nanoseconds = number;
+export type Microseconds = number;
 export type ObserveEvent = FunctionCall | MemoryGrow | CustomEvent;
 export type MemoryGrowAmount = number;
 export type FunctionId = number;
@@ -73,7 +74,7 @@ export abstract class Adapter {
   traceIntervalId: number | undefined | NodeJS.Timer = undefined;
   config: AdapterConfig;
 
-  abstract start(wasm: WASM): Promise<Collector>;
+  abstract start(wasm: WASM, opts?: Options): Promise<Collector>;
 
   abstract collect(events: Array<ObserveEvent>, metadata: any): void;
 
@@ -110,3 +111,12 @@ export const newSpanId = (): TelemetryId => {
 export const newTraceId = (): TelemetryId => {
   return newTelemetryId();
 };
+export interface SpanFilter {
+  minDurationMicroseconds: Microseconds
+}
+
+export class Options {
+  spanFilter: SpanFilter = {
+    minDurationMicroseconds: 20
+  }
+}

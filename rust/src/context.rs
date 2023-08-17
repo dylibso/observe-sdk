@@ -11,8 +11,8 @@ use tokio::sync::mpsc::{channel, Receiver, Sender};
 use wasmtime::{Caller, FuncType, Linker, Val, ValType};
 
 use crate::{
-    collector::CollectorHandle, wasm_instr::WasmInstrInfo, Allocation, Event, FunctionCall, Log,
-    Metric, MetricFormat, Tags,
+    adapter::Options, collector::CollectorHandle, wasm_instr::WasmInstrInfo, Allocation, Event,
+    FunctionCall, Log, Metric, MetricFormat, Tags,
 };
 
 /// The InstrumentationContext holds the implementations
@@ -32,10 +32,13 @@ use crate::{
 pub struct InstrumentationContext {
     collector: CollectorHandle,
     stack: Vec<FunctionCall>,
+    options: Options,
 }
 
 impl InstrumentationContext {
-    fn new() -> (
+    fn new(
+        options: Options,
+    ) -> (
         Arc<Mutex<InstrumentationContext>>,
         CollectorHandle,
         Receiver<Event>,
@@ -47,6 +50,7 @@ impl InstrumentationContext {
             Arc::new(Mutex::new(InstrumentationContext {
                 collector: events_tx.clone(),
                 stack: Vec::new(),
+                options,
             })),
             events_tx,
             events_rx,
@@ -79,17 +83,28 @@ impl InstrumentationContext {
             // }
             func.end = SystemTime::now();
 
-            if let Some(mut f) = self.stack.pop() {
-                f.within.push(Event::Func(func.clone()));
-                self.stack.push(f);
-            }
-
-            // only push the end of the final call onto the channel
-            // this will contain all the other calls within it
+            // if the stack is empty, we are exiting the root function of the trace
             if self.stack.is_empty() {
                 if let Err(e) = self.collector.try_send(Event::Func(func)) {
                     error!("error recording function exit: {}", e);
                 };
+            } else {
+                // if the function duration is less than minimum duration, disregard
+                let func_duration = func.end.duration_since(func.start)?.as_micros();
+                let min_span_duration = self
+                    .options
+                    .span_filter
+                    .min_duration_microseconds
+                    .as_micros();
+                if func_duration < min_span_duration {
+                    return Ok(());
+                }
+
+                // the function is within another function
+                if let Some(mut f) = self.stack.pop() {
+                    f.within.push(Event::Func(func.clone()));
+                    self.stack.push(f);
+                }
             }
 
             return Ok(());
@@ -400,8 +415,12 @@ const MODULE_NAME: &str = "dylibso_observe";
 type EventChannel = (Sender<Event>, Receiver<Event>);
 
 /// Link observability import functions required by instrumented wasm code
-pub fn add_to_linker<T: 'static>(linker: &mut Linker<T>, data: &[u8]) -> Result<EventChannel> {
-    let (ctx, events_tx, events_rx) = InstrumentationContext::new();
+pub fn add_to_linker<T: 'static>(
+    linker: &mut Linker<T>,
+    data: &[u8],
+    options: Options,
+) -> Result<EventChannel> {
+    let (ctx, events_tx, events_rx) = InstrumentationContext::new(options);
 
     // load the static wasm-instr info
     let wasm_instr_info = WasmInstrInfo::new(data)?;

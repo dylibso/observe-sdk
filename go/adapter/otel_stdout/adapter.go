@@ -86,5 +86,5 @@ func (o *OtelStdoutAdapter) makeCallSpans(event observe.CallEvent, parentId []by
 }
 
 func (o *OtelStdoutAdapter) Start(ctx context.Context) {
-	o.AdapterBase.Start(o, ctx)
+	o.AdapterBase.Start(ctx, o)
 }

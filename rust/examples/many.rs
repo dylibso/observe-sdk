@@ -1,4 +1,7 @@
-use dylibso_observe_sdk::{adapter::otelstdout::OtelStdoutAdapter, new_trace_id};
+use dylibso_observe_sdk::{
+    adapter::{default_options, otelstdout::OtelStdoutAdapter},
+    new_trace_id,
+};
 use rand::{seq::SliceRandom, thread_rng};
 
 #[tokio::main]
@@ -33,7 +36,7 @@ pub async fn main() -> anyhow::Result<()> {
             // Provide the observability functions to the `Linker` to be made
             // available to the instrumented guest code. These are safe to add
             // and are a no-op if guest code is uninstrumented.
-            let trace_ctx = adapter.start(&mut linker, &data)?;
+            let trace_ctx = adapter.start(&mut linker, &data, default_options())?;
 
             let instance = linker.instantiate(&mut store, &module)?;
             instances.push((trace_ctx, instance, store));

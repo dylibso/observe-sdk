@@ -2,6 +2,7 @@ import * as wasm from "./modsurfer-demangle/modsurfer_demangle_bg.wasm";
 import { __wbg_set_wasm } from "./modsurfer-demangle/modsurfer_demangle_bg.js";
 import { demangle } from "./modsurfer-demangle/modsurfer_demangle.js";
 import { parseNameSection } from "../../parser/mod.ts";
+import { Microseconds } from "../../mod.ts";
 
 import {
   Adapter,
@@ -14,19 +15,19 @@ import {
   NamesMap,
   now,
   ObserveEvent,
+  Options,
   WASM
 } from "../../mod.ts";
 
 // @ts-ignore - The esbuild wasm plugin provides a `default` function to initialize the wasm
 wasm.default().then((bytes) => __wbg_set_wasm(bytes));
-
 export class SpanCollector implements Collector {
   meta?: any;
   names: NamesMap;
   stack: Array<FunctionCall>;
   events: ObserveEvent[];
 
-  constructor(private adapter: Adapter) {
+  constructor(private adapter: Adapter, private opts: Options = new Options()) {
     this.stack = [];
     this.events = [];
     this.names = new Map<FunctionId, string>();
@@ -71,11 +72,20 @@ export class SpanCollector implements Collector {
     }
     fn.stop(end);
 
+    // if the stack length is 0, we are exiting the root function of the trace
     if (this.stack.length === 0) {
       this.events.push(fn);
       return;
     }
 
+    // if the function duration is less than minimum duration, disregard
+    const funcDuration = fn.duration() * 1e-3;
+    const minSpanDuration = this.opts.spanFilter.minDurationMicroseconds;
+    if (funcDuration < minSpanDuration) {
+      return;
+    }
+
+    // the function is within another function
     const f = this.stack.pop()!;
     f.within.push(fn);
     this.stack.push(f);

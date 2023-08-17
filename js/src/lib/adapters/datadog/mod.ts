@@ -6,6 +6,7 @@ import {
   FunctionCall,
   MemoryGrow,
   ObserveEvent,
+  Options,
   TelemetryId,
   WASM,
 } from "../../mod.ts";
@@ -111,8 +112,9 @@ export class DatadogAdapter extends Adapter {
 
   public async start(
     wasm: WASM,
+    opts?: Options,
   ): Promise<DatadogTraceContext> {
-    const spanCollector = new SpanCollector(this);
+    const spanCollector = new SpanCollector(this, opts);
     await spanCollector.setNames(wasm);
 
     this.startTraceInterval();

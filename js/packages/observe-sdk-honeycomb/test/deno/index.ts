@@ -13,9 +13,14 @@ const config: HoneycombConfig = {
   host: 'https://api.honeycomb.io',
 }
 const adapter = new HoneycombAdapter(config);
+const opts = {
+  spanFilter: {
+    minDurationMicroseconds: 100,
+  }
+};
 
 const bytes = await Deno.readFile("../../test-data/test.c.instr.wasm");
-const traceContext = await adapter.start(bytes);
+const traceContext = await adapter.start(bytes, opts);
 const module = new WebAssembly.Module(bytes);
 
 const runtime = new Context({

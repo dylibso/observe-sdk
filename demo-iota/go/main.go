@@ -2,9 +2,9 @@ package main
 
 import (
 	"bytes"
+	"context"
 	"fmt"
 	"io"
-	"io/ioutil"
 	"log"
 	"net/http"
 	"os"
@@ -24,8 +24,6 @@ type server struct {
 }
 
 func main() {
-	//
-	// Adapter API
 	config := datadog.DefaultDatadogConfig()
 	config.ServiceName = "iota"
 	config.AgentHost = "http://ddagent:8126"
@@ -97,6 +95,7 @@ func upload(res http.ResponseWriter, req *http.Request) {
 }
 
 func (s *server) runModule(res http.ResponseWriter, req *http.Request) {
+	ctx := context.Background()
 	if req.Method != http.MethodPost {
 		res.WriteHeader(http.StatusMethodNotAllowed)
 		return
@@ -111,7 +110,7 @@ func (s *server) runModule(res http.ResponseWriter, req *http.Request) {
 	}
 
 	path := filepath.Join(os.TempDir(), name)
-	wasm, err := ioutil.ReadFile(path)
+	wasm, err := os.ReadFile(path)
 	if err != nil {
 		log.Println("name error: no module found", err)
 		res.WriteHeader(http.StatusNotFound)
@@ -119,31 +118,39 @@ func (s *server) runModule(res http.ResponseWriter, req *http.Request) {
 		return
 	}
 
-	//
-	// Collector API
-	collector := observe.NewCollector(nil)
-	ctx, r, err := collector.InitRuntime()
+	s.adapter.Start(ctx)
+	defer s.adapter.Stop(true)
+
+	cfg := wazero.NewRuntimeConfig().WithCustomSections(true)
+	rt := wazero.NewRuntimeWithConfig(ctx, cfg)
+	traceCtx, err := s.adapter.NewTraceCtx(ctx, rt, wasm, nil)
 	if err != nil {
 		log.Panicln(err)
 	}
-	defer r.Close(ctx) // This closes everything this Runtime created.
-
-	wasi_snapshot_preview1.MustInstantiate(ctx, r)
+	wasi_snapshot_preview1.MustInstantiate(ctx, rt)
 	output := &bytes.Buffer{}
 	config := wazero.NewModuleConfig().WithStdin(req.Body).WithStdout(output)
 	defer req.Body.Close()
 
-	s.adapter.Start(collector, wasm)
-	mod, err := r.InstantiateWithConfig(ctx, wasm, config)
+	mod, err := rt.InstantiateWithConfig(ctx, wasm, config)
 	if err != nil {
 		log.Println("module instance error:", err)
 		res.WriteHeader(http.StatusInternalServerError)
 		res.Write([]byte("Internal Service Error"))
 		return
 	}
-	s.adapter.Stop(collector)
-	log.Println("stopped collector, sent to datadog")
 	defer mod.Close(ctx)
+
+	meta := datadog.DatadogMetadata{
+		ResourceName:   "iota-go",
+		HttpUrl:        req.URL.String(),
+		HttpStatusCode: 200,
+		SpanKind:       datadog.Server,
+		HttpClientIp:   req.RemoteAddr,
+	}
+	traceCtx.Metadata(meta)
+	traceCtx.Finish()
+	log.Println("stopped collector, sent to datadog")
 
 	res.WriteHeader(http.StatusOK)
 	res.Header().Add("content-type", "application/json")

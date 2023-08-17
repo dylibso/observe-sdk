@@ -10,10 +10,15 @@ const f = async () => {
     host: 'https://ingest.lightstep.com',
   }
   const adapter = new LightstepAdapter(config);
+  const opts = {
+    spanFilter: {
+      minDurationMicroseconds: 100,
+    }
+  };
   const resp = await fetch("test.c.instr.wasm");
 
   const bytes = await resp.arrayBuffer();
-  const traceContext = await adapter.start(bytes);
+  const traceContext = await adapter.start(bytes, opts);
 
   let fds = [
     new OpenFile(

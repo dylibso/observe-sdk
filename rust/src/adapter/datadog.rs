@@ -20,7 +20,7 @@ use super::{
     Adapter, AdapterHandle,
 };
 
-pub use super::AdapterMetadata;
+pub use super::{AdapterMetadata, Options, SpanFilter};
 
 #[derive(Debug, Clone)]
 pub enum DatadogTraceType {
