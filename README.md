@@ -71,7 +71,7 @@ Access to this compiler is free but available only on request of an API key. The
 curl and get an instrumented Wasm module back:
 
 ```
-curl -F wasm=@code.wasm https://compiler-preview.dylibso.com/instrument -X POST -H 'Authorization: Bearer <your-api-key>' > code.instr.wasm
+curl --fail -F wasm=@code.wasm https://compiler-preview.dylibso.com/instrument -X POST -H 'Authorization: Bearer <your-api-key>' > code.instr.wasm
 ```
 
 :key: **You can get an API key by contacting
