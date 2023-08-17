@@ -20,7 +20,7 @@ type Output struct {
 }
 
 type server struct {
-	adapter datadog.DatadogAdapter
+	adapter *datadog.DatadogAdapter
 }
 
 func main() {
@@ -141,12 +141,17 @@ func (s *server) runModule(res http.ResponseWriter, req *http.Request) {
 	}
 	defer mod.Close(ctx)
 
+	resourceName := "iota-go"
+	httpUrl := req.URL.String()
+	httpStatusCode := 200
+	spanKind := datadog.Server
+	httpClientIp := req.RemoteAddr
 	meta := datadog.DatadogMetadata{
-		ResourceName:   "iota-go",
-		HttpUrl:        req.URL.String(),
-		HttpStatusCode: 200,
-		SpanKind:       datadog.Server,
-		HttpClientIp:   req.RemoteAddr,
+		ResourceName:   &resourceName,
+		HttpUrl:        &httpUrl,
+		HttpStatusCode: &httpStatusCode,
+		SpanKind:       &spanKind,
+		HttpClientIp:   &httpClientIp,
 	}
 	traceCtx.Metadata(meta)
 	traceCtx.Finish()
