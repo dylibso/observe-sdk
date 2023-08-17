@@ -71,15 +71,19 @@ export class SpanCollector implements Collector {
       return;
     }
     fn.stop(end);
-    if (fn.duration() * 1e-3 < this.opts.spanFilter.minimumDurationMicroseconds) {
-      return;
-    }
 
+    // if the stack length is 0, we are exiting the root function of the trace
     if (this.stack.length === 0) {
       this.events.push(fn);
       return;
     }
 
+    // if the function duration is less than minimum duration, disregard
+    if (fn.duration() * 1e-3 < this.opts.spanFilter.minimumDurationMicroseconds) {
+      return;
+    }
+
+    // the function is within another function
     const f = this.stack.pop()!;
     f.within.push(fn);
     this.stack.push(f);

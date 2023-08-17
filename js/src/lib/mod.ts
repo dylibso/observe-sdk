@@ -117,6 +117,6 @@ export interface SpanFilter {
 
 export class Options {
   spanFilter: SpanFilter = {
-    minimumDurationMicroseconds: 50
+    minimumDurationMicroseconds: 20
   }
 }

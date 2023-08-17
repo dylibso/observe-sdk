@@ -82,27 +82,29 @@ impl InstrumentationContext {
             //     bail!("missed a function exit");
             // }
             func.end = SystemTime::now();
-            if func.end.duration_since(func.start)?.as_micros()
-                < self
-                    .options
-                    .span_filter
-                    .min_duration_microseconds
-                    .as_micros()
-            {
-                return Ok(());
-            }
 
-            if let Some(mut f) = self.stack.pop() {
-                f.within.push(Event::Func(func.clone()));
-                self.stack.push(f);
-            }
-
-            // only push the end of the final call onto the channel
-            // this will contain all the other calls within it
+            // if the stack is empty, we are exiting the root function of the trace
             if self.stack.is_empty() {
                 if let Err(e) = self.collector.try_send(Event::Func(func)) {
                     error!("error recording function exit: {}", e);
                 };
+            } else {
+                // if the function duration is less than minimum duration, disregard
+                if func.end.duration_since(func.start)?.as_micros()
+                    < self
+                        .options
+                        .span_filter
+                        .min_duration_microseconds
+                        .as_micros()
+                {
+                    return Ok(());
+                }
+
+                // the function is within another function
+                if let Some(mut f) = self.stack.pop() {
+                    f.within.push(Event::Func(func.clone()));
+                    self.stack.push(f);
+                }
             }
 
             return Ok(());

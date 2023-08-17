@@ -106,19 +106,27 @@ func (t *TraceCtx) init(ctx context.Context, r wazero.Runtime) error {
 
 		fn, _ = t.popFunction()
 		fn.Stop(end)
-		if fn.Duration.Microseconds() < t.Options.SpanFilter.MinDuration.Microseconds() {
-			return
-		}
 		fn.Raw = append(fn.Raw, ev)
 
-		f, ok := t.popFunction()
+		// if there is no function left to pop, we are exiting the root function of the trace
+		f, ok := t.peekFunction()
 		if !ok {
 			t.events = append(t.events, fn)
 			return
 		}
 
-		f.within = append(f.within, fn)
-		t.pushFunction(f)
+		// if the function did not take longer than the minimum duration, disregard it
+		if fn.Duration.Microseconds() < t.Options.SpanFilter.MinDuration.Microseconds() {
+			return
+		}
+
+		// the function is within another function
+		f, ok = t.popFunction()
+		if ok {
+			f.within = append(f.within, fn)
+			t.pushFunction(f)
+		}
+
 	}).Export("instrument_exit")
 
 	functions.WithFunc(func(ctx context.Context, amt int32) {
