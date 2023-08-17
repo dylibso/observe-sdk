@@ -7,7 +7,7 @@ require (
 	github.com/tetratelabs/wazero v1.4.0
 )
 
-// TODO: get this workign in Docker
+// TODO: get this working in Docker
 // replace github.com/dylibso/observe-sdk/go => ../../go
 
 require (
