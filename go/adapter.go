@@ -97,11 +97,10 @@ type Options struct {
 
 // Create a default configuration
 func NewDefaultOptions() *Options {
-	minDuration, _ := time.ParseDuration("20us")
 	return &Options{
 		ChannelBufferSize: 1024,
 		SpanFilter: &SpanFilter{
-			MinDuration: minDuration,
+			MinDuration: time.Microsecond * 20,
 		},
 	}
 }
