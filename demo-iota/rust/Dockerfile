@@ -1,6 +1,6 @@
 FROM ubuntu
 
-RUN apt update -y && apt install libssl-dev pkg-config openssl curl build-essential -y
+RUN apt update -y && apt install libssl-dev pkg-config openssl curl build-essential protobuf-compiler -y
 
 RUN curl https://sh.rustup.rs -sSf | bash -s -- -y
 ENV PATH="/root/.cargo/bin:${PATH}"
