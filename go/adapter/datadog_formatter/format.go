@@ -2,9 +2,10 @@ package datadog_formatter
 
 import (
 	"fmt"
+	"strconv"
 	"time"
 
-	"github.com/dylibso/observe-sdk/go"
+	observe "github.com/dylibso/observe-sdk/go"
 )
 
 type DatadogFormatter []Trace
@@ -46,7 +47,12 @@ func (s *Span) AddAllocation(amount uint32) {
 		s.Meta = make(map[string]string)
 	}
 
-	s.Meta["allocation"] = fmt.Sprintf("%d", amount)
+	existingAmount, err := strconv.Atoi(s.Meta["allocation"])
+	if err == nil && existingAmount > 0 {
+		s.Meta["allocation"] = fmt.Sprintf("%d", amount+uint32(existingAmount))
+	} else {
+		s.Meta["allocation"] = fmt.Sprintf("%d", amount)
+	}
 }
 
 func New() *DatadogFormatter {
