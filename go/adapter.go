@@ -128,7 +128,7 @@ func NewDefaultOptions() *Options {
 	return &Options{
 		ChannelBufferSize: 1024,
 		SpanFilter: &SpanFilter{
-			MinDuration: time.Microsecond * 750,
+			MinDuration: time.Microsecond * 20,
 		},
 	}
 }
