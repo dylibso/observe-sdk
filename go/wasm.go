@@ -13,6 +13,8 @@ import (
 const wasmInstrVersionMajor = 0
 const wasmInstrVersionMinor = 0 // TODO: bump this to match compiler when ready
 
+var errorNoCompatibilityVersion = errors.New("No compatibility versions in module")
+
 // make sure that our function was instrumented with a compatible
 // version of wasm-instr
 func checkVersion(m *wasm.Module) error {
@@ -31,7 +33,7 @@ func checkVersion(m *wasm.Module) error {
 	}
 
 	if minorGlobal == nil || majorGlobal == nil {
-		return errors.New("wasm_instr_version functions not found")
+		return errorNoCompatibilityVersion
 	}
 
 	minor, _, err := leb128.DecodeUint32(bytes.NewReader(m.GlobalSection[minorGlobal.Index].Init.Data))
@@ -60,7 +62,7 @@ func parseNames(data []byte) (map[uint32]string, error) {
 	}
 
 	// Check for version globals
-	if err := checkVersion(m); err != nil {
+	if err := checkVersion(m); err != nil && err != errorNoCompatibilityVersion {
 		return nil, err
 	}
 
