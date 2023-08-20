@@ -18,8 +18,10 @@ impl Adapter for OtelStdoutAdapter {
         for span in trace_evt.events {
             self.event_to_spans(&mut spans, span, vec![], trace_id.clone())?;
         }
-        let otf = OtelFormatter::new(spans, "stdout".into());
-        println!("{:?}", &otf.traces_data);
+        if !spans.is_empty() {
+            let otf = OtelFormatter::new(spans, "stdout".into());
+            println!("{:?}", &otf.traces_data);
+        }
         Ok(())
     }
 }
