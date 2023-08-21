@@ -198,7 +198,6 @@ impl DatadogAdapter {
                 }
             }
             Event::Alloc(a) => {
-                // TODO i seem to be losing this value
                 if let Some(span) = ddevents.spans.last_mut() {
                     span.add_allocation(a.amount);
                 }

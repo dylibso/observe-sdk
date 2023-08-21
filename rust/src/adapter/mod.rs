@@ -4,6 +4,11 @@ use tokio::sync::mpsc::{channel, Sender};
 use wasmtime::Linker;
 
 use crate::{
+    adapter::otel_formatter::{
+        opentelemetry,
+        opentelemetry::proto::common::v1::{any_value::Value::IntValue, AnyValue},
+        OtelFormatter,
+    },
     collector::{Collector, CollectorHandle},
     context::add_to_linker,
     Event, TelemetryId, TraceEvent,
@@ -52,6 +57,84 @@ pub trait Adapter {
             }
         });
         AdapterHandle { adapter_tx }
+    }
+
+    fn event_to_otel_spans(
+        &self,
+        spans: &mut Vec<opentelemetry::proto::trace::v1::Span>,
+        event: Event,
+        parent_id: Vec<u8>,
+        trace_id: String,
+        meta: &Option<AdapterMetadata>,
+    ) -> Result<()> {
+        match event {
+            Event::Func(f) => {
+                let name = f.name.clone().unwrap_or("unknown-name".to_string());
+
+                let mut span =
+                    OtelFormatter::new_span(trace_id.clone(), parent_id, name, f.start, f.end);
+                let span_id = span.span_id.clone();
+                if let Some(m) = meta {
+                    if let AdapterMetadata::OpenTelemetry(m) = m {
+                        for entry in m.iter() {
+                            if let Some(v) = entry.value.int_value {
+                                OtelFormatter::add_attribute_i64_to_span(
+                                    &mut span,
+                                    entry.key.clone(),
+                                    v,
+                                )
+                            } else if let Some(v) = entry.value.string_value.clone() {
+                                OtelFormatter::add_attribute_string_to_span(
+                                    &mut span,
+                                    entry.key.clone(),
+                                    v,
+                                )
+                            }
+                        }
+                    }
+                }
+                spans.push(span);
+
+                for e in f.within.iter() {
+                    self.event_to_otel_spans(
+                        spans,
+                        e.to_owned(),
+                        span_id.clone(),
+                        trace_id.clone(),
+                        &meta,
+                    )?;
+                }
+            }
+
+            Event::Alloc(a) => {
+                // add the allocation amount to the sum if exists, if not, create a new allocation attribute on the span
+                if let Some(span) = spans.last_mut() {
+                    let alloc_index = &span
+                        .attributes
+                        .iter()
+                        .position(|attr| attr.key.eq("allocation"));
+                    if let Some(i) = alloc_index {
+                        if let Some(val) = &span.attributes[*i].value {
+                            if let Some(IntValue(v)) = val.value {
+                                let sum_amount = v as u32 + a.amount;
+                                let kv = &mut span.attributes[*i];
+                                kv.value = Some(AnyValue {
+                                    value: Some(IntValue(sum_amount.into())),
+                                });
+                            }
+                        }
+                    } else {
+                        OtelFormatter::add_attribute_i64_to_span(
+                            span,
+                            "allocation".to_string(),
+                            a.amount.into(),
+                        );
+                    }
+                }
+            }
+            _ => {}
+        }
+        Ok(())
     }
 }
 
