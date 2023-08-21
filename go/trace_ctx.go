@@ -128,8 +128,8 @@ func (t *TraceCtx) init(ctx context.Context, r wazero.Runtime) error {
 						f.within = append(f.within, e)
 					}
 				}
+				t.pushFunction(f)
 			}
-			t.pushFunction(f)
 			return
 		}
 
