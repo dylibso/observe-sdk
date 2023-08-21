@@ -2,10 +2,12 @@ package observe
 
 import (
 	"context"
+	"fmt"
 	"log"
 	"time"
 
 	"github.com/tetratelabs/wazero"
+	trace "go.opentelemetry.io/proto/otlp/trace/v1"
 )
 
 // The primary interface that every Adapter needs to follow
@@ -82,6 +84,32 @@ func (b *AdapterBase) Stop(wait bool) {
 	if wait {
 		b.eventBucket.Wait()
 	}
+}
+
+// MakeOtelCallSpans recursively constructs call spans in open telemetry format
+func (b *AdapterBase) MakeOtelCallSpans(event CallEvent, parentId []byte, traceId string) []*trace.Span {
+	name := event.FunctionName()
+	span := NewOtelSpan(traceId, parentId, name, event.Time, event.Time.Add(event.Duration))
+	span.Attributes = append(span.Attributes, NewOtelKeyValueString("function-name", fmt.Sprintf("function-call-%s", name)))
+
+	spans := []*trace.Span{span}
+	for _, ev := range event.Within() {
+		if call, ok := ev.(CallEvent); ok {
+			spans = append(spans, b.MakeOtelCallSpans(call, span.SpanId, traceId)...)
+		}
+		if alloc, ok := ev.(MemoryGrowEvent); ok {
+			last := spans[len(spans)-1]
+
+			kv := NewOtelKeyValueInt64("allocation", int64(alloc.MemoryGrowAmount()))
+			i, existing := GetOtelAttrFromSpan("allocation", last)
+			if existing != nil {
+				last.Attributes[i] = AddOtelKeyValueInt64(kv, existing)
+			} else {
+				last.Attributes = append(last.Attributes, kv)
+			}
+		}
+	}
+	return spans
 }
 
 // Definition of how to filter our Spans to reduce noise

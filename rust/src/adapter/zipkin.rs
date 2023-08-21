@@ -55,7 +55,14 @@ impl ZipkinAdapter {
             }
             Event::Alloc(a) => {
                 if let Some(span) = spans.last_mut() {
-                    span.add_tag_i64("amount".to_string(), a.amount.into());
+                    let key = "amount".to_string();
+                    let mut amount = a.amount;
+                    if let Some(alloc) = span.tags.get(key.as_str()) {
+                        if let Ok(v) = alloc.parse::<u32>() {
+                            amount = v + a.amount;
+                        }
+                    }
+                    span.add_tag_i64(key, amount.into());
                 }
             }
             _ => {}

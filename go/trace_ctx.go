@@ -119,6 +119,17 @@ func (t *TraceCtx) init(ctx context.Context, r wazero.Runtime) error {
 		funcDuration := fn.Duration.Microseconds()
 		minSpanDuration := t.Options.SpanFilter.MinDuration.Microseconds()
 		if funcDuration < minSpanDuration {
+			// check for memory allocations and attribute them to the parent span
+			f, ok = t.popFunction()
+			if ok {
+				for _, ev := range fn.within {
+					switch e := ev.(type) {
+					case MemoryGrowEvent:
+						f.within = append(f.within, e)
+					}
+				}
+			}
+			t.pushFunction(f)
 			return
 		}
 
