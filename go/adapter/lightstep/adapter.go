@@ -3,14 +3,12 @@ package lightstep
 import (
 	"bytes"
 	"context"
-	"fmt"
 	"log"
 	"net/http"
 	"net/url"
 	"time"
 
 	observe "github.com/dylibso/observe-sdk/go"
-	otel "github.com/dylibso/observe-sdk/go/adapter/otel_formatter"
 	trace "go.opentelemetry.io/proto/otlp/trace/v1"
 	proto "google.golang.org/protobuf/proto"
 )
@@ -56,7 +54,7 @@ func (h *LightstepAdapter) Flush(evts []observe.TraceEvent) error {
 		for _, e := range te.Events {
 			switch event := e.(type) {
 			case observe.CallEvent: // TODO: consider renaming to FunctionCall for consistency across Rust & JS
-				spans := h.makeCallSpans(event, nil, traceId)
+				spans := h.MakeOtelCallSpans(event, nil, traceId)
 				if len(spans) > 0 {
 					allSpans = append(allSpans, spans...)
 				}
@@ -71,7 +69,7 @@ func (h *LightstepAdapter) Flush(evts []observe.TraceEvent) error {
 			return nil
 		}
 
-		t := otel.NewTrace(traceId, h.Config.ServiceName, allSpans)
+		t := observe.NewOtelTrace(traceId, h.Config.ServiceName, allSpans)
 		if te.AdapterMeta != nil {
 			meta, ok := te.AdapterMeta.(map[string]string)
 			if ok {
@@ -117,22 +115,4 @@ func (h *LightstepAdapter) Flush(evts []observe.TraceEvent) error {
 	}
 
 	return nil
-}
-
-func (h *LightstepAdapter) makeCallSpans(event observe.CallEvent, parentId []byte, traceId string) []*trace.Span {
-	name := event.FunctionName()
-	span := otel.NewSpan(traceId, parentId, name, event.Time, event.Time.Add(event.Duration))
-	span.Attributes = append(span.Attributes, otel.NewKeyValueString("function-name", fmt.Sprintf("function-call-%s", name)))
-
-	spans := []*trace.Span{span}
-	for _, ev := range event.Within() {
-		if call, ok := ev.(observe.CallEvent); ok {
-			spans = append(spans, h.makeCallSpans(call, span.SpanId, traceId)...)
-		}
-		if alloc, ok := ev.(observe.MemoryGrowEvent); ok {
-			last := spans[len(spans)-1]
-			last.Attributes = append(last.Attributes, otel.NewKeyValueInt64("allocation", int64(alloc.MemoryGrowAmount())))
-		}
-	}
-	return spans
 }
