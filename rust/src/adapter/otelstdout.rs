@@ -1,12 +1,9 @@
 use std::vec;
 
-use crate::{Event, TraceEvent};
+use crate::TraceEvent;
 use anyhow::Result;
 
-use super::{
-    otel_formatter::{opentelemetry, OtelFormatter},
-    Adapter, AdapterHandle,
-};
+use super::{otel_formatter::OtelFormatter, Adapter, AdapterHandle};
 
 /// An adapter to send events from your module to stdout using OpenTelemetry json format.
 pub struct OtelStdoutAdapter {}
