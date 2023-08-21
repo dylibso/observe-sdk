@@ -37,8 +37,19 @@ export class Trace {
   }
 }
 
+const allocationKey = 'allocation';
+
 export const addAllocation = (span: Span, amount: MemoryGrowAmount) => {
-  span.meta.set("allocation", amount.toString());
+  let sumAmount = amount;
+  let existingAllocation = span.meta[allocationKey];
+  if (existingAllocation) {
+    try {
+      sumAmount = parseInt(existingAllocation) + amount;
+    } catch (e) {
+      console.error(e)
+    }
+  }
+  span.meta.set(allocationKey, sumAmount.toString());
 };
 
 export class DatadogFormatter {

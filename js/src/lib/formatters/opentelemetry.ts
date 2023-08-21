@@ -53,17 +53,30 @@ function eventToSpans(trace: Trace, spans: Span[], ev: ObserveEvent, parentId?: 
 
         ev.within.forEach((e) => {
             eventToSpans(trace, spans, e, span.spanId);
-        })
+        });
     }
     else if (ev instanceof MemoryGrow) {
-        const span = newSpan(trace, 'allocation', ev.start, ev.start, parentId);
-        span.attributes.push({
-            key: 'amount',
-            value: {
-                intValue: ev.amount,
-            }
-        })
-        spans.push(span);
+        const span = spans[spans.length - 1];
+        let existingIndex = -1;
+        const existing = span.attributes.find((a, i) => {
+            existingIndex = i;
+            return a.key === 'amount'
+        });
+        if (existing) {
+            span.attributes[existingIndex] = {
+                key: 'amount',
+                value: {
+                    intValue: ev.amount + existing.value.intValue
+                }
+            };
+        } else {
+            span.attributes.push({
+                key: 'amount',
+                value: {
+                    intValue: ev.amount,
+                }
+            });
+        }
     }
 }
 
