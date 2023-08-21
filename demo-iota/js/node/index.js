@@ -60,7 +60,7 @@ app.post('/run', async (req, res) => {
         })
         wasi.start(instance)
         traceContext.setMetadata({
-            http_status_code: 200,
+            http_status_code: '200',
             http_url: `${req.protocol}://${req.headers['host']}${req.originalUrl}`,
         });
         traceContext.stop()

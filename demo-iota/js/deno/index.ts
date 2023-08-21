@@ -66,7 +66,7 @@ router.post('/run', async (ctx) => {
         runtime.start(instance)
         traceContext.stop()
 
-        ctx.response.status = 200
+        ctx.response.status = '200'
         ctx.response.body = `/run request complete`
     } catch (e) {
         console.error(e)
