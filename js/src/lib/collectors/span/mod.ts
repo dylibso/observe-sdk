@@ -82,6 +82,16 @@ export class SpanCollector implements Collector {
     const funcDuration = fn.duration() * 1e-3;
     const minSpanDuration = this.opts.spanFilter.minDurationMicroseconds;
     if (funcDuration < minSpanDuration) {
+      // check for memory allocations and attribute them to the parent span before filtering
+      const f = this.stack.pop();
+      if (f) {
+        fn.within.forEach((ev) => {
+          if (ev instanceof MemoryGrow) {
+            f.within.push(ev);
+          }
+        });
+        this.stack.push(f);
+      }
       return;
     }
 

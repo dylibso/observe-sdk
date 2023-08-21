@@ -40,6 +40,7 @@ export function traceFromEvents(serviceName: string, events: ObserveEvent[]): Tr
     return trace;
 }
 
+const allocationKey = 'allocation';
 /**
  * 
  * @param trace - all spans created will be tied to this trace
@@ -53,17 +54,30 @@ function eventToSpans(trace: Trace, spans: Span[], ev: ObserveEvent, parentId?: 
 
         ev.within.forEach((e) => {
             eventToSpans(trace, spans, e, span.spanId);
-        })
+        });
     }
     else if (ev instanceof MemoryGrow) {
-        const span = newSpan(trace, 'allocation', ev.start, ev.start, parentId);
-        span.attributes.push({
-            key: 'amount',
-            value: {
-                intValue: ev.amount,
-            }
-        })
-        spans.push(span);
+        const span = spans[spans.length - 1];
+        let existingIndex = -1;
+        const existing = span.attributes.find((a, i) => {
+            existingIndex = i;
+            return a.key === allocationKey
+        });
+        if (existing) {
+            span.attributes[existingIndex] = {
+                key: allocationKey,
+                value: {
+                    intValue: ev.amount + existing.value.intValue
+                }
+            };
+        } else {
+            span.attributes.push({
+                key: allocationKey,
+                value: {
+                    intValue: ev.amount,
+                }
+            });
+        }
     }
 }
 
