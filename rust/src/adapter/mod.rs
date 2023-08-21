@@ -196,10 +196,22 @@ pub enum AdapterMetadata {
     OpenTelemetry(Vec<Attribute>),
 }
 
+const MIN_SPAN_FILTER_DURATION_DEFAULT: u64 = 20;
+
 /// SpanFilter allows for specification of how to filter out spans
 #[derive(Clone)]
 pub struct SpanFilter {
     pub min_duration_microseconds: std::time::Duration,
+}
+
+impl Default for SpanFilter {
+    fn default() -> Self {
+        Self {
+            min_duration_microseconds: std::time::Duration::from_micros(
+                MIN_SPAN_FILTER_DURATION_DEFAULT,
+            ),
+        }
+    }
 }
 
 /// Options allow you to tune certain characteristics of your telemetry
@@ -208,11 +220,14 @@ pub struct Options {
     pub span_filter: SpanFilter,
 }
 
-/// default_options is a convenience method for setting sane default options
-pub fn default_options() -> Options {
-    Options {
-        span_filter: SpanFilter {
-            min_duration_microseconds: std::time::Duration::from_micros(20),
-        },
+impl Default for Options {
+    fn default() -> Self {
+        Self {
+            span_filter: SpanFilter {
+                min_duration_microseconds: std::time::Duration::from_micros(
+                    MIN_SPAN_FILTER_DURATION_DEFAULT,
+                ),
+            },
+        }
     }
 }
