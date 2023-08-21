@@ -4,3 +4,5 @@ target
 .env
 build.js
 node_modules
+demo-iota/js/deno/packages
+demo-iota/js/node/packages
