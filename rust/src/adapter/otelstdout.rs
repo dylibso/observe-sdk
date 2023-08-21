@@ -1,6 +1,6 @@
 use std::vec;
 
-use crate::{Event, TraceEvent};
+use crate::{adapter::otel_formatter::opentelemetry::proto::trace, Event, TraceEvent};
 use anyhow::Result;
 
 use super::{
@@ -16,7 +16,13 @@ impl Adapter for OtelStdoutAdapter {
         let mut spans = vec![];
         let trace_id = trace_evt.telemetry_id.to_hex_16();
         for span in trace_evt.events {
-            self.event_to_spans(&mut spans, span, vec![], trace_id.clone())?;
+            self.event_to_otel_spans(
+                &mut spans,
+                span,
+                vec![],
+                trace_id.clone(),
+                &trace_evt.metadata,
+            )?;
         }
         let otf = OtelFormatter::new(spans, "stdout".into());
         println!("{:?}", &otf.traces_data);
@@ -30,39 +36,5 @@ impl OtelStdoutAdapter {
     /// your rust application.
     pub fn create() -> AdapterHandle {
         Self::spawn(Self {})
-    }
-
-    fn event_to_spans(
-        &self,
-        spans: &mut Vec<opentelemetry::proto::trace::v1::Span>,
-        event: Event,
-        parent_id: Vec<u8>,
-        trace_id: String,
-    ) -> Result<()> {
-        match event {
-            Event::Func(f) => {
-                let name = f.name.clone().unwrap_or("unknown-name".to_string());
-
-                let span =
-                    OtelFormatter::new_span(trace_id.clone(), parent_id, name, f.start, f.end);
-                let span_id = span.span_id.clone();
-                spans.push(span);
-
-                for e in f.within.iter() {
-                    self.event_to_spans(spans, e.to_owned(), span_id.clone(), trace_id.clone())?;
-                }
-            }
-            Event::Alloc(a) => {
-                if let Some(span) = spans.last_mut() {
-                    OtelFormatter::add_attribute_i64_to_span(
-                        span,
-                        "allocation".to_string(),
-                        a.amount.into(),
-                    );
-                }
-            }
-            _ => {}
-        }
-        Ok(())
     }
 }

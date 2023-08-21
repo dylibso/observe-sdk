@@ -97,6 +97,16 @@ impl InstrumentationContext {
                     .min_duration_microseconds
                     .as_micros();
                 if func_duration < min_span_duration {
+                    // check for memory allocations and attribute them to the parent span
+                    if let Some(mut f) = self.stack.pop() {
+                        func.within.into_iter().for_each(|ev| match ev {
+                            Event::Alloc(e) => {
+                                f.within.push(Event::Alloc(e));
+                            }
+                            _ => {}
+                        });
+                        self.stack.push(f);
+                    }
                     return Ok(());
                 }
 

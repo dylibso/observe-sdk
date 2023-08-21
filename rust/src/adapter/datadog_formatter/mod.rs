@@ -68,8 +68,15 @@ impl Span {
     }
 
     pub fn add_allocation(&mut self, amount: u32) {
-        self.meta
-            .insert("allocation".to_string(), amount.to_string());
+        let key = "allocation".to_string();
+        if let Some(alloc) = self.meta.get(key.as_str()) {
+            if let Ok(v) = alloc.parse::<u32>() {
+                let sum_amount = v + amount;
+                self.meta.insert(key, sum_amount.to_string());
+            }
+        } else {
+            self.meta.insert(key, amount.to_string());
+        }
     }
 
     pub fn add_tag(&mut self, tag: String) {

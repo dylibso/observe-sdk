@@ -33,7 +33,7 @@ pub async fn main() -> anyhow::Result<()> {
 
     let options = Options {
         span_filter: SpanFilter {
-            min_duration_microseconds: std::time::Duration::from_micros(20),
+            min_duration_microseconds: std::time::Duration::from_micros(2000),
         },
     };
     // Provide the observability functions to the `Linker` to be made available
