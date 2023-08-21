@@ -46,7 +46,7 @@ export const addAllocation = (span: Span, amount: MemoryGrowAmount) => {
     try {
       sumAmount = parseInt(existingAllocation) + amount;
     } catch (e) {
-      console.error(e)
+      console.error(e);
     }
   }
   span.meta.set(allocationKey, sumAmount.toString());

@@ -40,6 +40,7 @@ export function traceFromEvents(serviceName: string, events: ObserveEvent[]): Tr
     return trace;
 }
 
+const allocationKey = 'allocation';
 /**
  * 
  * @param trace - all spans created will be tied to this trace
@@ -60,18 +61,18 @@ function eventToSpans(trace: Trace, spans: Span[], ev: ObserveEvent, parentId?: 
         let existingIndex = -1;
         const existing = span.attributes.find((a, i) => {
             existingIndex = i;
-            return a.key === 'amount'
+            return a.key === allocationKey
         });
         if (existing) {
             span.attributes[existingIndex] = {
-                key: 'amount',
+                key: allocationKey,
                 value: {
                     intValue: ev.amount + existing.value.intValue
                 }
             };
         } else {
             span.attributes.push({
-                key: 'amount',
+                key: allocationKey,
                 value: {
                     intValue: ev.amount,
                 }
