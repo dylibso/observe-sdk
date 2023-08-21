@@ -1,6 +1,6 @@
 use std::vec;
 
-use crate::{adapter::otel_formatter::opentelemetry::proto::trace, Event, TraceEvent};
+use crate::{Event, TraceEvent};
 use anyhow::Result;
 
 use super::{
