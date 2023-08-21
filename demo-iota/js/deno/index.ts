@@ -31,7 +31,7 @@ router.post('/upload', async (ctx) => {
                 if (name === 'wasm') {
                     const filename = `${tmpdir()}/${qs.get('name')}.wasm`
                     // truncate the carriage return / line feed that gets appended to the form data
-                    await Deno.writeFile(filename, v.content.slice(0, v.content.length-2))
+                    await Deno.writeFile(filename, v.content.slice(0, v.content.length - 2))
                     console.log(`Successfully uploaded ${filename}`)
                 }
             }
@@ -57,11 +57,11 @@ router.post('/run', async (ctx) => {
             stdout: Deno.stdout.rid,
         })
         const instance = new WebAssembly.Instance(
-        module,
-        {
-            'wasi_snapshot_preview1': runtime.exports,
-            ...traceContext.getImportObject(),
-        },
+            module,
+            {
+                'wasi_snapshot_preview1': runtime.exports,
+                ...traceContext.getImportObject(),
+            },
         )
         runtime.start(instance)
         traceContext.stop()
