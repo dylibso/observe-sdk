@@ -1,11 +1,11 @@
-FROM denoland/deno:debian-1.36.1
+FROM denoland/deno:1.36.1
 
 EXPOSE 3000
 
 # install curl, so we can install nvm, so we can install node
 ENV PATH="${PATH}:/usr/bin"
 ENV NODE_VERSION=20.4.0
-RUN apt update; apt install -y curl;
+RUN apt update; apt install -y curl; apt install -y python3;
 RUN curl -o- https://raw.githubusercontent.com/nvm-sh/nvm/v0.39.4/install.sh | bash
 
 ENV NVM_DIR=/root/.nvm
