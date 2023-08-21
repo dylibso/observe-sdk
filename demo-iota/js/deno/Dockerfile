@@ -1,4 +1,4 @@
-FROM denoland/deno:debian-1.36.1
+FROM denoland/deno:1.36.1
 
 EXPOSE 3000
 
@@ -18,6 +18,10 @@ RUN npm --version
 
 ADD /js /js
 ADD /demo-iota/js/deno /demo-iota/js/deno
+
+# install build dependencies used for each adapter
+WORKDIR /js
+RUN npm i
 
 # build the packages for each adapter
 WORKDIR /js/packages/observe-sdk-datadog
