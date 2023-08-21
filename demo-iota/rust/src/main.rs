@@ -11,7 +11,7 @@ use axum::{
     Router,
 };
 use dylibso_observe_sdk::adapter::{
-    datadog::{DatadogAdapter, DatadogConfig},
+    datadog::{DatadogAdapter, DatadogConfig, Options, SpanFilter},
     AdapterHandle,
 };
 use serde::Deserialize;
@@ -77,7 +77,12 @@ async fn run_module(
     wasmtime_wasi::add_to_linker(&mut linker, |wasi| wasi).unwrap();
 
     let adapter = state.clone();
-    let trace_ctx = adapter.start(&mut linker, &data).unwrap();
+    let options = Options {
+        span_filter: SpanFilter {
+            min_duration_microseconds: std::time::Duration::from_micros(100),
+        },
+    };
+    let trace_ctx = adapter.start(&mut linker, &data, options).unwrap();
 
     let instance = linker.instantiate(&mut store, &module).unwrap();
 
