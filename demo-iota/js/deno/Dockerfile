@@ -9,7 +9,7 @@ RUN apt update
 RUN apt install -y curl
 RUN apt install -y python3
 RUN apt install -y make
-RUN apt install -y gcc;
+RUN apt install -y gcc
 RUN curl -o- https://raw.githubusercontent.com/nvm-sh/nvm/v0.39.4/install.sh | bash
 
 ENV NVM_DIR=/root/.nvm
