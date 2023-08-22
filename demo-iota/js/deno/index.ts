@@ -65,6 +65,10 @@ router.post('/run', async (ctx) => {
         )
         runtime.start(instance)
         traceContext.stop()
+        traceContext.setMetadata({
+            http_status_code: '200',
+            http_url: `${req.proto}://${req.headers['host']}${req.originalUrl}`,
+        });
 
         ctx.response.status = '200'
         ctx.response.body = `/run request complete`

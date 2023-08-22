@@ -49,7 +49,7 @@ export const addAllocation = (span: Span, amount: MemoryGrowAmount) => {
       console.error(e);
     }
   }
-  span.meta.set(allocationKey, sumAmount.toString());
+  span.meta[allocationKey] = sumAmount.toString();
 };
 
 export class DatadogFormatter {
