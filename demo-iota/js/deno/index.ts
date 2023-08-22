@@ -37,6 +37,7 @@ router.post('/upload', async (ctx) => {
             }
         }
         ctx.response.status = 200
+        ctx.response.body = ''
     } catch (e) {
         console.error(e)
         ctx.response.status = 500
@@ -74,6 +75,7 @@ router.post('/run', async (ctx) => {
 
         await stdout.seek(0, Deno.SeekMode.Start);
         ctx.response.body = stdout.readable
+        Deno.remove(stdoutPath)
     } catch (e) {
         console.error(e)
         ctx.response.status = 500
