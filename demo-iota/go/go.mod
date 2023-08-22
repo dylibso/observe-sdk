@@ -7,10 +7,11 @@ require (
 	github.com/tetratelabs/wazero v1.4.0
 )
 
-// TODO: get this working in Docker
-// replace github.com/dylibso/observe-sdk/go => ../../go
+replace github.com/dylibso/observe-sdk/go => ../../go
 
 require (
 	github.com/ianlancetaylor/demangle v0.0.0-20230524184225-eabc099b10ab // indirect
 	github.com/tetratelabs/wabin v0.0.0-20230304001439-f6f874872834 // indirect
+	go.opentelemetry.io/proto/otlp v1.0.0 // indirect
+	google.golang.org/protobuf v1.31.0 // indirect
 )
