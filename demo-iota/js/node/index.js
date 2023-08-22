@@ -47,7 +47,6 @@ app.post('/run', async (req, res) => {
     try {
         const stdoutPath = `${os.tmpdir}/stdout_${Math.ceil(Math.random() * 10000)}.txt`
         const stdout = fs.openSync(stdoutPath, 'w')
-        console.log(stdout)
         const wasi = new WASI({
             version: 'preview1',
             args: argv.slice(1),
@@ -55,7 +54,6 @@ app.post('/run', async (req, res) => {
             env,
         })
         const bytes = fs.readFileSync(`${os.tmpdir()}/${req.query['name']}.wasm`)
-
         const traceContext = await adapter.start(bytes)
         const module = new WebAssembly.Module(bytes)
         const instance = await WebAssembly.instantiate(module, {
