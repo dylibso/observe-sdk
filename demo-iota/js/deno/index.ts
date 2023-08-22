@@ -37,7 +37,6 @@ router.post('/upload', async (ctx) => {
             }
         }
         ctx.response.status = 200
-        ctx.response.body = `/upload request complete`
     } catch (e) {
         console.error(e)
         ctx.response.status = 500
@@ -46,6 +45,8 @@ router.post('/upload', async (ctx) => {
 
 router.post('/run', async (ctx) => {
     try {
+        const stdoutPath = `${tmpdir()}/stdout_${Math.ceil(Math.random() * 10000)}.txt`
+        const stdout = await Deno.create(stdoutPath)
         const req = ctx.request
         const qs = new URLSearchParams(req.url.search)
         const bytes = await Deno.readFile(`${tmpdir()}/${qs.get('name')}.wasm`)
@@ -54,7 +55,7 @@ router.post('/run', async (ctx) => {
 
         const runtime = new Context({
             stdin: Deno.stdin.rid,
-            stdout: Deno.stdout.rid,
+            stdout: stdout.rid,
         })
         const instance = new WebAssembly.Instance(
             module,
@@ -64,14 +65,15 @@ router.post('/run', async (ctx) => {
             },
         )
         runtime.start(instance)
-        traceContext.stop()
         traceContext.setMetadata({
             http_status_code: '200',
             http_url: `${req.proto}://${req.headers['host']}${req.originalUrl}`,
         });
-
+        traceContext.stop()
         ctx.response.status = '200'
-        ctx.response.body = `/run request complete`
+
+        await stdout.seek(0, Deno.SeekMode.Start);
+        ctx.response.body = stdout.readable
     } catch (e) {
         console.error(e)
         ctx.response.status = 500
