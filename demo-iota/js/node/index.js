@@ -36,6 +36,7 @@ app.post('/upload', upload.single('wasm'), (req, res) => {
         const _ = fs.readFileSync(`${os.tmpdir()}/${req.query['name']}.wasm`)
         console.log(`Successfully uploaded ${req.query['name']}.wasm`)
         res.status(200)
+        res.send()
     } catch (e) {
         console.error(e)
         res.sendStatus(500)
