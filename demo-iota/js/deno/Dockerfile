@@ -5,7 +5,11 @@ EXPOSE 3000
 # install curl, so we can install nvm, so we can install node
 ENV PATH="${PATH}:/usr/bin"
 ENV NODE_VERSION=20.4.0
-RUN apt update; apt install -y curl; apt install -y python3; apt-get install make;
+RUN apt update
+RUN apt install -y curl
+RUN apt install -y python3
+RUN apt install -y make
+RUN apt install -y gcc;
 RUN curl -o- https://raw.githubusercontent.com/nvm-sh/nvm/v0.39.4/install.sh | bash
 
 ENV NVM_DIR=/root/.nvm
