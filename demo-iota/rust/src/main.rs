@@ -70,7 +70,7 @@ async fn run_module(
     let wasi = WasiCtxBuilder::new()
         .stdin(Box::new(stdin.clone()))
         .stdout(Box::new(stdout.clone()))
-        .arg("").unwrap()
+        .arg(&query.name).unwrap()
         .build();
 
     let mut store = wasmtime::Store::new(&engine, wasi);
