@@ -6,8 +6,11 @@ RUN curl https://sh.rustup.rs -sSf | bash -s -- -y
 ENV PATH="/root/.cargo/bin:${PATH}"
 RUN rustup toolchain add stable
 
-WORKDIR /usr/src/myapp
-COPY . .
+ADD /rust /app/rust
+ADD /proto /app/proto
+ADD /demo-iota/rust /app/demo-iota/rust
+
+WORKDIR /app/demo-iota/rust
 RUN cargo install --path .
 
 CMD ["iota"]
