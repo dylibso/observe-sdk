@@ -17,6 +17,7 @@ const storage = multer.diskStorage(
 )
 const upload = multer({ storage })
 const app = express()
+app.use(bodyParser.raw({ type: () => true }));
 
 const config = {
     agentHost: new URL("http://ddagent:8126"),
