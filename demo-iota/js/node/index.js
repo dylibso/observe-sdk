@@ -36,7 +36,7 @@ app.post('/upload', upload.single('wasm'), (req, res) => {
         const _ = fs.readFileSync(`${os.tmpdir()}/${req.query['name']}.wasm`)
         console.log(`Successfully uploaded ${req.query['name']}.wasm`)
         res.status(200)
-        res.send('/upload request complete')
+        res.send()
     } catch (e) {
         console.error(e)
         res.sendStatus(500)
@@ -45,13 +45,15 @@ app.post('/upload', upload.single('wasm'), (req, res) => {
 
 app.post('/run', async (req, res) => {
     try {
+        const stdoutPath = `${os.tmpdir}/stdout_${Math.ceil(Math.random() * 10000)}.txt`
+        const stdout = fs.openSync(stdoutPath, 'w')
         const wasi = new WASI({
             version: 'preview1',
             args: argv.slice(1),
+            stdout: stdout,
             env,
         })
         const bytes = fs.readFileSync(`${os.tmpdir()}/${req.query['name']}.wasm`)
-
         const traceContext = await adapter.start(bytes)
         const module = new WebAssembly.Module(bytes)
         const instance = await WebAssembly.instantiate(module, {
@@ -60,12 +62,13 @@ app.post('/run', async (req, res) => {
         })
         wasi.start(instance)
         traceContext.setMetadata({
-            http_status_code: 200,
+            http_status_code: '200',
             http_url: `${req.protocol}://${req.headers['host']}${req.originalUrl}`,
-        });
+        })
         traceContext.stop()
         res.status(200)
-        res.send('/run request complete')
+        res.send(fs.readFileSync(stdoutPath))
+        fs.unlinkSync(stdoutPath)
     } catch (e) {
         console.error(e)
         res.sendStatus(500)

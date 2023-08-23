@@ -31,13 +31,13 @@ router.post('/upload', async (ctx) => {
                 if (name === 'wasm') {
                     const filename = `${tmpdir()}/${qs.get('name')}.wasm`
                     // truncate the carriage return / line feed that gets appended to the form data
-                    await Deno.writeFile(filename, v.content.slice(0, v.content.length-2))
+                    await Deno.writeFile(filename, v.content.slice(0, v.content.length - 2))
                     console.log(`Successfully uploaded ${filename}`)
                 }
             }
         }
         ctx.response.status = 200
-        ctx.response.body = `/upload request complete`
+        ctx.response.body = ''
     } catch (e) {
         console.error(e)
         ctx.response.status = 500
@@ -46,6 +46,8 @@ router.post('/upload', async (ctx) => {
 
 router.post('/run', async (ctx) => {
     try {
+        const stdoutPath = `${tmpdir()}/stdout_${Math.ceil(Math.random() * 10000)}.txt`
+        const stdout = await Deno.create(stdoutPath)
         const req = ctx.request
         const qs = new URLSearchParams(req.url.search)
         const bytes = await Deno.readFile(`${tmpdir()}/${qs.get('name')}.wasm`)
@@ -54,20 +56,26 @@ router.post('/run', async (ctx) => {
 
         const runtime = new Context({
             stdin: Deno.stdin.rid,
-            stdout: Deno.stdout.rid,
+            stdout: stdout.rid,
         })
         const instance = new WebAssembly.Instance(
-        module,
-        {
-            'wasi_snapshot_preview1': runtime.exports,
-            ...traceContext.getImportObject(),
-        },
+            module,
+            {
+                'wasi_snapshot_preview1': runtime.exports,
+                ...traceContext.getImportObject(),
+            },
         )
         runtime.start(instance)
+        traceContext.setMetadata({
+            http_status_code: '200',
+            http_url: `${req.proto}://${req.headers['host']}${req.originalUrl}`,
+        });
         traceContext.stop()
+        ctx.response.status = '200'
 
-        ctx.response.status = 200
-        ctx.response.body = `/run request complete`
+        await stdout.seek(0, Deno.SeekMode.Start);
+        ctx.response.body = stdout.readable
+        Deno.remove(stdoutPath)
     } catch (e) {
         console.error(e)
         ctx.response.status = 500

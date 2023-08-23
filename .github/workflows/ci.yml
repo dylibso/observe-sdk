@@ -104,5 +104,3 @@ jobs:
             | head -n 1 \
             | jq '.resourceSpans[].scopeSpans[].spans[0].attributes[0]' \
             | jq '.key == "function_name", .value.stringValue == "_start"'
-
-
