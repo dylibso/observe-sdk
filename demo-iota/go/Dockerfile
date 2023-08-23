@@ -1,10 +1,11 @@
 FROM golang:1.19
 
-WORKDIR /app
-COPY go.mod go.sum ./
-RUN go mod download
+ADD /go /app/go
+ADD /demo-iota/go /app/demo-iota/go
 
-COPY *.go ./
+WORKDIR /app/demo-iota/go/
+RUN go mod tidy
+
 RUN go build -o /iota
 CMD ["/iota"]
 
