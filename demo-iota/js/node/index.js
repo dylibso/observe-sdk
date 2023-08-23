@@ -17,7 +17,6 @@ const storage = multer.diskStorage(
 )
 const upload = multer({ storage })
 const app = express()
-app.use(bodyParser.raw({ type: () => true }));
 
 const config = {
     agentHost: new URL("http://ddagent:8126"),
@@ -45,7 +44,7 @@ app.post('/upload', upload.single('wasm'), (req, res) => {
     }
 })
 
-app.post('/run', async (req, res) => {
+app.post('/run', bodyParser.raw({ limit: '256mb', type: () => true }), async (req, res) => {
     try {
         const stdoutPath = `${os.tmpdir}/stdout_${Math.ceil(Math.random() * 10000)}.txt`
         const stdout = fs.openSync(stdoutPath, 'w')
