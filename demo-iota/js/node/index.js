@@ -3,8 +3,9 @@ const os = require('os')
 const multer = require('multer')
 const fs = require('fs');
 const { WASI } = require('wasi');
-const { env, argv } = require('node:process');
+const { env } = require('node:process');
 const { DatadogAdapter } = require('../../../js/packages/observe-sdk-datadog');
+const bodyParser = require('body-parser')
 
 const storage = multer.diskStorage(
     {
@@ -16,6 +17,7 @@ const storage = multer.diskStorage(
 )
 const upload = multer({ storage })
 const app = express()
+app.use(bodyParser.raw({ type: () => true }));
 
 const config = {
     agentHost: new URL("http://ddagent:8126"),
@@ -47,10 +49,15 @@ app.post('/run', async (req, res) => {
     try {
         const stdoutPath = `${os.tmpdir}/stdout_${Math.ceil(Math.random() * 10000)}.txt`
         const stdout = fs.openSync(stdoutPath, 'w')
+        const stdinPath = `${os.tmpdir}/stdin_${Math.ceil(Math.random() * 10000)}.txt`
+        fs.writeFileSync(stdinPath, req.body)
+        const stdin = fs.openSync(stdinPath)
+        
         const wasi = new WASI({
             version: 'preview1',
-            args: argv.slice(1),
-            stdout: stdout,
+            args: [req.query['name']],
+            stdin,
+            stdout,
             env,
         })
         const bytes = fs.readFileSync(`${os.tmpdir()}/${req.query['name']}.wasm`)
@@ -69,6 +76,7 @@ app.post('/run', async (req, res) => {
         res.status(200)
         res.send(fs.readFileSync(stdoutPath))
         fs.unlinkSync(stdoutPath)
+        fs.unlinkSync(stdinPath)
     } catch (e) {
         console.error(e)
         res.sendStatus(500)
