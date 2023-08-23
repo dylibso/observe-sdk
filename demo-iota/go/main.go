@@ -129,7 +129,7 @@ func (s *server) runModule(res http.ResponseWriter, req *http.Request) {
 	}
 	wasi_snapshot_preview1.MustInstantiate(ctx, rt)
 	output := &bytes.Buffer{}
-	config := wazero.NewModuleConfig().WithStdin(req.Body).WithStdout(output)
+	config := wazero.NewModuleConfig().WithStdin(req.Body).WithStdout(output).WithArgs(name)
 	defer req.Body.Close()
 
 	mod, err := rt.InstantiateWithConfig(ctx, wasm, config)
