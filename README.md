@@ -65,17 +65,14 @@ There are two ways to instrument the Wasm modules: automatically and manually.
 
 ### Automatically instrument your Wasm
 
-At the moment, the SDKs expect the Wasm code to be instrumented using our instrumenting
-compiler. This is a tool that can look at your Wasm and recompile it with instrumentation built in.
-Access to this compiler is free but available only on request of an API key. The easiest way to use it is to send up your Wasm with
-curl and get an instrumented Wasm module back:
+The easiest way to instrument your code right now is to use our instrumenting compiler. This is a tool that can look at your Wasm and recompile it with instrumentation built in.
+The compiler is available as a service. You can generate a key to use [this service for free here](https://compiler-preview.dylibso.com/).
+
+To use the key:
 
 ```
 curl --fail -F wasm=@code.wasm https://compiler-preview.dylibso.com/instrument -X POST -H 'Authorization: Bearer <your-api-key>' > code.instr.wasm
 ```
-
-:key: **You can get an API key by contacting
-[support@dylibso.com](mailto:support@dylibso.com).**
 
 > **Note**: The Instrumentation Service
 > (https://compiler-preview.dylibso.com/instrument) only re-compiles a .wasm
