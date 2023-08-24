@@ -9,8 +9,8 @@ doctest = false
 
 [dependencies]
 anyhow = "1"
-wasmtime = "8.0.0"
-wasmtime-wasi = "8.0.0"
+wasmtime = ">= 8"
+wasmtime-wasi = ">= 8"
 tokio = { version = "1", features = ["sync", "rt-multi-thread", "macros"] }
 rand = "0"
 modsurfer-demangle = { git = "https://github.com/dylibso/modsurfer" }
