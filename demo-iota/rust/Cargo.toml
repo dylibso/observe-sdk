@@ -12,8 +12,8 @@ anyhow = "1.0.71"
 axum = { version = "0.6.18", features = ["multipart"] }
 serde = "1.0.164"
 tokio = { version = "1.28.2", features = ["macros", "rt-multi-thread"] }
-wasi-common = "8.0.0"
-wasmtime = "8.0.0"
-wasmtime-wasi = "8.0.0"
-dylibso-observe-sdk = { git = "https://github.com/dylibso/observe-sdk", branch = "main" }
+wasi-common = ">= 8"
+wasmtime = ">= 8"
+wasmtime-wasi = ">= 8"
+dylibso-observe-sdk = { path = "../../rust" }
 futures-util = "0.3.28"
