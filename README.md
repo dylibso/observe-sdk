@@ -26,11 +26,11 @@ Adapter, please open an issue here or email
 **Note:** Any supported Runtime SDK can be paired with any Adapter from the same
 language.
 
-| Language   | Runtime SDKs                             | Adapters                                                                                                                                  |
-| ---------- | ---------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------- |
-| Rust       | [Wasmtime](/rust)                        | [Datadog](/rust/src/adapter/datadog.rs), [OpenTelemetry (STDOUT)](/rust/src/adapter/otelstdout.rs), [Zipkin](/rust/src/adapter/zipkin.rs) |
-| Go         | [Wazero](/go)                            | [Datadog](/go/adapter/datadog/), [OpenTelemetry (STDOUT)](/go/adapter/otel_stdout/)                                                       |
-| JavaScript | [Native](/js) (Browser, Node, Deno, Bun) | [Datadog](/js/packages/observe-sdk-datadog)                                                                                               |
+| Language   | Runtime SDKs                             | Adapters                                                                                                                                                                                                                            |
+| ---------- | ---------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Rust       | [Wasmtime](/rust)                        | [Datadog](/rust/src/adapter/datadog.rs), [Honeycomb](/rust/src/adapter/honeycomb.rs), [Lightstep](/rust/src/adapter/lightstep.rs), [OpenTelemetry (stdout)](/rust/src/adapter/otelstdout.rs), [Zipkin](/rust/src/adapter/zipkin.rs) |
+| Go         | [Wazero](/go)                            | [Datadog](/go/adapter/datadog/), [Honeycomb](/go/adapter/honeycomb/), [Lightstep](/go/adapter/lightstep/), [OpenTelemetry (stdout)](/go/adapter/otel_stdout/)                                                                       |
+| JavaScript | [Native](/js) (Browser, Node, Deno, Bun) | [Datadog](/js/packages/observe-sdk-datadog), [Honeycomb](/js/packages/observe-sdk-honeycomb), [Lightstep](/js/packages/observe-sdk-lightstep)                                                                                       |
 
 _More languages, SDKs, and adapters are coming soon! Reach out to help us
 prioritize these additional components
@@ -45,11 +45,14 @@ There are two components to this process:
 
 ## Including a runtime SDK and an Adapter
 
-First you should choose a Host SDK corresponding to your host application's language and Wasm runtime.
-The Host SDK captures raw observability events from the running Wasm module and sends them to an adapter.
-You must choose an adapter based on where you want your data to go. At the moment, we support a few systems out of the box.
-In the future we will support a lot more and will have more community driven options. If you don't see support for your
-favorite observability tools feel free to reach out to us at ([support@dylibso.com](mailto:support@dylibso.com)).
+First you should choose a Host SDK corresponding to your host application's
+language and Wasm runtime. The Host SDK captures raw observability events from
+the running Wasm module and sends them to an adapter. You must choose an adapter
+based on where you want your data to go. At the moment, we support a few systems
+out of the box. In the future we will support a lot more and will have more
+community driven options. If you don't see support for your favorite
+observability tools feel free to reach out to us at
+([support@dylibso.com](mailto:support@dylibso.com)).
 
 Each language includes some examples demonstrating use with different adapters.
 You can view these examples here:
@@ -62,11 +65,13 @@ You can view these examples here:
 
 There are two ways to instrument the Wasm modules: automatically and manually.
 
-
 ### Automatically instrument your Wasm
 
-The easiest way to instrument your code right now is to use our instrumenting compiler. This is a tool that can look at your Wasm and recompile it with instrumentation built in.
-The compiler is available as a service. You can generate a key to use [this service for free here](https://compiler-preview.dylibso.com/).
+The easiest way to instrument your code right now is to use our instrumenting
+compiler. This is a tool that can look at your Wasm and recompile it with
+instrumentation built in. The compiler is available as a service. You can
+generate a key to use
+[this service for free here](https://compiler-preview.dylibso.com/).
 
 To use the key:
 
@@ -85,11 +90,16 @@ curl --fail -F wasm=@code.wasm https://compiler-preview.dylibso.com/instrument -
 
 ### Manually instrument your Wasm
 
-The Host SDKs expose a series of host functions that make up our *Observe API*. You can code directly against this if you wish.
-Because we are still changing and experimenting with this API, we have not built much tooling or support for this yet. See [the Observe API README](observe-api/) to learn more about the API and the language bindings we provide.
+The Host SDKs expose a series of host functions that make up our _Observe API_.
+You can code directly against this if you wish. Because we are still changing
+and experimenting with this API, we have not built much tooling or support for
+this yet. See [the Observe API README](observe-api/) to learn more about the API
+and the language bindings we provide.
 
-Expect to see some documentation and alpha tools by September 2023. We will be building out a lot of the language specific layers, but we hope the community
-can help by building tools on top of it and integrating with existing libraries like OpenTelemetry.
+Expect to see some documentation and alpha tools by September 2023. We will be
+building out a lot of the language specific layers, but we hope the community
+can help by building tools on top of it and integrating with existing libraries
+like OpenTelemetry.
 
 ## Development
 
