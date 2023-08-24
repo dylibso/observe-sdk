@@ -1,4 +1,4 @@
 export {
     LightstepAdapter,
-    LightstepConfig,
-} from '../../src/lib/adapters/lightstep/mod.js';
+    type LightstepConfig,
+} from '../../src/lib/adapters/lightstep/mod.ts';

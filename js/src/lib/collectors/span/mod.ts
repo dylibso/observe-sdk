@@ -2,7 +2,6 @@ import * as wasm from "./modsurfer-demangle/modsurfer_demangle_bg.wasm";
 import { __wbg_set_wasm } from "./modsurfer-demangle/modsurfer_demangle_bg.js";
 import { demangle } from "./modsurfer-demangle/modsurfer_demangle.js";
 import { parseNameSection } from "../../parser/mod.ts";
-import { Microseconds } from "../../mod.ts";
 
 import {
   Adapter,
