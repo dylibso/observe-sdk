@@ -1,4 +1,4 @@
 export {
     HoneycombAdapter,
-    HoneycombConfig,
-} from '../../src/lib/adapters/honeycomb/mod.js';
+    type HoneycombConfig,
+} from '../../src/lib/adapters/honeycomb/mod.ts';
