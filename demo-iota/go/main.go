@@ -9,7 +9,9 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
+	"time"
 
+	observe "github.com/dylibso/observe-sdk/go"
 	"github.com/dylibso/observe-sdk/go/adapter/datadog"
 	"github.com/tetratelabs/wazero"
 	"github.com/tetratelabs/wazero/imports/wasi_snapshot_preview1"
@@ -123,7 +125,12 @@ func (s *server) runModule(res http.ResponseWriter, req *http.Request) {
 
 	cfg := wazero.NewRuntimeConfig().WithCustomSections(true)
 	rt := wazero.NewRuntimeWithConfig(ctx, cfg)
-	traceCtx, err := s.adapter.NewTraceCtx(ctx, rt, wasm, nil)
+	traceCtx, err := s.adapter.NewTraceCtx(ctx, rt, wasm, &observe.Options{
+		ChannelBufferSize: 1024,
+		SpanFilter: &observe.SpanFilter{
+			MinDuration: time.Microsecond * 0,
+		},
+	})
 	if err != nil {
 		log.Panicln(err)
 	}
