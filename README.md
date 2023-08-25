@@ -1,3 +1,9 @@
+Checkout the official overview and documentation here: 
+
+[https://dev.dylib.so/docs/observe/overview](https://dev.dylib.so/docs/observe/overview)
+
+---
+
 <picture>
     <source media="(prefers-color-scheme: dark)" srcset=".github/assets/observe-wasm-light.png">
     <img alt="WebAssembly Observability - Observe SDK by Dylibso" width="75%" style="max-width: 600px" src=".github/assets/observe-wasm.png">
