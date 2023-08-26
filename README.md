@@ -1,5 +1,5 @@
 <p align="center">Checkout the official overview and documentation here:<br/>
-<b><a href="https://dev.dylibso.com/docs/observe/overview">https://dev.dylib.so/docs/observe/overview</a></b>
+<b><a href="https://dev.dylibso.com/docs/observe/overview">https://dev.dylibso.com/docs/observe/overview</a></b>
 </p>
 
 ---
