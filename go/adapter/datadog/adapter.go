@@ -39,7 +39,7 @@ type DatadogAdapter struct {
 	Config *DatadogConfig
 }
 
-func NewDatadogAdapter(config *DatadogConfig) (*DatadogAdapter, error) {
+func NewDatadogAdapter(config *DatadogConfig) *DatadogAdapter {
 	if config == nil {
 		config = DefaultDatadogConfig()
 	}
@@ -52,7 +52,7 @@ func NewDatadogAdapter(config *DatadogConfig) (*DatadogAdapter, error) {
 
 	adapter.AdapterBase.SetFlusher(adapter)
 
-	return adapter, nil
+	return adapter
 }
 
 func (d *DatadogAdapter) Start(ctx context.Context) {

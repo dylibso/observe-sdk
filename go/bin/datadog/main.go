@@ -16,10 +16,8 @@ func main() {
 
 	// we only need to create and start once per instance of our host app
 	ddconf := datadog.DefaultDatadogConfig()
-	adapter, err := datadog.NewDatadogAdapter(ddconf)
-	if err != nil {
-		log.Panicln(err)
-	}
+	adapter := datadog.NewDatadogAdapter(ddconf)
+
 	defer adapter.Stop(true)
 	adapter.Start(ctx)
 
