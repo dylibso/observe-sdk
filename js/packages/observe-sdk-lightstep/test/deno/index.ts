@@ -15,7 +15,7 @@ const config: LightstepConfig = {
 const adapter = new LightstepAdapter(config);
 const opts = {
   spanFilter: {
-    minDurationMicroseconds: 0,
+    minDurationMicroseconds: 100,
   }
 };
 const bytes = await Deno.readFile("../../test-data/test.c.instr.wasm");
