@@ -29,10 +29,7 @@ func main() {
 	config.AgentHost = "http://ddagent:8126"
 	config.DefaultTags = make(map[string]string)
 	config.DefaultTags["host_language"] = "go"
-	dd, err := datadog.NewDatadogAdapter(config)
-	if err != nil {
-		log.Panicln(err)
-	}
+	dd := datadog.NewDatadogAdapter(config)
 
 	s := server{
 		adapter: dd,
