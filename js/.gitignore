@@ -1,6 +1,0 @@
-rust/target
-rust/Cargo.lock
-.vscode
-target
-**/node_modules
-**/dist
