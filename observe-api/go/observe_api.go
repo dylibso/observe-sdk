@@ -55,17 +55,27 @@ func Log(level LogLevel, msg string) {
 	log(uint32(level), ptr, uint32(len(msg)))
 }
 
-func SpanEnter(name string) {
-	ptr := stringPointer(&name)
-	span_enter(ptr, uint32(len(name)))
-}
-
-func SpanExit() {
-	span_exit()
-}
-
 func SpanTags(tags []string) {
 	s := strings.Join(tags[:], ",")
 	ptr := stringPointer(&s)
 	span_tags(ptr, uint32(len(s)))
+}
+
+type span struct {
+	name string
+	tags []string
+}
+
+func NewSpan(name string) span {
+	ptr := stringPointer(&name)
+	span_enter(ptr, uint32(len(name)))
+	return span { name }
+}
+
+func (s span) End() {
+	span_exit()
+}
+
+func (s span) AddTags(tags ...string) {
+	SpanTags(tags...)
 }
