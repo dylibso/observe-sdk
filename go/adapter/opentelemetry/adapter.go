@@ -76,7 +76,7 @@ func (h *OTelAdapter) Start(ctx context.Context) {
 	h.Config.client.Start(ctx)
 }
 
-func (h *OTelAdapter) StopWithWait(ctx context.Context, wait bool) error {
+func (h *OTelAdapter) StopWithContext(ctx context.Context, wait bool) error {
 	h.AdapterBase.Stop(wait)
 	return h.Config.client.Stop(ctx)
 }
