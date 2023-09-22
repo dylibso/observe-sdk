@@ -25,8 +25,6 @@ func main() {
 		AllowInsecure:      true, // for localhost in dev via http
 	}
 	adapter := opentelemetry.NewOTelAdapter(conf)
-	// use an exporter which satisfies the observe.TraceExporter function
-	adapter.UseTraceExporter(opentelemetry.JaegerTraceExporter)
 	defer adapter.StopWithContext(ctx, true)
 	adapter.Start(ctx)
 

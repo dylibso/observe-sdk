@@ -30,8 +30,7 @@ type TraceEvent struct {
 
 // Shared implementation for all Adapters
 type AdapterBase struct {
-	TraceEvents       chan TraceEvent
-	OtelTraceExporter OtelTraceExporter
+	TraceEvents chan TraceEvent
 
 	stop        chan bool
 	eventBucket *EventBucket
@@ -91,7 +90,7 @@ func (b *AdapterBase) Stop(wait bool) {
 // MakeOtelCallSpans recursively constructs call spans in open telemetry format
 func (b *AdapterBase) MakeOtelCallSpans(event CallEvent, parentId []byte, traceId string) []*trace.Span {
 	name := event.FunctionName()
-	span := b.NewOtelSpan(traceId, parentId, name, event.Time, event.Time.Add(event.Duration))
+	span := NewOtelSpan(traceId, parentId, name, event.Time, event.Time.Add(event.Duration))
 	span.Attributes = append(span.Attributes, NewOtelKeyValueString("function-name", fmt.Sprintf("function-call-%s", name)))
 
 	spans := []*trace.Span{span}
@@ -112,27 +111,6 @@ func (b *AdapterBase) MakeOtelCallSpans(event CallEvent, parentId []byte, traceI
 		}
 	}
 	return spans
-}
-
-func (b AdapterBase) NewOtelSpan(traceId string, parentId []byte, name string, start, end time.Time) *trace.Span {
-	if parentId == nil {
-		parentId = []byte{}
-	}
-
-	if b.OtelTraceExporter != nil {
-		return b.OtelTraceExporter(traceId, parentId, name, start, end)
-	}
-
-	return &trace.Span{
-		TraceId:           []byte(traceId),
-		SpanId:            []byte(NewSpanId().ToHex8()),
-		ParentSpanId:      parentId,
-		Name:              name,
-		Kind:              1,
-		StartTimeUnixNano: uint64(start.UnixNano()),
-		EndTimeUnixNano:   uint64(end.UnixNano()),
-		// uses empty defaults for remaining fields...
-	}
 }
 
 // Definition of how to filter our Spans to reduce noise

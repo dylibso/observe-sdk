@@ -45,10 +45,6 @@ func (a *OTelAdapter) UseCustomClient(client otlptrace.Client) {
 	}
 }
 
-func (a *OTelAdapter) UseTraceExporter(exporter observe.OtelTraceExporter) {
-	a.AdapterBase.OtelTraceExporter = exporter
-}
-
 // NewOTelAdapter will create an instance of an OTelAdapter using the configuration to construct
 // an otlptrace.Client based on the Protocol set in the config.
 func NewOTelAdapter(config *OTelConfig) *OTelAdapter {
