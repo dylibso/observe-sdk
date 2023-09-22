@@ -53,6 +53,7 @@ func NewOTelAdapter(config *OTelConfig) *OTelAdapter {
 		options := []otlptracegrpc.Option{
 			otlptracegrpc.WithEndpoint(config.Endpoint),
 			otlptracegrpc.WithTimeout(2 * time.Second),
+			otlptracegrpc.WithHeaders(config.ClientHeaders),
 		}
 
 		if config.AllowInsecure {
