@@ -1,8 +1,11 @@
 package observe
 
 import (
+	"encoding/hex"
 	"fmt"
+	"log"
 	"math/rand"
+	"strconv"
 	"time"
 )
 
@@ -36,6 +39,29 @@ func NewSpanId() TelemetryId {
 	}
 }
 
+func TelemetryIdFromString(tid string) (TelemetryId, error) {
+	id, err := strconv.ParseInt(tid, 10, 64)
+	if err != nil {
+		return TelemetryId{}, nil
+	}
+
+	return TelemetryId{
+		msb: uint64(id) << 4,
+		lsb: uint64(id) << 4,
+	}, nil
+}
+
+type TraceId struct{ TelemetryId }
+type SpanId struct{ TelemetryId }
+
+func (id TelemetryId) Msb() uint64 {
+	return id.msb
+}
+
+func (id TelemetryId) Lsb() uint64 {
+	return id.lsb
+}
+
 // Encode this id into an 8 byte hex (16 chars)
 // Just uses the least significant of the 16 bytes
 func (t TelemetryId) ToHex8() string {
@@ -51,4 +77,26 @@ func (t TelemetryId) ToHex16() string {
 // Some adapters may need a raw representation
 func (t TelemetryId) ToUint64() uint64 {
 	return t.lsb
+}
+
+func (t TelemetryId) ToRawTraceIdBytes() []byte {
+	traceId := t.ToHex16()
+	traceIdB, err := hex.DecodeString(traceId)
+	if err != nil {
+		log.Println(traceId, "convert traceid to raw bytes:", err)
+		return make([]byte, 0)
+	}
+
+	return traceIdB
+}
+
+func (t TelemetryId) ToRawSpanIdBytes() []byte {
+	spanId := t.ToHex8()
+	spanIdB, err := hex.DecodeString(spanId)
+	if err != nil {
+		log.Println(spanId, "convert spanid to raw bytes:", err)
+		return make([]byte, 0)
+	}
+
+	return spanIdB
 }

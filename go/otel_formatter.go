@@ -1,6 +1,8 @@
 package observe
 
 import (
+	"encoding/binary"
+	"encoding/hex"
 	"time"
 
 	common "go.opentelemetry.io/proto/otlp/common/v1"
@@ -12,6 +14,8 @@ type OtelTrace struct {
 	TraceId    string
 	TracesData *trace.TracesData
 }
+
+type OtelTraceExporter func(traceId string, parentId []byte, name string, start, end time.Time) *trace.Span
 
 func NewOtelTrace(traceId string, serviceName string, spans []*trace.Span) *OtelTrace {
 	return &OtelTrace{
@@ -44,22 +48,6 @@ func (t *OtelTrace) SetMetadata(te *TraceEvent, meta map[string]string) {
 				}
 			}
 		}
-	}
-}
-
-func NewOtelSpan(traceId string, parentId []byte, name string, start, end time.Time) *trace.Span {
-	if parentId == nil {
-		parentId = []byte{}
-	}
-	return &trace.Span{
-		TraceId:           []byte(traceId),
-		SpanId:            []byte(NewSpanId().ToHex8()),
-		ParentSpanId:      parentId,
-		Name:              name,
-		Kind:              1,
-		StartTimeUnixNano: uint64(start.UnixNano()),
-		EndTimeUnixNano:   uint64(end.UnixNano()),
-		// uses empty defaults for remaining fields...
 	}
 }
 
@@ -117,4 +105,30 @@ func AddOtelKeyValueInt64(kvs ...*common.KeyValue) *common.KeyValue {
 		return retKv
 	}
 	return nil
+}
+
+func NewOtelJagerSpan(traceId string, parentId []byte, name string, start, end time.Time) *trace.Span {
+	if parentId == nil {
+		parentId = []byte{}
+	}
+
+	traceIdB, err := hex.DecodeString(traceId)
+	if err != nil {
+		panic(err)
+	}
+
+	spanId := NewSpanId().msb
+	spanIdB := make([]byte, 8)
+	binary.LittleEndian.PutUint64(spanIdB, spanId)
+
+	return &trace.Span{
+		TraceId:           traceIdB,
+		SpanId:            spanIdB,
+		ParentSpanId:      parentId,
+		Name:              name,
+		Kind:              1,
+		StartTimeUnixNano: uint64(start.UnixNano()),
+		EndTimeUnixNano:   uint64(end.UnixNano()),
+		// uses empty defaults for remaining fields...
+	}
 }

@@ -2,6 +2,8 @@ package opentelemetry
 
 import (
 	"context"
+	"encoding/binary"
+	"encoding/hex"
 	"log"
 	"time"
 
@@ -43,6 +45,10 @@ func (a *OTelAdapter) UseCustomClient(client otlptrace.Client) {
 	}
 }
 
+func (a *OTelAdapter) UseTraceExporter(exporter observe.OtelTraceExporter) {
+	a.AdapterBase.OtelTraceExporter = exporter
+}
+
 // NewOTelAdapter will create an instance of an OTelAdapter using the configuration to construct
 // an otlptrace.Client based on the Protocol set in the config.
 func NewOTelAdapter(config *OTelConfig) *OTelAdapter {
@@ -81,6 +87,32 @@ func NewOTelAdapter(config *OTelConfig) *OTelAdapter {
 	adapter.AdapterBase.SetFlusher(adapter)
 
 	return adapter
+}
+
+func JaegerTraceExporter(traceId string, parentId []byte, name string, start, end time.Time) *trace.Span {
+	if parentId == nil {
+		parentId = []byte{}
+	}
+
+	traceIdB, err := hex.DecodeString(traceId)
+	if err != nil {
+		panic(err)
+	}
+
+	spanId := observe.NewSpanId().Msb()
+	spanIdB := make([]byte, 8)
+	binary.LittleEndian.PutUint64(spanIdB, spanId)
+
+	return &trace.Span{
+		TraceId:           traceIdB,
+		SpanId:            spanIdB,
+		ParentSpanId:      parentId,
+		Name:              name,
+		Kind:              1,
+		StartTimeUnixNano: uint64(start.UnixNano()),
+		EndTimeUnixNano:   uint64(end.UnixNano()),
+		// uses empty defaults for remaining fields...
+	}
 }
 
 func (h *OTelAdapter) Start(ctx context.Context) {
@@ -129,6 +161,7 @@ func (h *OTelAdapter) Flush(evts []observe.TraceEvent) error {
 		}
 
 		t := observe.NewOtelTrace(traceId, h.Config.ServiceName, allSpans)
+
 		if te.AdapterMeta != nil {
 			meta, ok := te.AdapterMeta.(map[string]string)
 			if ok {

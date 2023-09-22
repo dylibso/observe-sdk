@@ -20,11 +20,13 @@ func main() {
 		ServiceName:        "golang",
 		EmitTracesInterval: time.Second * 1,
 		TraceBatchMax:      100,
-		Endpoint:           "localhost:4318",
-		Protocol:           opentelemetry.HTTP,
+		Endpoint:           "localhost:4317",
+		Protocol:           opentelemetry.GRPC,
 		AllowInsecure:      true, // for localhost in dev via http
 	}
 	adapter := opentelemetry.NewOTelAdapter(conf)
+	// use an exporter which satisfies the observe.TraceExporter function
+	adapter.UseTraceExporter(opentelemetry.JaegerTraceExporter)
 	defer adapter.StopWithContext(ctx, true)
 	adapter.Start(ctx)
 
