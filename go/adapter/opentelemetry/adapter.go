@@ -137,7 +137,6 @@ func (h *OTelAdapter) Flush(evts []observe.TraceEvent) error {
 			}
 		}
 
-		log.Println("%#v", t.TracesData.ResourceSpans)
 		err := h.Config.client.UploadTraces(context.Background(), t.TracesData.ResourceSpans)
 		if err != nil {
 			log.Println("failed to upload wasm traces to otel endpoint", err)
