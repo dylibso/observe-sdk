@@ -27,6 +27,7 @@ type OTelConfig struct {
 	Endpoint           string
 	Protocol           OTLPProtocol
 	ClientHeaders      map[string]string
+	AllowInsecure      bool
 
 	client otlptrace.Client
 }
@@ -49,16 +50,26 @@ func NewOTelAdapter(config *OTelConfig) *OTelAdapter {
 
 	switch string(config.Protocol) {
 	case string(GRPC):
-		config.client = otlptracegrpc.NewClient(
+		options := []otlptracegrpc.Option{
 			otlptracegrpc.WithEndpoint(config.Endpoint),
-			otlptracegrpc.WithTimeout(2*time.Second),
-		)
+			otlptracegrpc.WithTimeout(2 * time.Second),
+		}
+
+		if config.AllowInsecure {
+			options = append(options, otlptracegrpc.WithInsecure())
+		}
+		config.client = otlptracegrpc.NewClient(options...)
 	case string(HTTP):
-		config.client = otlptracehttp.NewClient(
+		options := []otlptracehttp.Option{
 			otlptracehttp.WithEndpoint(config.Endpoint),
-			otlptracehttp.WithTimeout(2*time.Second),
+			otlptracehttp.WithTimeout(2 * time.Second),
 			otlptracehttp.WithHeaders(config.ClientHeaders),
-		)
+		}
+
+		if config.AllowInsecure {
+			options = append(options, otlptracehttp.WithInsecure())
+		}
+		config.client = otlptracehttp.NewClient(options...)
 	}
 
 	adapter := &OTelAdapter{
@@ -126,6 +137,7 @@ func (h *OTelAdapter) Flush(evts []observe.TraceEvent) error {
 			}
 		}
 
+		log.Println("%#v", t.TracesData.ResourceSpans)
 		err := h.Config.client.UploadTraces(context.Background(), t.TracesData.ResourceSpans)
 		if err != nil {
 			log.Println("failed to upload wasm traces to otel endpoint", err)
