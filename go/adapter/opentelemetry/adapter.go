@@ -2,8 +2,6 @@ package opentelemetry
 
 import (
 	"context"
-	"encoding/binary"
-	"encoding/hex"
 	"log"
 	"time"
 
@@ -83,32 +81,6 @@ func NewOTelAdapter(config *OTelConfig) *OTelAdapter {
 	adapter.AdapterBase.SetFlusher(adapter)
 
 	return adapter
-}
-
-func JaegerTraceExporter(traceId string, parentId []byte, name string, start, end time.Time) *trace.Span {
-	if parentId == nil {
-		parentId = []byte{}
-	}
-
-	traceIdB, err := hex.DecodeString(traceId)
-	if err != nil {
-		panic(err)
-	}
-
-	spanId := observe.NewSpanId().Msb()
-	spanIdB := make([]byte, 8)
-	binary.LittleEndian.PutUint64(spanIdB, spanId)
-
-	return &trace.Span{
-		TraceId:           traceIdB,
-		SpanId:            spanIdB,
-		ParentSpanId:      parentId,
-		Name:              name,
-		Kind:              1,
-		StartTimeUnixNano: uint64(start.UnixNano()),
-		EndTimeUnixNano:   uint64(end.UnixNano()),
-		// uses empty defaults for remaining fields...
-	}
 }
 
 func (h *OTelAdapter) Start(ctx context.Context) {
