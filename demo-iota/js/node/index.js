@@ -51,7 +51,7 @@ app.post('/run', bodyParser.raw({ limit: '256mb', type: () => true }), async (re
         const stdinPath = `${os.tmpdir}/stdin_${Math.ceil(Math.random() * 10000)}.txt`
         fs.writeFileSync(stdinPath, req.body)
         const stdin = fs.openSync(stdinPath)
-        
+
         const wasi = new WASI({
             version: 'preview1',
             args: [req.query['name']],
@@ -62,6 +62,8 @@ app.post('/run', bodyParser.raw({ limit: '256mb', type: () => true }), async (re
         const bytes = fs.readFileSync(`${os.tmpdir()}/${req.query['name']}.wasm`)
         const traceContext = await adapter.start(bytes)
         const module = new WebAssembly.Module(bytes)
+        console.log(bytes)
+        // console.log(module)
         const instance = await WebAssembly.instantiate(module, {
             ...wasi.getImportObject(),
             ...traceContext.getImportObject(),

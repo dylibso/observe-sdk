@@ -1,4 +1,8 @@
-import { HoneycombAdapter, HoneycombConfig } from "../../dist/esm/index.js";
+import honeycomb from "npm:@dylibso/observe-sdk-honeycomb";
+const {
+  HoneycombAdapter,
+  HoneycombConfig,
+} = honeycomb;
 import Context from "https://deno.land/std@0.192.0/wasi/snapshot_preview1.ts";
 import { load } from "https://deno.land/std/dotenv/mod.ts";
 

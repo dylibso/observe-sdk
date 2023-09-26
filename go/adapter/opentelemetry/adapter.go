@@ -83,29 +83,29 @@ func NewOTelAdapter(config *OTelConfig) *OTelAdapter {
 	return adapter
 }
 
-func (h *OTelAdapter) Start(ctx context.Context) {
-	h.AdapterBase.Start(ctx, h)
-	h.Config.client.Start(ctx)
+func (o *OTelAdapter) Start(ctx context.Context) {
+	o.AdapterBase.Start(ctx, o)
+	o.Config.client.Start(ctx)
 }
 
-func (h *OTelAdapter) StopWithContext(ctx context.Context, wait bool) error {
-	h.AdapterBase.Stop(wait)
-	return h.Config.client.Stop(ctx)
+func (o *OTelAdapter) StopWithContext(ctx context.Context, wait bool) error {
+	o.AdapterBase.Stop(wait)
+	return o.Config.client.Stop(ctx)
 }
 
-func (h *OTelAdapter) Stop(wait bool) {
-	h.AdapterBase.Stop(wait)
-	err := h.Config.client.Stop(context.Background())
+func (o *OTelAdapter) Stop(wait bool) {
+	o.AdapterBase.Stop(wait)
+	err := o.Config.client.Stop(context.Background())
 	if err != nil {
 		log.Println("failed to stop otlptrace.Client from wasm sdk")
 	}
 }
 
-func (h *OTelAdapter) HandleTraceEvent(te observe.TraceEvent) {
-	h.AdapterBase.HandleTraceEvent(te)
+func (o *OTelAdapter) HandleTraceEvent(te observe.TraceEvent) {
+	o.AdapterBase.HandleTraceEvent(te)
 }
 
-func (h *OTelAdapter) Flush(evts []observe.TraceEvent) error {
+func (o *OTelAdapter) Flush(evts []observe.TraceEvent) error {
 	for _, te := range evts {
 		traceId := te.TelemetryId.ToHex16()
 
@@ -113,7 +113,7 @@ func (h *OTelAdapter) Flush(evts []observe.TraceEvent) error {
 		for _, e := range te.Events {
 			switch event := e.(type) {
 			case observe.CallEvent: // TODO: consider renaming to FunctionCall for consistency across Rust & JS
-				spans := h.MakeOtelCallSpans(event, nil, traceId)
+				spans := o.MakeOtelCallSpans(event, nil, traceId)
 				if len(spans) > 0 {
 					allSpans = append(allSpans, spans...)
 				}
@@ -128,7 +128,7 @@ func (h *OTelAdapter) Flush(evts []observe.TraceEvent) error {
 			return nil
 		}
 
-		t := observe.NewOtelTrace(traceId, h.Config.ServiceName, allSpans)
+		t := observe.NewOtelTrace(traceId, o.Config.ServiceName, allSpans)
 
 		if te.AdapterMeta != nil {
 			meta, ok := te.AdapterMeta.(map[string]string)
@@ -139,7 +139,7 @@ func (h *OTelAdapter) Flush(evts []observe.TraceEvent) error {
 			}
 		}
 
-		err := h.Config.client.UploadTraces(context.Background(), t.TracesData.ResourceSpans)
+		err := o.Config.client.UploadTraces(context.Background(), t.TracesData.ResourceSpans)
 		if err != nil {
 			log.Println("failed to upload wasm traces to otel endpoint", err)
 		}
