@@ -37,6 +37,7 @@ type OTelAdapter struct {
 	Config *OTelConfig
 }
 
+// UseCustomClient accepts a pre-initialized client to allow for customization of how to get data into a collector 
 func (a *OTelAdapter) UseCustomClient(client otlptrace.Client) {
 	if a.Config != nil {
 		a.Config.client = client
