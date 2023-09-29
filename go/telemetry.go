@@ -36,6 +36,14 @@ func NewSpanId() TelemetryId {
 	}
 }
 
+func (id TelemetryId) Msb() uint64 {
+	return id.msb
+}
+
+func (id TelemetryId) Lsb() uint64 {
+	return id.lsb
+}
+
 // Encode this id into an 8 byte hex (16 chars)
 // Just uses the least significant of the 16 bytes
 func (t TelemetryId) ToHex8() string {

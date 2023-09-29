@@ -31,6 +31,7 @@ type TraceEvent struct {
 // Shared implementation for all Adapters
 type AdapterBase struct {
 	TraceEvents chan TraceEvent
+
 	stop        chan bool
 	eventBucket *EventBucket
 	flusher     Flusher

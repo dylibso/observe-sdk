@@ -38,15 +38,15 @@ func NewLightstepAdapter(config *LightstepConfig) *LightstepAdapter {
 	return adapter
 }
 
-func (h *LightstepAdapter) Start(ctx context.Context) {
-	h.AdapterBase.Start(ctx, h)
+func (l *LightstepAdapter) Start(ctx context.Context) {
+	l.AdapterBase.Start(ctx, l)
 }
 
-func (h *LightstepAdapter) HandleTraceEvent(te observe.TraceEvent) {
-	h.AdapterBase.HandleTraceEvent(te)
+func (l *LightstepAdapter) HandleTraceEvent(te observe.TraceEvent) {
+	l.AdapterBase.HandleTraceEvent(te)
 }
 
-func (h *LightstepAdapter) Flush(evts []observe.TraceEvent) error {
+func (l *LightstepAdapter) Flush(evts []observe.TraceEvent) error {
 	for _, te := range evts {
 		traceId := te.TelemetryId.ToHex16()
 
@@ -54,7 +54,7 @@ func (h *LightstepAdapter) Flush(evts []observe.TraceEvent) error {
 		for _, e := range te.Events {
 			switch event := e.(type) {
 			case observe.CallEvent: // TODO: consider renaming to FunctionCall for consistency across Rust & JS
-				spans := h.MakeOtelCallSpans(event, nil, traceId)
+				spans := l.MakeOtelCallSpans(event, nil, traceId)
 				if len(spans) > 0 {
 					allSpans = append(allSpans, spans...)
 				}
@@ -69,7 +69,7 @@ func (h *LightstepAdapter) Flush(evts []observe.TraceEvent) error {
 			return nil
 		}
 
-		t := observe.NewOtelTrace(traceId, h.Config.ServiceName, allSpans)
+		t := observe.NewOtelTrace(traceId, l.Config.ServiceName, allSpans)
 		if te.AdapterMeta != nil {
 			meta, ok := te.AdapterMeta.(map[string]string)
 			if ok {
@@ -84,7 +84,7 @@ func (h *LightstepAdapter) Flush(evts []observe.TraceEvent) error {
 			return nil
 		}
 
-		url, err := url.JoinPath(h.Config.Host, "traces", "otlp", "v0.9")
+		url, err := url.JoinPath(l.Config.Host, "traces", "otlp", "v0.9")
 		if err != nil {
 			log.Println("failed to create lightstep endpoint url:", err)
 			return nil
@@ -100,7 +100,7 @@ func (h *LightstepAdapter) Flush(evts []observe.TraceEvent) error {
 
 		req.Header = http.Header{
 			"content-type":           {"application/x-protobuf"},
-			"lightstep-access-token": {h.Config.ApiKey},
+			"lightstep-access-token": {l.Config.ApiKey},
 		}
 
 		resp, err := client.Do(req)

@@ -1,6 +1,8 @@
 package observe
 
 import (
+	"encoding/binary"
+	"encoding/hex"
 	"time"
 
 	common "go.opentelemetry.io/proto/otlp/common/v1"
@@ -51,9 +53,19 @@ func NewOtelSpan(traceId string, parentId []byte, name string, start, end time.T
 	if parentId == nil {
 		parentId = []byte{}
 	}
+
+	traceIdB, err := hex.DecodeString(traceId)
+	if err != nil {
+		panic(err)
+	}
+
+	spanId := NewSpanId().Msb()
+	spanIdB := make([]byte, 8)
+	binary.LittleEndian.PutUint64(spanIdB, spanId)
+
 	return &trace.Span{
-		TraceId:           []byte(traceId),
-		SpanId:            []byte(NewSpanId().ToHex8()),
+		TraceId:           traceIdB,
+		SpanId:            spanIdB,
 		ParentSpanId:      parentId,
 		Name:              name,
 		Kind:              1,
