@@ -36,7 +36,7 @@ pub struct InstrumentationContext {
 }
 
 impl InstrumentationContext {
-    fn new(
+    pub(crate) fn new(
         options: Options,
     ) -> (
         Arc<Mutex<InstrumentationContext>>,
@@ -440,7 +440,6 @@ pub fn add_to_linker<T: 'static>(
     if let Err(e) = wasm_instr_info.check_version() {
         warn!("{}", e);
     }
-
     let t = FuncType::new([ValType::I32], []);
 
     let enter_ctx = ctx.clone();
@@ -528,4 +527,106 @@ pub fn add_to_linker<T: 'static>(
     // global export, which by default can cause wasmtime to return an error during instantiation.
     linker.allow_unknown_exports(true);
     Ok((events_tx, events_rx))
+}
+
+#[cfg(feature = "component-model")]
+pub mod component {
+    use super::*;
+    use wasmtime::component::Linker;
+
+    wasmtime::component::bindgen!({
+        path: "../wit",
+        async: false
+    });
+
+    use dylibso::observe::api::{ MetricFormat, LogLevel, Host as ApiHost };
+    use dylibso::observe::instrument::Host as InstrumentHost;
+
+    pub struct ObserveSdkBindings {
+        pub(crate) instr_context: Arc<Mutex<InstrumentationContext>>,
+        pub(crate) wasm_instr_info: WasmInstrInfo
+    }
+
+    impl TryInto<super::MetricFormat> for MetricFormat {
+        type Error = anyhow::Error;
+
+        fn try_into(self) -> std::result::Result<super::MetricFormat, Self::Error> {
+            #[allow(unreachable_patterns)]
+            match self {
+                MetricFormat::Statsd => Ok(super::MetricFormat::Statsd),
+                _ => bail!("Illegal metric format value")
+            }
+        }
+    }
+
+    impl ApiHost for ObserveSdkBindings {
+        fn metric(&mut self, format: MetricFormat, name: Vec<u8>) -> wasmtime::Result<()> {
+            if let Ok(mut cont) = self.instr_context.lock() {
+                cont.metric(format.try_into()?, name.as_slice())?;
+            }
+            Ok(())
+        }
+
+        fn log(&mut self, level: LogLevel, msg: Vec<u8>) -> wasmtime::Result<()> {
+            if let Ok(mut cont) = self.instr_context.lock() {
+                cont.log_write(level as u8, msg.as_slice())?;
+            }
+            Ok(())
+        }
+
+        fn span_enter(&mut self, name: String) -> wasmtime::Result<()> {
+            if let Ok(mut cont) = self.instr_context.lock() {
+                cont.enter(0u32, Some(name.as_str()))?;
+            }
+            Ok(())
+        }
+
+        fn span_tags(&mut self, tags: String) -> wasmtime::Result<()> {
+            let tags: Vec<String> = tags.split(',').map(|xs| xs.to_string()).collect();
+            if let Ok(mut cont) = self.instr_context.lock() {
+                cont.span_tags(tags)?;
+            }
+            Ok(())
+        }
+
+        fn span_exit(&mut self) -> wasmtime::Result<()> {
+            if let Ok(mut cont) = self.instr_context.lock() {
+                cont.exit(0u32)?;
+            }
+            Ok(())
+        }
+    }
+
+    impl InstrumentHost for ObserveSdkBindings {
+        fn instrument_memory_grow(&mut self, amount_in_pages: u32) -> wasmtime::Result<()> {
+            if let Ok(mut cont) = self.instr_context.lock() {
+                cont.allocate(amount_in_pages)?;
+            }
+            Ok(())
+        }
+
+        fn instrument_enter(&mut self, func_id: u32) -> wasmtime::Result<()> {
+            let printname = self.wasm_instr_info.function_names.get(&func_id);
+            if let Ok(mut cont) = self.instr_context.lock() {
+                cont.enter(func_id, printname.map(|x| x.as_str()))?;
+            }
+            Ok(())
+        }
+
+        fn instrument_exit(&mut self, func_id: u32) -> wasmtime::Result<()> {
+            if let Ok(mut cont) = self.instr_context.lock() {
+                cont.exit(func_id)?;
+            }
+            Ok(())
+        }
+    }
+
+    pub fn add_to_linker<T>(
+        linker: &mut Linker<T>,
+    ) -> Result<()> where T: AsMut<ObserveSdkBindings> + 'static {
+        Imports::add_to_linker(linker, |s| -> &mut ObserveSdkBindings {
+            s.as_mut()
+        })?;
+        Ok(())
+    }
 }

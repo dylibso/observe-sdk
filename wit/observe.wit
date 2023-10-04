@@ -1,0 +1,32 @@
+package dylibso:observe
+
+interface api {
+  enum log-level {
+    error,
+    warn,
+    info,
+    debug,
+    trace
+  }
+
+  enum metric-format {
+    statsd,
+  }
+
+  metric: func(format: metric-format, name: list<u8>)
+  log: func(level: log-level, msg: list<u8>)
+  span-enter: func(name: string)
+  span-tags: func(tags: string)
+  span-exit: func()
+}
+
+interface instrument {
+  instrument-memory-grow: func(amount-in-pages: u32)
+  instrument-enter: func(func-id: u32)
+  instrument-exit: func(func-id: u32)
+}
+
+world imports {
+  import api
+  import instrument
+}

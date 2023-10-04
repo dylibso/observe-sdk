@@ -14,6 +14,9 @@ use crate::{
     Event, TelemetryId, TraceEvent,
 };
 
+#[cfg(feature = "component-model")]
+use crate::{ wasm_instr::WasmInstrInfo, context::{ InstrumentationContext, component::ObserveSdkBindings } };
+
 use self::datadog::DatadogMetadata;
 
 pub mod datadog;
@@ -182,6 +185,26 @@ impl AdapterHandle {
         Collector::start(collector_rx, self.clone());
         Ok(TraceContext { collector })
     }
+
+    #[cfg(feature = "component-model")]
+    pub fn create_bindings(&self, data: &[u8], options: Options) -> Result<(ObserveSdkBindings, TraceContext)> {
+        let (ctx, collector, collector_rx) = InstrumentationContext::new(options);
+        let wasm_instr_info = WasmInstrInfo::new(data)?;
+
+        // check that the version number is supported with this SDK
+        // TODO decide what to do about this error?
+        if let Err(e) = wasm_instr_info.check_version() {
+            warn!("{}", e);
+        }
+
+        let bindings = ObserveSdkBindings {
+            instr_context: ctx,
+            wasm_instr_info
+        };
+        Collector::start(collector_rx, self.clone());
+        Ok((bindings, TraceContext { collector }))
+    }
+
 
     pub fn try_send(&self, event: TraceEvent) -> Result<()> {
         self.adapter_tx.try_send(event)?;
