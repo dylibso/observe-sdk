@@ -1,0 +1,6 @@
+package example:component-instr-reactor
+
+world component-instr-reactor {
+  import dylibso:observe/api
+  export hello-world: func() -> u32
+}

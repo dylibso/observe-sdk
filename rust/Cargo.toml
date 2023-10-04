@@ -3,6 +3,9 @@ name = "dylibso-observe-sdk"
 version = "0.1.0"
 edition = "2021"
 
+[features]
+component-model = ["wasmtime/component-model", "wasmtime/async"]
+
 [lib]
 # not testing docs because the prost generated structs fail
 doctest = false
