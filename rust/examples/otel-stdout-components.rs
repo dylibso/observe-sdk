@@ -1,4 +1,4 @@
-use dylibso_observe_sdk::{adapter::otelstdout::OtelStdoutAdapter, context::component::ObserveSdkBindings};
+use dylibso_observe_sdk::{adapter::otelstdout::OtelStdoutAdapter, context::component::{ObserveSdk, ObserveSdkView}};
 
 use wasmtime::component::Val;
 use wasmtime_wasi::preview2::{WasiView, WasiCtx, Table};
@@ -6,7 +6,7 @@ use wasmtime_wasi::preview2::{WasiView, WasiCtx, Table};
 struct State {
     table: Table,
     wasi_ctx: WasiCtx,
-    observe_sdk_bindings: ObserveSdkBindings,
+    observe_sdk: ObserveSdk,
 }
 
 impl WasiView for State {
@@ -27,9 +27,9 @@ impl WasiView for State {
     }
 }
 
-impl AsMut<ObserveSdkBindings> for State {
-    fn as_mut(&mut self) -> &mut ObserveSdkBindings {
-        &mut self.observe_sdk_bindings
+impl ObserveSdkView for State {
+    fn sdk_mut(&mut self) -> &mut ObserveSdk {
+        &mut self.observe_sdk
     }
 }
 
@@ -61,12 +61,12 @@ pub async fn main() -> anyhow::Result<()> {
     // Provide the observability functions to the `Linker` to be made available
     // to the instrumented guest code. These are safe to add and are a no-op
     // if guest code is uninstrumented.
-    let (observe_sdk_bindings, trace_ctx) = adapter.create_bindings(&data, Default::default())?;
+    let observe_sdk = adapter.build_observe_sdk(&data, Default::default())?;
 
     let state = State {
         table,
         wasi_ctx,
-        observe_sdk_bindings
+        observe_sdk
     };
     let mut store = wasmtime::Store::new(&engine, state);
 
@@ -86,7 +86,9 @@ pub async fn main() -> anyhow::Result<()> {
     f.call_async(&mut store, &[], &mut vals).await.unwrap();
 
     dbg!(vals);
-    trace_ctx.shutdown().await;
+
+    let state = store.into_data();
+    state.observe_sdk.shutdown().await?;
 
     Ok(())
 }

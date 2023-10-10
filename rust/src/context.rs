@@ -529,10 +529,33 @@ pub fn add_to_linker<T: 'static>(
 
 #[cfg(feature = "component-model")]
 pub mod component {
+    use crate::adapter::TraceContext;
+
     use super::*;
     use wasmtime::component::Linker;
 
+    /// Provide access to [`ObserveSdk`] from a [`wasmtime::Store`]'s inner object.
+    ///
+    /// ```example
+    /// struct MyState {
+    ///   sdk: ObserveSdk,
+    /// }
+    ///
+    /// impl ObserveSdkView for MyState {
+    ///     fn sdk_mut(&mut self) -> &mut ObserveSdk {
+    ///         &mut self.sdk
+    ///     }
+    /// }
+    /// ```
+    pub trait ObserveSdkView {
+        fn sdk_mut(&mut self) -> &mut ObserveSdk;
+    }
+
     wasmtime::component::bindgen!({
+        interfaces: r#"
+            import dylibso:observe/api;
+            import dylibso:observe/instrument;
+        "#,
         path: "../wit",
         async: false
     });
@@ -540,9 +563,20 @@ pub mod component {
     use dylibso::observe::api::{ MetricFormat, LogLevel, Host as ApiHost };
     use dylibso::observe::instrument::Host as InstrumentHost;
 
-    pub struct ObserveSdkBindings {
+    pub struct ObserveSdk {
         pub(crate) instr_context: Arc<Mutex<InstrumentationContext>>,
-        pub(crate) wasm_instr_info: WasmInstrInfo
+        pub(crate) wasm_instr_info: WasmInstrInfo,
+        pub(crate) trace_context: TraceContext,
+    }
+
+    impl ObserveSdk {
+        /// Shut down the trace collector. Once the collector is shut down this instance
+        /// should no longer be used. `shutdown` may be called multiple times but will emit
+        /// warnings on subsequent calls.
+        pub async fn shutdown(&self) -> Result<()> {
+            self.trace_context.shutdown().await;
+            Ok(())
+        }
     }
 
     impl TryInto<super::MetricFormat> for MetricFormat {
@@ -557,7 +591,7 @@ pub mod component {
         }
     }
 
-    impl ApiHost for ObserveSdkBindings {
+    impl ApiHost for ObserveSdk {
         fn metric(&mut self, format: MetricFormat, name: Vec<u8>) -> wasmtime::Result<()> {
             if let Ok(mut cont) = self.instr_context.lock() {
                 cont.metric(format.try_into()?, name.as_slice())?;
@@ -595,7 +629,7 @@ pub mod component {
         }
     }
 
-    impl InstrumentHost for ObserveSdkBindings {
+    impl InstrumentHost for ObserveSdk {
         fn memory_grow(&mut self, amount_in_pages: u32) -> wasmtime::Result<()> {
             if let Ok(mut cont) = self.instr_context.lock() {
                 cont.allocate(amount_in_pages)?;
@@ -621,9 +655,13 @@ pub mod component {
 
     pub fn add_to_linker<T>(
         linker: &mut Linker<T>,
-    ) -> Result<()> where T: AsMut<ObserveSdkBindings> + 'static {
-        Imports::add_to_linker(linker, |s| -> &mut ObserveSdkBindings {
-            s.as_mut()
+    ) -> Result<()> where T: ObserveSdkView + 'static {
+        dylibso::observe::api::add_to_linker(linker, |s| -> &mut ObserveSdk {
+            s.sdk_mut()
+        })?;
+
+        dylibso::observe::instrument::add_to_linker(linker, |s| -> &mut ObserveSdk {
+            s.sdk_mut()
         })?;
         Ok(())
     }
