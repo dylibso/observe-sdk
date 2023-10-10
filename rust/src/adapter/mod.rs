@@ -15,7 +15,7 @@ use crate::{
 };
 
 #[cfg(feature = "component-model")]
-use crate::{ wasm_instr::WasmInstrInfo, context::{ InstrumentationContext, component::ObserveSdkBindings } };
+use crate::{ wasm_instr::WasmInstrInfo, context::{ InstrumentationContext, component::ObserveSdk } };
 
 use self::datadog::DatadogMetadata;
 
@@ -187,7 +187,7 @@ impl AdapterHandle {
     }
 
     #[cfg(feature = "component-model")]
-    pub fn create_bindings(&self, data: &[u8], options: Options) -> Result<(ObserveSdkBindings, TraceContext)> {
+    pub fn build_observe_sdk(&self, data: &[u8], options: Options) -> Result<ObserveSdk> {
         let (ctx, collector, collector_rx) = InstrumentationContext::new(options);
         let wasm_instr_info = WasmInstrInfo::new(data)?;
 
@@ -197,14 +197,14 @@ impl AdapterHandle {
             warn!("{}", e);
         }
 
-        let bindings = ObserveSdkBindings {
-            instr_context: ctx,
-            wasm_instr_info
-        };
         Collector::start(collector_rx, self.clone());
-        Ok((bindings, TraceContext { collector }))
+        let bindings = ObserveSdk {
+            instr_context: ctx,
+            wasm_instr_info,
+            trace_context: TraceContext { collector }
+        };
+        Ok(bindings)
     }
-
 
     pub fn try_send(&self, event: TraceEvent) -> Result<()> {
         self.adapter_tx.try_send(event)?;
