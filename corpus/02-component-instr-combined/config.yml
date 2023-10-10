@@ -1,0 +1,8 @@
+search-paths:
+  - ../01-component-instr-component/target/wasm32-wasi/debug
+
+instantiations:
+  $input:
+    arguments:
+      component-instr-component: component_instr_component.wasm
+

@@ -1,17 +1,15 @@
 [package]
-name = "component-instr-command"
+name = "combined"
 version = "0.1.0"
 edition = "2021"
 
 [package.metadata.component]
-package = "example:component-instr-command"
+package = "component:combined"
 
-[package.metadata.component.target.dependencies]
-"dylibso:observe" = { path = "../../wit/observe.wasm" }
+[package.metadata.component.dependencies]
+"component:component-instr-component" = { path = "../01-component-instr-component/target/wasm32-wasi/debug/component_instr_component.wasm" }
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
 cargo-component-bindings = { git = "https://github.com/bytecodealliance/cargo-component" }
-log = "0.4.20"
-observe_api = { path = "../../observe-api/rust" }
