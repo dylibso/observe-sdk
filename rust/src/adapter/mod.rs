@@ -187,6 +187,7 @@ impl AdapterHandle {
     }
 
     #[cfg(feature = "component-model")]
+    /// Given a slice representing a Wasm component and [`Options`], create an [`ObserveSdk`].
     pub fn build_observe_sdk(&self, data: &[u8], options: Options) -> Result<ObserveSdk> {
         let (ctx, collector, collector_rx) = InstrumentationContext::new(options);
         let wasm_instr_info = WasmInstrInfo::new(data)?;
