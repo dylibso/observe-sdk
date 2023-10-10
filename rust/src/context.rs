@@ -420,8 +420,6 @@ pub(crate) fn span_exit<T>(
     Ok(())
 }
 
-const MODULE_NAME: &str = "dylibso_observe";
-
 type EventChannel = (Sender<Event>, Receiver<Event>);
 
 /// Link observability import functions required by instrumented wasm code
@@ -444,8 +442,8 @@ pub fn add_to_linker<T: 'static>(
 
     let enter_ctx = ctx.clone();
     linker.func_new(
-        MODULE_NAME,
-        "instrument_enter",
+        "dylibso:observe/instrument",
+        "enter",
         t.clone(),
         move |_caller: Caller<T>, params, results| {
             instrument_enter(
@@ -459,16 +457,16 @@ pub fn add_to_linker<T: 'static>(
 
     let exit_ctx = ctx.clone();
     linker.func_new(
-        MODULE_NAME,
-        "instrument_exit",
+        "dylibso:observe/instrument",
+        "exit",
         t.clone(),
         move |_caller, params, results| instrument_exit(params, results, exit_ctx.clone()),
     )?;
 
     let grow_ctx = ctx.clone();
     linker.func_new(
-        MODULE_NAME,
-        "instrument_memory_grow",
+        "dylibso:observe/instrument",
+        "memory-grow",
         t,
         move |_caller, params, results| instrument_memory_grow(params, results, grow_ctx.clone()),
     )?;
@@ -477,8 +475,8 @@ pub fn add_to_linker<T: 'static>(
 
     let span_enter_ctx = ctx.clone();
     linker.func_new(
-        MODULE_NAME,
-        "span_enter",
+        "dylibso:observe/api",
+        "span-enter",
         t.clone(),
         move |mut caller, params, results| {
             span_enter(&mut caller, params, results, span_enter_ctx.clone())
@@ -487,8 +485,8 @@ pub fn add_to_linker<T: 'static>(
 
     let span_tags_ctx = ctx.clone();
     linker.func_new(
-        MODULE_NAME,
-        "span_tags",
+        "dylibso:observe/api",
+        "span-tags",
         t.clone(),
         move |mut caller, params, results| {
             span_tags(&mut caller, params, results, span_tags_ctx.clone())
@@ -499,14 +497,14 @@ pub fn add_to_linker<T: 'static>(
 
     let metric_ctx = ctx.clone();
     linker.func_new(
-        MODULE_NAME,
+        "dylibso:observe/api",
         "metric",
         t.clone(),
         move |mut caller, params, results| metric(&mut caller, params, results, metric_ctx.clone()),
     )?;
 
     let log_ctx = ctx.clone();
-    linker.func_new(MODULE_NAME, "log", t, move |mut caller, params, results| {
+    linker.func_new("dylibso:observe/api", "log", t, move |mut caller, params, results| {
         log_write(&mut caller, params, results, log_ctx.clone())
     })?;
 
@@ -514,8 +512,8 @@ pub fn add_to_linker<T: 'static>(
 
     let span_exit_ctx = ctx.clone();
     linker.func_new(
-        MODULE_NAME,
-        "span_exit",
+        "dylibso:observe/api",
+        "span-exit",
         t,
         move |mut caller, params, results| {
             span_exit(&mut caller, params, results, span_exit_ctx.clone())
@@ -598,14 +596,14 @@ pub mod component {
     }
 
     impl InstrumentHost for ObserveSdkBindings {
-        fn instrument_memory_grow(&mut self, amount_in_pages: u32) -> wasmtime::Result<()> {
+        fn memory_grow(&mut self, amount_in_pages: u32) -> wasmtime::Result<()> {
             if let Ok(mut cont) = self.instr_context.lock() {
                 cont.allocate(amount_in_pages)?;
             }
             Ok(())
         }
 
-        fn instrument_enter(&mut self, func_id: u32) -> wasmtime::Result<()> {
+        fn enter(&mut self, func_id: u32) -> wasmtime::Result<()> {
             let printname = self.wasm_instr_info.function_names.get(&func_id);
             if let Ok(mut cont) = self.instr_context.lock() {
                 cont.enter(func_id, printname.map(|x| x.as_str()))?;
@@ -613,7 +611,7 @@ pub mod component {
             Ok(())
         }
 
-        fn instrument_exit(&mut self, func_id: u32) -> wasmtime::Result<()> {
+        fn exit(&mut self, func_id: u32) -> wasmtime::Result<()> {
             if let Ok(mut cont) = self.instr_context.lock() {
                 cont.exit(func_id)?;
             }

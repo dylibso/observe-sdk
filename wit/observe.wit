@@ -21,9 +21,9 @@ interface api {
 }
 
 interface instrument {
-  instrument-memory-grow: func(amount-in-pages: u32)
-  instrument-enter: func(func-id: u32)
-  instrument-exit: func(func-id: u32)
+  memory-grow: func(amount-in-pages: u32)
+  enter: func(func-id: u32)
+  exit: func(func-id: u32)
 }
 
 world imports {
