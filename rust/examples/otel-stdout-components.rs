@@ -37,7 +37,6 @@ impl ObserveSdkView for State {
 pub async fn main() -> anyhow::Result<()> {
     let args: Vec<_> = std::env::args().skip(1).collect();
     let data = std::fs::read(&args[0])?;
-    let function_name = "hello-world";
     let mut config = wasmtime::Config::new();
 
     config.async_support(true);
@@ -73,19 +72,10 @@ pub async fn main() -> anyhow::Result<()> {
     wasmtime_wasi::preview2::command::add_to_linker(&mut linker)?;
     dylibso_observe_sdk::context::component::add_to_linker(&mut linker)?;
 
-    let instance = linker.instantiate_async(&mut store, &component).await?;
-
-    // get the function and run it, the events pop into the queue
-    // as the function is running
-
-    let mut vals = [Val::U32(0)];
-    let f = instance
-        .get_func(&mut store, function_name)
-        .expect("function exists");
-
-    f.call_async(&mut store, &[], &mut vals).await.unwrap();
-
-    dbg!(vals);
+    // get the function and run it, the events pop into the queue as the function is running
+    let (cmd, _) = wasmtime_wasi::preview2::command::Command::instantiate_async(&mut store, &component, &linker).await?;
+    let run = cmd.wasi_cli_run();
+    run.call_run(&mut store).await?;
 
     let state = store.into_data();
     state.observe_sdk.shutdown().await?;
