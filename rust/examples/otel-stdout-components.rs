@@ -1,6 +1,5 @@
 use dylibso_observe_sdk::{adapter::otelstdout::OtelStdoutAdapter, context::component::{ObserveSdk, ObserveSdkView}};
 
-use wasmtime::component::Val;
 use wasmtime_wasi::preview2::{WasiView, WasiCtx, Table};
 
 struct State {
@@ -57,9 +56,6 @@ pub async fn main() -> anyhow::Result<()> {
     let mut linker = wasmtime::component::Linker::new(&engine);
 
     let adapter = OtelStdoutAdapter::create();
-    // Provide the observability functions to the `Linker` to be made available
-    // to the instrumented guest code. These are safe to add and are a no-op
-    // if guest code is uninstrumented.
     let observe_sdk = adapter.build_observe_sdk(&data, Default::default())?;
 
     let state = State {
@@ -75,7 +71,9 @@ pub async fn main() -> anyhow::Result<()> {
     // get the function and run it, the events pop into the queue as the function is running
     let (cmd, _) = wasmtime_wasi::preview2::command::Command::instantiate_async(&mut store, &component, &linker).await?;
     let run = cmd.wasi_cli_run();
-    run.call_run(&mut store).await?;
+    if let Err(()) = run.call_run(&mut store).await? {
+        println!("encountered error");
+    };
 
     let state = store.into_data();
     state.observe_sdk.shutdown().await?;
