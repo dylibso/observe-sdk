@@ -75,19 +75,19 @@ func (t *TraceCtx) withListener(ctx context.Context) context.Context {
 // Should only be called once.
 func (t *TraceCtx) init(ctx context.Context, r wazero.Runtime) error {
 	ctx = t.withListener(ctx)
-	observe := r.NewHostModuleBuilder("dylibso_observe")
-	functions := observe.NewFunctionBuilder()
+	instrument := r.NewHostModuleBuilder("dylibso:observe/instrument")
+	instrFunctions := instrument.NewFunctionBuilder()
 
-	functions.WithFunc(func(ctx context.Context, m api.Module, i int32) {
+	instrFunctions.WithFunc(func(ctx context.Context, m api.Module, i int32) {
 		start := time.Now()
 		ev := <-t.raw
 		if ev.Kind != RawEnter {
 			log.Println("Expected event", RawEnter, "but got", ev.Kind)
 		}
 		t.pushFunction(CallEvent{Raw: []RawEvent{ev}, Time: start})
-	}).Export("instrument_enter")
+	}).Export("instrument-enter")
 
-	functions.WithFunc(func(ctx context.Context, i int32) {
+	instrFunctions.WithFunc(func(ctx context.Context, i int32) {
 		end := time.Now()
 		ev := <-t.raw
 		if ev.Kind != RawExit {
@@ -140,9 +140,9 @@ func (t *TraceCtx) init(ctx context.Context, r wazero.Runtime) error {
 			t.pushFunction(f)
 		}
 
-	}).Export("instrument_exit")
+	}).Export("instrument-exit")
 
-	functions.WithFunc(func(ctx context.Context, amt int32) {
+	instrFunctions.WithFunc(func(ctx context.Context, amt int32) {
 		ev := <-t.raw
 		if ev.Kind != RawMemoryGrow {
 			log.Println("Expected event", MemoryGrow, "but got", ev.Kind)
@@ -167,9 +167,9 @@ func (t *TraceCtx) init(ctx context.Context, r wazero.Runtime) error {
 		}
 		fn.within = append(fn.within, event)
 		t.pushFunction(fn)
-	}).Export("instrument_memory_grow")
+	}).Export("instrument-memory-grow")
 
-	_, err := observe.Instantiate(ctx)
+	_, err := instrument.Instantiate(ctx)
 	if err != nil {
 		return err
 	}

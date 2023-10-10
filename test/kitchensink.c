@@ -5,13 +5,13 @@
 
 #define IMPORT(a, b) __attribute__((import_module(a), import_name(b)))
 
-IMPORT("dylibso_observe", "metric")
+IMPORT("dylibso:observe/api", "metric")
 extern void metric(uint32_t, uint64_t, uint32_t);
-IMPORT("dylibso_observe", "log")
+IMPORT("dylibso:observe/api", "log")
 extern void log_write(uint32_t, uint64_t, uint32_t);
-IMPORT("dylibso_observe", "span_enter")
+IMPORT("dylibso:observe/api", "span-enter")
 extern void span_enter(uint64_t, uint32_t);
-IMPORT("dylibso_observe", "span_exit") extern void span_exit();
+IMPORT("dylibso:observe/api", "span-exit") extern void span_exit();
 
 void custom_span_enter(char name[]) {
   uintptr_t ptr = (uintptr_t)name;

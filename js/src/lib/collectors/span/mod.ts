@@ -114,10 +114,10 @@ export class SpanCollector implements Collector {
 
   public getImportObject(): WebAssembly.Imports {
     return {
-      "dylibso_observe": {
-        "instrument_enter": this.instrumentEnter,
-        "instrument_exit": this.instrumentExit,
-        "instrument_memory_grow": this.instrumentMemoryGrow,
+      "dylibso:observe/instrument": {
+        "instrument-enter": this.instrumentEnter,
+        "instrument-exit": this.instrumentExit,
+        "instrument-memory-grow": this.instrumentMemoryGrow,
       },
     };
   }
