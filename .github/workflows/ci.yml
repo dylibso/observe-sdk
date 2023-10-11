@@ -21,7 +21,7 @@ jobs:
       - name: Install JS build deps
         run: |
           cd js
-          npm i
+          npm ci
 
       - name: Run Deno test
         run: |
