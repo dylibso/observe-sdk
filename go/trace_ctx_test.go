@@ -20,8 +20,8 @@ func TestTraceId(t *testing.T) {
 		t.Fail()
 	}
 
-	// err := b.FromString(a.ToHex16() + "a")
-	// if err == nil {
-	// 	t.Fail()
-	// }
+	err := b.FromString(a.ToHex16() + "a")
+	if err == nil {
+		t.Fail()
+	}
 }
