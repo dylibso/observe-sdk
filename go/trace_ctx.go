@@ -48,6 +48,10 @@ func newTraceCtx(ctx context.Context, eventsChan chan TraceEvent, r wazero.Runti
 	return traceCtx, nil
 }
 
+func (t *TraceCtx) SetTraceId(id string) error {
+	return t.telemetryId.FromString(id)
+}
+
 func (t *TraceCtx) Metadata(metadata interface{}) {
 	t.adapterMeta = metadata
 }

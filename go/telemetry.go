@@ -1,6 +1,9 @@
 package observe
 
 import (
+	"encoding/binary"
+	"encoding/hex"
+	"errors"
 	"fmt"
 	"math/rand"
 	"time"
@@ -59,4 +62,23 @@ func (t TelemetryId) ToHex16() string {
 // Some adapters may need a raw representation
 func (t TelemetryId) ToUint64() uint64 {
 	return t.lsb
+}
+
+func (t *TelemetryId) FromBytes(id []byte) error {
+	if len(id) != 16 {
+		return errors.New("TraceID must be 16 bytes")
+	}
+
+	t.msb = binary.BigEndian.Uint64(id)
+	t.lsb = binary.BigEndian.Uint64(id[8:])
+
+	return nil
+}
+
+func (t *TelemetryId) FromString(id string) error {
+	b, err := hex.DecodeString(id)
+	if err != nil {
+		return err
+	}
+	return t.FromBytes(b)
 }
