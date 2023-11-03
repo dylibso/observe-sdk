@@ -145,6 +145,7 @@ func (s *server) runModule(res http.ResponseWriter, req *http.Request) {
 	httpClientIp := req.RemoteAddr
 	meta := datadog.DatadogMetadata{
 		ResourceName:   &resourceName,
+		HttpMethod:     &req.Method,
 		HttpUrl:        &httpUrl,
 		HttpStatusCode: &httpStatusCode,
 		SpanKind:       &spanKind,

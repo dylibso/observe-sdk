@@ -11,7 +11,9 @@ use axum::{
     Router,
 };
 use dylibso_observe_sdk::adapter::{
-    datadog::{AdapterMetadata, DatadogAdapter, DatadogConfig, DatadogMetadata, Options, SpanFilter},
+    datadog::{
+        AdapterMetadata, DatadogAdapter, DatadogConfig, DatadogMetadata, Options, SpanFilter,
+    },
     AdapterHandle,
 };
 use serde::Deserialize;
@@ -70,7 +72,8 @@ async fn run_module(
     let wasi = WasiCtxBuilder::new()
         .stdin(Box::new(stdin.clone()))
         .stdout(Box::new(stdout.clone()))
-        .arg(&query.name).unwrap()
+        .arg(&query.name)
+        .unwrap()
         .build();
 
     let mut store = wasmtime::Store::new(&engine, wasi);
@@ -93,6 +96,7 @@ async fn run_module(
     f.call(&mut store, &[], &mut []).unwrap();
 
     let meta = DatadogMetadata {
+        resource_name: Some("iota-rust".into()),
         http_url: Some("https://iota.dylibso.com/run".into()),
         http_method: Some("POST".into()),
         http_status_code: Some(200u16),
