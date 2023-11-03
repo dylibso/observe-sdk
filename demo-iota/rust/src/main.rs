@@ -93,8 +93,8 @@ async fn run_module(
     f.call(&mut store, &[], &mut []).unwrap();
 
     let meta = DatadogMetadata {
-        http_url: Some("https://example.com/things/123".into()),
-        http_method: Some("GET".into()),
+        http_url: Some("https://iota.dylibso.com/run".into()),
+        http_method: Some("POST".into()),
         http_status_code: Some(200u16),
         http_client_ip: Some("23.123.15.145".into()),
         http_request_content_length: Some(128974u64),
