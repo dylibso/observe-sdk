@@ -11,7 +11,7 @@ use axum::{
     Router,
 };
 use dylibso_observe_sdk::adapter::{
-    datadog::{DatadogAdapter, DatadogConfig, Options, SpanFilter},
+    datadog::{AdapterMetadata, DatadogAdapter, DatadogConfig, DatadogMetadata, Options, SpanFilter},
     AdapterHandle,
 };
 use serde::Deserialize;
@@ -80,7 +80,7 @@ async fn run_module(
     let adapter = state.clone();
     let options = Options {
         span_filter: SpanFilter {
-            min_duration_microseconds: std::time::Duration::from_micros(100),
+            min_duration_microseconds: std::time::Duration::from_micros(30),
         },
     };
     let trace_ctx = adapter.start(&mut linker, &data, options).unwrap();
@@ -91,6 +91,17 @@ async fn run_module(
         .get_func(&mut store, "_start")
         .expect("function exists");
     f.call(&mut store, &[], &mut []).unwrap();
+
+    let meta = DatadogMetadata {
+        http_url: Some("https://iota.dylibso.com/run".into()),
+        http_method: Some("POST".into()),
+        http_status_code: Some(200u16),
+        http_client_ip: Some("23.123.15.145".into()),
+        http_request_content_length: Some(128974u64),
+        http_response_content_length: Some(239823874u64),
+        ..Default::default()
+    };
+    trace_ctx.set_metadata(AdapterMetadata::Datadog(meta)).await;
 
     trace_ctx.shutdown().await;
 
