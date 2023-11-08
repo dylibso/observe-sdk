@@ -434,9 +434,9 @@ pub fn add_to_linker<T: 'static>(
     let wasm_instr_info = WasmInstrInfo::new(data)?;
 
     // check that the version number is supported with this SDK
-    // TODO decide what to do about this error?
     if let Err(e) = wasm_instr_info.check_version() {
-        warn!("{}", e);
+        error!("{}", e);
+        return Err(e);
     }
     let t = FuncType::new([ValType::I32], []);
 
@@ -504,9 +504,12 @@ pub fn add_to_linker<T: 'static>(
     )?;
 
     let log_ctx = ctx.clone();
-    linker.func_new("dylibso:observe/api", "log", t, move |mut caller, params, results| {
-        log_write(&mut caller, params, results, log_ctx.clone())
-    })?;
+    linker.func_new(
+        "dylibso:observe/api",
+        "log",
+        t,
+        move |mut caller, params, results| log_write(&mut caller, params, results, log_ctx.clone()),
+    )?;
 
     let t = FuncType::new([], []);
 
@@ -582,7 +585,7 @@ pub mod component {
     //! let args: Vec<_> = std::env::args().skip(1).collect();
     //! let wasm_data = std::fs::read(&args[0])?;
     //! let mut config = wasmtime::Config::new();
-    //! 
+    //!
     //! config.async_support(true);
     //! config.wasm_component_model(true);
     //! let engine = wasmtime::Engine::new(&config)?;
@@ -654,7 +657,7 @@ pub mod component {
         });
     }
 
-    use internal::dylibso::observe::api::{ MetricFormat, LogLevel, Host as ApiHost };
+    use internal::dylibso::observe::api::{Host as ApiHost, LogLevel, MetricFormat};
     use internal::dylibso::observe::instrument::Host as InstrumentHost;
 
     /// A data structure backing ObserveSdk bindings: contains private information mapping
@@ -702,7 +705,7 @@ pub mod component {
             #[allow(unreachable_patterns)]
             match self {
                 MetricFormat::Statsd => Ok(super::MetricFormat::Statsd),
-                _ => bail!("Illegal metric format value")
+                _ => bail!("Illegal metric format value"),
             }
         }
     }
@@ -772,9 +775,10 @@ pub mod component {
     /// Make ObserveSdk host bindings available to the component model
     /// [`wasmtime::component::Linker`]. Assumes that [`ObserveSdkView`] has been implemented to
     /// map from the [`wasmtime::Store`] to an instance of [`ObserveSdk`].
-    pub fn add_to_linker<T>(
-        linker: &mut Linker<T>,
-    ) -> Result<()> where T: ObserveSdkView + 'static {
+    pub fn add_to_linker<T>(linker: &mut Linker<T>) -> Result<()>
+    where
+        T: ObserveSdkView + 'static,
+    {
         internal::dylibso::observe::api::add_to_linker(linker, |s| -> &mut ObserveSdk {
             s.sdk_mut()
         })?;

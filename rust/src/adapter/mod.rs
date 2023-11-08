@@ -15,7 +15,10 @@ use crate::{
 };
 
 #[cfg(feature = "component-model")]
-use crate::{ wasm_instr::WasmInstrInfo, context::{ InstrumentationContext, component::ObserveSdk } };
+use crate::{
+    context::{component::ObserveSdk, InstrumentationContext},
+    wasm_instr::WasmInstrInfo,
+};
 
 use self::datadog::DatadogMetadata;
 
@@ -202,7 +205,7 @@ impl AdapterHandle {
         let bindings = ObserveSdk {
             instr_context: ctx,
             wasm_instr_info,
-            trace_context: TraceContext { collector }
+            trace_context: TraceContext { collector },
         };
         Ok(bindings)
     }
