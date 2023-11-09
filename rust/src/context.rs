@@ -268,8 +268,8 @@ pub(crate) fn metric<T>(
     let ptr = input
         .get(1)
         .context("Missing ptr arg")?
-        .i64()
-        .context("Could not cast ptr arg to i64")?;
+        .i32()
+        .context("Could not cast ptr arg to i32")?;
 
     let len = input
         .get(2)
@@ -302,8 +302,8 @@ pub(crate) fn span_tags<T>(
     let ptr = input
         .get(0)
         .context("Missing ptr arg")?
-        .i64()
-        .context("Could not cast ptr arg to i64")?;
+        .i32()
+        .context("Could not cast ptr arg to i32")?;
 
     let len = input
         .get(1)
@@ -347,8 +347,8 @@ pub(crate) fn log_write<T>(
     let ptr = input
         .get(1)
         .context("Missing ptr arg")?
-        .i64()
-        .context("Could not cast ptr arg to i64")?;
+        .i32()
+        .context("Could not cast ptr arg to i32")?;
 
     let len = input
         .get(2)
@@ -381,8 +381,8 @@ pub(crate) fn span_enter<T>(
     let ptr = input
         .get(0)
         .context("Missing ptr arg")?
-        .i64()
-        .context("Could not cast ptr arg to i64")?;
+        .i32()
+        .context("Could not cast ptr arg to i32")?;
 
     let len = input
         .get(1)
@@ -470,7 +470,7 @@ pub fn add_to_linker<T: 'static>(
         move |_caller, params, results| instrument_memory_grow(params, results, grow_ctx.clone()),
     )?;
 
-    let t = FuncType::new([ValType::I64, ValType::I32], []);
+    let t = FuncType::new([ValType::I32, ValType::I32], []);
 
     let span_enter_ctx = ctx.clone();
     linker.func_new(
@@ -492,7 +492,7 @@ pub fn add_to_linker<T: 'static>(
         },
     )?;
 
-    let t = FuncType::new([ValType::I32, ValType::I64, ValType::I32], []);
+    let t = FuncType::new([ValType::I32, ValType::I32, ValType::I32], []);
 
     let metric_ctx = ctx.clone();
     linker.func_new(
