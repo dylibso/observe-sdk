@@ -25,12 +25,14 @@ impl WasmInstrInfo {
         let min_num = self.min_version.unwrap();
 
         if maj_num != WASM_INSTR_VERSION_MAJOR {
-            bail!("wasm wasm-instr major version {maj_num} is not equal to {WASM_INSTR_VERSION_MAJOR}!")
+            bail!("Module wasm_instr_version_major {maj_num} is not equal to {WASM_INSTR_VERSION_MAJOR}!
+Please reinstrument your module with compatible wasm-instr.")
         }
 
         if min_num < WASM_INSTR_VERSION_MINOR {
             bail!(
-                "wasm wasm-instr minor version {min_num} is less than {WASM_INSTR_VERSION_MINOR}!"
+                "Module wasm_instr_version_minor {min_num} is less than {WASM_INSTR_VERSION_MINOR}!
+Please reinstrument your module with the new version of wasm_instr."
             );
         }
 

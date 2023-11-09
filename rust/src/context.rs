@@ -1,5 +1,5 @@
 use anyhow::{bail, Context, Result};
-use log::{error, warn};
+use log::error;
 use modsurfer_demangle::demangle_function_name;
 use std::{
     collections::HashMap,
@@ -435,7 +435,6 @@ pub fn add_to_linker<T: 'static>(
 
     // check that the version number is supported with this SDK
     if let Err(e) = wasm_instr_info.check_version() {
-        error!("{}", e);
         return Err(e);
     }
     let t = FuncType::new([ValType::I32], []);
