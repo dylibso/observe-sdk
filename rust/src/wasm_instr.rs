@@ -13,26 +13,34 @@ pub struct WasmInstrInfo {
     pub function_names: HashMap<u32, String>,
     pub maj_version: Option<u32>,
     pub min_version: Option<u32>,
+    pub old_api: bool,
 }
 
 impl WasmInstrInfo {
+    // uninstrumented modules are allowed as long as they don't have the old
+    // dylibso_observe imports
     pub fn check_version(&self) -> Result<()> {
-        if self.maj_version.is_none() && self.min_version.is_none() {
-            // likely this is an uninstrumented module, or not instrumented with automation
-            return Ok(());
-        }
-        let maj_num = self.maj_version.unwrap();
-        let min_num = self.min_version.unwrap();
+        if self.maj_version.is_some() || self.min_version.is_some() {
+            let maj_num = self.maj_version.unwrap();
+            let min_num = self.min_version.unwrap();
 
-        if maj_num != WASM_INSTR_VERSION_MAJOR {
-            bail!("Module wasm_instr_version_major {maj_num} is not equal to {WASM_INSTR_VERSION_MAJOR}!
+            if maj_num != WASM_INSTR_VERSION_MAJOR {
+                bail!("Module wasm_instr_version_major {maj_num} is not equal to {WASM_INSTR_VERSION_MAJOR}!
 Please reinstrument your module with compatible wasm-instr.")
+            }
+
+            if min_num < WASM_INSTR_VERSION_MINOR {
+                bail!(
+                    "Module wasm_instr_version_minor {min_num} is less than {WASM_INSTR_VERSION_MINOR}!
+Please reinstrument your module with the new version of wasm_instr."
+                );
+            }
         }
 
-        if min_num < WASM_INSTR_VERSION_MINOR {
+        if self.old_api {
             bail!(
-                "Module wasm_instr_version_minor {min_num} is less than {WASM_INSTR_VERSION_MINOR}!
-Please reinstrument your module with the new version of wasm_instr."
+                "Module imports from removed api, dylibso_observe!
+Please rebuild your module using the updated Observe API or reinstrument with the new version of wasm-instr."
             );
         }
 
@@ -44,6 +52,7 @@ Please reinstrument your module with the new version of wasm_instr."
         let mut maj_index: Option<u32> = None;
         let mut min_index: Option<u32> = None;
         let mut globals = HashMap::<u32, u32>::new();
+        let mut old_api = false;
         let parser = wasmparser::Parser::new(0);
         for payload in parser.parse_all(data) {
             match payload? {
@@ -101,6 +110,15 @@ Please reinstrument your module with the new version of wasm_instr."
                         }
                     }
                 }
+                wasmparser::Payload::ImportSection(importsec) => {
+                    for import in importsec.into_iter() {
+                        let import = import?;
+                        if import.module == "dylibso_observe" {
+                            old_api = true;
+                            break;
+                        }
+                    }
+                }
                 _ => (),
             }
         }
@@ -116,6 +134,7 @@ Please reinstrument your module with the new version of wasm_instr."
             function_names,
             maj_version,
             min_version,
+            old_api,
         });
     }
 }
