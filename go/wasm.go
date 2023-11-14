@@ -46,7 +46,7 @@ func checkVersion(m *wasm.Module) error {
 	}
 
 	if major != wasmInstrVersionMajor || minor < wasmInstrVersionMinor {
-		return errors.New(fmt.Sprintf("Expected instrumentation version >= %d.%d but got %d.%d", wasmInstrVersionMajor, wasmInstrVersionMinor, major, minor))
+		return errors.New(fmt.Sprintf("Expected instrumentation version >= %d.%d but got %d.%d\nPlease reinstrument your module with compatible wasm-instr.", wasmInstrVersionMajor, wasmInstrVersionMinor, major, minor))
 	}
 
 	return nil
