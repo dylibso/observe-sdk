@@ -11,7 +11,7 @@ import (
 )
 
 const wasmInstrVersionMajor = 0
-const wasmInstrVersionMinor = 0 // TODO: bump this to match compiler when ready
+const wasmInstrVersionMinor = 4 // TODO: bump this to match compiler when ready
 
 var errorNoCompatibilityVersion = errors.New("No compatibility versions in module")
 

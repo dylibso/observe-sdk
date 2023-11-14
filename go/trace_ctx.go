@@ -85,7 +85,7 @@ func (t *TraceCtx) init(ctx context.Context, r wazero.Runtime) error {
 			log.Println("Expected event", RawEnter, "but got", ev.Kind)
 		}
 		t.pushFunction(CallEvent{Raw: []RawEvent{ev}, Time: start})
-	}).Export("instrument-enter")
+	}).Export("enter")
 
 	instrFunctions.WithFunc(func(ctx context.Context, i int32) {
 		end := time.Now()
@@ -140,7 +140,7 @@ func (t *TraceCtx) init(ctx context.Context, r wazero.Runtime) error {
 			t.pushFunction(f)
 		}
 
-	}).Export("instrument-exit")
+	}).Export("exit")
 
 	instrFunctions.WithFunc(func(ctx context.Context, amt int32) {
 		ev := <-t.raw
@@ -167,7 +167,7 @@ func (t *TraceCtx) init(ctx context.Context, r wazero.Runtime) error {
 		}
 		fn.within = append(fn.within, event)
 		t.pushFunction(fn)
-	}).Export("instrument-memory-grow")
+	}).Export("memory-grow")
 
 	_, err := instrument.Instantiate(ctx)
 	if err != nil {
