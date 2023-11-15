@@ -13,6 +13,7 @@ const (
 	RawEnter RawEventKind = iota
 	RawExit
 	RawMemoryGrow
+	RawUnknownEvent
 )
 
 type EventKind int
