@@ -15,31 +15,29 @@ import (
 // It will collect events throughout the invocation of the function. Calling
 // Finish() will then submit those events to the Adapter to be processed and sent
 type TraceCtx struct {
-	adapter        chan TraceEvent
-	raw            chan RawEvent
-	events         []Event
-	stack          []CallEvent
-	Options        *Options
-	names          map[uint32]string
-	telemetryId    TelemetryId
-	adapterMeta    interface{}
-	isOldNamespace bool
+	adapter     chan TraceEvent
+	raw         chan RawEvent
+	events      []Event
+	stack       []CallEvent
+	Options     *Options
+	names       map[uint32]string
+	telemetryId TelemetryId
+	adapterMeta interface{}
 }
 
 // Creates a new TraceCtx. Used internally by the Adapter. The user should create the trace context from the Adapter.
 func newTraceCtx(ctx context.Context, eventsChan chan TraceEvent, r wazero.Runtime, data []byte, opts *Options) (*TraceCtx, error) {
-	names, err, isOldNamespace := parseNames(data)
+	names, err := parseNames(data)
 	if err != nil {
 		return nil, err
 	}
 
 	traceCtx := &TraceCtx{
-		adapter:        eventsChan,
-		raw:            make(chan RawEvent, opts.ChannelBufferSize),
-		names:          names,
-		telemetryId:    NewTraceId(),
-		Options:        opts,
-		isOldNamespace: isOldNamespace,
+		adapter:     eventsChan,
+		raw:         make(chan RawEvent, opts.ChannelBufferSize),
+		names:       names,
+		telemetryId: NewTraceId(),
+		Options:     opts,
 	}
 
 	err = traceCtx.init(ctx, r)
@@ -77,29 +75,17 @@ func (t *TraceCtx) withListener(ctx context.Context) context.Context {
 // Should only be called once.
 func (t *TraceCtx) init(ctx context.Context, r wazero.Runtime) error {
 	ctx = t.withListener(ctx)
-	namespace := "dylibso:observe/instrument"
-	enterName := "enter"
-	exitName := "exit"
-	memoryGrowName := "memory-grow"
-	if t.isOldNamespace {
-		namespace = "dylibso_observe"
-		enterName = "instrument_enter"
-		exitName = "instrument_exit"
-		memoryGrowName = "instrument_memory_grow"
-	}
-	instrument := r.NewHostModuleBuilder(namespace)
-	instrFunctions := instrument.NewFunctionBuilder()
 
-	instrFunctions.WithFunc(func(ctx context.Context, m api.Module, i int32) {
+	enterFunc := func(ctx context.Context, m api.Module, i int32) {
 		start := time.Now()
 		ev := <-t.raw
 		if ev.Kind != RawEnter {
 			log.Println("Expected event", RawEnter, "but got", ev.Kind)
 		}
 		t.pushFunction(CallEvent{Raw: []RawEvent{ev}, Time: start})
-	}).Export(enterName)
+	}
 
-	instrFunctions.WithFunc(func(ctx context.Context, i int32) {
+	exitFunc := func(ctx context.Context, i int32) {
 		end := time.Now()
 		ev := <-t.raw
 		if ev.Kind != RawExit {
@@ -152,9 +138,9 @@ func (t *TraceCtx) init(ctx context.Context, r wazero.Runtime) error {
 			t.pushFunction(f)
 		}
 
-	}).Export(exitName)
+	}
 
-	instrFunctions.WithFunc(func(ctx context.Context, amt int32) {
+	memoryGrowFunc := func(ctx context.Context, amt int32) {
 		ev := <-t.raw
 		if ev.Kind != RawMemoryGrow {
 			log.Println("Expected event", MemoryGrow, "but got", ev.Kind)
@@ -179,12 +165,33 @@ func (t *TraceCtx) init(ctx context.Context, r wazero.Runtime) error {
 		}
 		fn.within = append(fn.within, event)
 		t.pushFunction(fn)
-	}).Export(memoryGrowName)
-
-	_, err := instrument.Instantiate(ctx)
-	if err != nil {
-		return err
 	}
+
+	{
+		instrument := r.NewHostModuleBuilder("dylibso:observe/instrument")
+		instrFunctions := instrument.NewFunctionBuilder()
+		instrFunctions.WithFunc(enterFunc).Export("enter")
+		instrFunctions.WithFunc(exitFunc).Export("exit")
+		instrFunctions.WithFunc(memoryGrowFunc).Export("memory-grow")
+		_, err := instrument.Instantiate(ctx)
+		if err != nil {
+			return err
+		}
+	}
+
+	//old api
+	{
+		instrument := r.NewHostModuleBuilder("dylibso_observe")
+		instrFunctions := instrument.NewFunctionBuilder()
+		instrFunctions.WithFunc(enterFunc).Export("instrument_enter")
+		instrFunctions.WithFunc(exitFunc).Export("instrument_exit")
+		instrFunctions.WithFunc(memoryGrowFunc).Export("instrument_memory_grow")
+		_, err := instrument.Instantiate(ctx)
+		if err != nil {
+			return err
+		}
+	}
+
 	return nil
 }
 

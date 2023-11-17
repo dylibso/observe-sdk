@@ -2,6 +2,7 @@ package observe
 
 import (
 	"errors"
+	"log"
 
 	"github.com/tetratelabs/wabin/binary"
 	"github.com/tetratelabs/wabin/wasm"
@@ -9,16 +10,15 @@ import (
 
 // Parse the names of the functions out of the
 // names custom section in the wasm binary.
-func parseNames(data []byte) (map[uint32]string, error, bool) {
-	isOldNamespace := false
+func parseNames(data []byte) (map[uint32]string, error) {
 	features := wasm.CoreFeaturesV2
 	m, err := binary.DecodeModule(data, features)
 	if err != nil {
-		return nil, err, isOldNamespace
+		return nil, err
 	}
 
 	if m.NameSection == nil {
-		return nil, errors.New("Name section not found"), isOldNamespace
+		return nil, errors.New("Name section not found")
 	}
 
 	names := make(map[uint32]string, len(m.NameSection.FunctionNames))
@@ -29,10 +29,11 @@ func parseNames(data []byte) (map[uint32]string, error, bool) {
 
 	for _, item := range m.ImportSection {
 		if item.Module == "dylibso_observe" {
-			isOldNamespace = true
+			log.Println("Module uses deprecated namespace \"dylibso_observe\"!\n" +
+				"Please consider reinstrumenting with newer wasm-instr!")
 			break
 		}
 	}
 
-	return names, nil, isOldNamespace
+	return names, nil
 }
