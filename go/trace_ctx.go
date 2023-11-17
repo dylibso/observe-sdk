@@ -15,29 +15,31 @@ import (
 // It will collect events throughout the invocation of the function. Calling
 // Finish() will then submit those events to the Adapter to be processed and sent
 type TraceCtx struct {
-	adapter     chan TraceEvent
-	raw         chan RawEvent
-	events      []Event
-	stack       []CallEvent
-	Options     *Options
-	names       map[uint32]string
-	telemetryId TelemetryId
-	adapterMeta interface{}
+	adapter        chan TraceEvent
+	raw            chan RawEvent
+	events         []Event
+	stack          []CallEvent
+	Options        *Options
+	names          map[uint32]string
+	telemetryId    TelemetryId
+	adapterMeta    interface{}
+	isOldNamespace bool
 }
 
 // Creates a new TraceCtx. Used internally by the Adapter. The user should create the trace context from the Adapter.
 func newTraceCtx(ctx context.Context, eventsChan chan TraceEvent, r wazero.Runtime, data []byte, opts *Options) (*TraceCtx, error) {
-	names, err := parseNames(data)
+	names, err, isOldNamespace := parseNames(data)
 	if err != nil {
 		return nil, err
 	}
 
 	traceCtx := &TraceCtx{
-		adapter:     eventsChan,
-		raw:         make(chan RawEvent, opts.ChannelBufferSize),
-		names:       names,
-		telemetryId: NewTraceId(),
-		Options:     opts,
+		adapter:        eventsChan,
+		raw:            make(chan RawEvent, opts.ChannelBufferSize),
+		names:          names,
+		telemetryId:    NewTraceId(),
+		Options:        opts,
+		isOldNamespace: isOldNamespace,
 	}
 
 	err = traceCtx.init(ctx, r)
@@ -75,7 +77,17 @@ func (t *TraceCtx) withListener(ctx context.Context) context.Context {
 // Should only be called once.
 func (t *TraceCtx) init(ctx context.Context, r wazero.Runtime) error {
 	ctx = t.withListener(ctx)
-	instrument := r.NewHostModuleBuilder("dylibso:observe/instrument")
+	namespace := "dylibso:observe/instrument"
+	enterName := "enter"
+	exitName := "exit"
+	memoryGrowName := "memory-grow"
+	if t.isOldNamespace {
+		namespace = "dylibso_observe"
+		enterName = "instrument_enter"
+		exitName = "instrument_exit"
+		memoryGrowName = "instrument_memory_grow"
+	}
+	instrument := r.NewHostModuleBuilder(namespace)
 	instrFunctions := instrument.NewFunctionBuilder()
 
 	instrFunctions.WithFunc(func(ctx context.Context, m api.Module, i int32) {
@@ -85,7 +97,7 @@ func (t *TraceCtx) init(ctx context.Context, r wazero.Runtime) error {
 			log.Println("Expected event", RawEnter, "but got", ev.Kind)
 		}
 		t.pushFunction(CallEvent{Raw: []RawEvent{ev}, Time: start})
-	}).Export("enter")
+	}).Export(enterName)
 
 	instrFunctions.WithFunc(func(ctx context.Context, i int32) {
 		end := time.Now()
@@ -140,7 +152,7 @@ func (t *TraceCtx) init(ctx context.Context, r wazero.Runtime) error {
 			t.pushFunction(f)
 		}
 
-	}).Export("exit")
+	}).Export(exitName)
 
 	instrFunctions.WithFunc(func(ctx context.Context, amt int32) {
 		ev := <-t.raw
@@ -167,7 +179,7 @@ func (t *TraceCtx) init(ctx context.Context, r wazero.Runtime) error {
 		}
 		fn.within = append(fn.within, event)
 		t.pushFunction(fn)
-	}).Export("memory-grow")
+	}).Export(memoryGrowName)
 
 	_, err := instrument.Instantiate(ctx)
 	if err != nil {
