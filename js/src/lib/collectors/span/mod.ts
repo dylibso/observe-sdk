@@ -48,6 +48,14 @@ export class SpanCollector implements Collector {
     mangledNames.forEach((value, key) => {
       this.names.set(key, demangle(value));
     });
+
+    for (const iName of WebAssembly.Module.imports(module)) {
+      if (iName.module === 'dylibso_observe') {
+        console.warn("Module uses deprecated namespace \"dylibso_observe\"!\n" +
+          "Please consider reinstrumenting with newer wasm-instr!");
+        break;
+      }
+    }
   }
 
   public send(to: Adapter): void {
