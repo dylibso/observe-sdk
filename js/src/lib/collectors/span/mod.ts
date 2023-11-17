@@ -128,6 +128,11 @@ export class SpanCollector implements Collector {
         "exit": this.instrumentExit,
         "memory-grow": this.instrumentMemoryGrow,
       },
+      "dylibso_observe": {
+        "instrument_enter": this.instrumentEnter,
+        "instrument_exit": this.instrumentExit,
+        "instrument_memory_grow": this.instrumentMemoryGrow,
+      },
     };
   }
 
