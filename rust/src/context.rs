@@ -433,10 +433,6 @@ pub fn add_to_linker<T: 'static>(
     // load the static wasm-instr info
     let wasm_instr_info = WasmInstrInfo::new(data)?;
 
-    // check that the version number is supported with this SDK
-    if let Err(e) = wasm_instr_info.check_version() {
-        return Err(e);
-    }
     let t = FuncType::new([ValType::I32], []);
 
     let enter_ctx = ctx.clone();
