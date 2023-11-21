@@ -430,9 +430,10 @@ pub fn add_to_linker<T: 'static>(
 ) -> Result<EventChannel> {
     let (ctx, events_tx, events_rx) = InstrumentationContext::new(options);
 
-    // load the static wasm-instr info
+    //
+    // Dylibso Observe Instrument API
+    //
     let wasm_instr_info = WasmInstrInfo::new(data)?;
-
     let t = FuncType::new([ValType::I32], []);
 
     let enter_ctx = ctx.clone();
@@ -466,6 +467,29 @@ pub fn add_to_linker<T: 'static>(
         move |_caller, params, results| instrument_memory_grow(params, results, grow_ctx.clone()),
     )?;
 
+    // aliases to support old naming
+    linker.alias(
+        "dylibso:observe/instrument",
+        "enter",
+        "dylibso_observe",
+        "instrument_enter",
+    )?;
+    linker.alias(
+        "dylibso:observe/instrument",
+        "exit",
+        "dylibso_observe",
+        "instrument_exit",
+    )?;
+    linker.alias(
+        "dylibso:observe/instrument",
+        "memory-grow",
+        "dylibso_observe",
+        "instrument_memory_grow",
+    )?;
+
+    //
+    // Dylibso Observe API
+    //
     let t = FuncType::new([ValType::I32, ValType::I32], []);
 
     let span_enter_ctx = ctx.clone();
