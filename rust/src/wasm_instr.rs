@@ -16,6 +16,7 @@ pub struct WasmInstrInfo {
 impl WasmInstrInfo {
     pub fn new(data: &[u8]) -> Result<Self> {
         let mut function_names = HashMap::new();
+        let mut warn_on_dylibso_observe = true;
         let parser = wasmparser::Parser::new(0);
         for payload in parser.parse_all(data) {
             match payload? {
@@ -38,10 +39,21 @@ impl WasmInstrInfo {
                     for import in importsec.into_iter() {
                         let import = import?;
                         if import.module == "dylibso_observe" {
-                            bail!(
+                            if warn_on_dylibso_observe {
+                                warn_on_dylibso_observe = false;
+                                log::warn!(
                                 "Module uses deprecated namespace \"dylibso_observe\"!
 Please rebuild your module using the updated Observe API or reinstrument with the new version of wasm-instr."
-                            );
+                                );
+                            }
+                            for fname in ["span_enter", "span_tags", "metric", "log", "span_exit"] {
+                                if import.name == fname {
+                                    bail!(
+                                        "Module uses old version of Observe API!
+Please rebuild your module using the update Observe API."
+                                    );
+                                }
+                            }
                         }
                     }
                 }

@@ -2,7 +2,9 @@ use dylibso_observe_sdk::adapter::stdout::StdoutAdapter;
 
 #[tokio::main]
 pub async fn main() -> anyhow::Result<()> {
-    // env_logger::init();
+    env_logger::init_from_env(
+        env_logger::Env::default().filter_or(env_logger::DEFAULT_FILTER_ENV, "warn"),
+    );
     let args: Vec<_> = std::env::args().skip(1).collect();
     let data = std::fs::read(&args[0])?;
     let function_name = "_start";

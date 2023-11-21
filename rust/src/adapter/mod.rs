@@ -195,12 +195,6 @@ impl AdapterHandle {
         let (ctx, collector, collector_rx) = InstrumentationContext::new(options);
         let wasm_instr_info = WasmInstrInfo::new(data)?;
 
-        // check that the version number is supported with this SDK
-        // TODO decide what to do about this error?
-        if let Err(e) = wasm_instr_info.check_version() {
-            warn!("{}", e);
-        }
-
         Collector::start(collector_rx, self.clone());
         let bindings = ObserveSdk {
             instr_context: ctx,
