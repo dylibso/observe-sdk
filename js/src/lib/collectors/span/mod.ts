@@ -49,11 +49,18 @@ export class SpanCollector implements Collector {
       this.names.set(key, demangle(value));
     });
 
+    let warnOnDylibsoObserve = true;
     for (const iName of WebAssembly.Module.imports(module)) {
       if (iName.module === 'dylibso_observe') {
-        console.warn("Module uses deprecated namespace \"dylibso_observe\"!\n" +
-          "Please consider reinstrumenting with newer wasm-instr!");
-        break;
+        if (warnOnDylibsoObserve) {
+          warnOnDylibsoObserve = false;
+          console.warn("Module uses deprecated namespace \"dylibso_observe\"!\n" +
+            "Please consider reinstrumenting with newer wasm-instr!");
+        }
+        const apiNames = new Set(["span_enter", "span_tags", "metric", "log", "span_exit"]);
+        if (apiNames.has(iName.name)) {
+          throw new Error("js sdk does not yet support Observe API");
+        }
       }
     }
   }

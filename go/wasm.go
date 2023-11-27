@@ -27,11 +27,18 @@ func parseNames(data []byte) (map[uint32]string, error) {
 		names[v.Index] = v.Name
 	}
 
+	warnOnDylibsoObserve := true
 	for _, item := range m.ImportSection {
 		if item.Module == "dylibso_observe" {
-			log.Println("Module uses deprecated namespace \"dylibso_observe\"!\n" +
-				"Please consider reinstrumenting with newer wasm-instr!")
-			break
+			if warnOnDylibsoObserve {
+				warnOnDylibsoObserve = false
+				log.Println("Module uses deprecated namespace \"dylibso_observe\"!\n" +
+					"Please consider reinstrumenting with newer wasm-instr!")
+			}
+			switch item.Name {
+			case "span_enter", "span_tags", "metric", "log", "span_exit":
+				return nil, errors.New("go sdk does not yet support Observe API")
+			}
 		}
 	}
 
