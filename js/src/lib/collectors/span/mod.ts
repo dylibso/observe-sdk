@@ -70,6 +70,8 @@ export class SpanCollector implements Collector {
         if (apiNames.has(iName.name)) {
           throw new Error("js sdk does not yet support Observe API");
         }
+      } else if (iName.module === 'dylibso:observe/api') {
+        throw new Error("js sdk does not yet support Observe API");
       }
     }
   }
