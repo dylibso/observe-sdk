@@ -39,6 +39,8 @@ func parseNames(data []byte) (map[uint32]string, error) {
 			case "span_enter", "span_tags", "metric", "log", "span_exit":
 				return nil, errors.New("go sdk does not yet support Observe API")
 			}
+		} else if item.Module == "dylibso:observe/api" {
+			return nil, errors.New("go sdk does not yet support Observe API")
 		}
 	}
 
