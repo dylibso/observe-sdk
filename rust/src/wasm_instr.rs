@@ -50,7 +50,7 @@ Please rebuild your module using the updated Observe API or reinstrument with th
                                 if import.name == fname {
                                     bail!(
                                         "Module uses old version of Observe API!
-Please rebuild your module using the update Observe API."
+Please rebuild your module using the updated Observe API."
                                     );
                                 }
                             }
