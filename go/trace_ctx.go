@@ -79,6 +79,11 @@ func (t *TraceCtx) withListener(ctx context.Context) context.Context {
 // Should only be called once.
 func (t *TraceCtx) init(ctx context.Context, r wazero.Runtime) error {
 	ctx = t.withListener(ctx)
+
+	if r.Module("dylibso_observe") != nil {
+		return nil
+	}
+
 	observe := r.NewHostModuleBuilder("dylibso_observe")
 	functions := observe.NewFunctionBuilder()
 
