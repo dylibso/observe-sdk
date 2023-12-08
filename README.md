@@ -86,7 +86,7 @@ curl --fail -F wasm=@code.wasm https://compiler-preview.dylibso.com/instrument -
 ```
 
 > **Note**: The Instrumentation Service
-> (https://compiler-preview.dylibso.com/instrument) only re-compiles a .wasm
+> [https://compiler-preview.dylibso.com/instrument](https://compiler-preview.dylibso.com) only re-compiles a .wasm
 > binary and returns the updated code. We do not log or store any information
 > about your submitted code. The compilation also adds no telemetry or other
 > information besides the strictly-necessary auto-instrumentation to the .wasm
