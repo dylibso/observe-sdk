@@ -24,7 +24,7 @@ deployed code to execute.
 
 ```sh
 cd demo-iota
-make iota-upload host=rust wasm=functions/count_vowels.rs.inst.wasm name=count_vowels
+make iota-upload host=rust wasm=functions/count_vowels.rs.instr.wasm name=count_vowels
 ```
 
 ### Run a module:
