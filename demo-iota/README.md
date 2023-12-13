@@ -68,7 +68,7 @@ curl  "https://p01--iota-web--tyqfmnr79gjf.code.run/run?name=count_vowels" -X PO
 
 ## Trying it out
 
-We have some already instrumented functions in [functions](functions).
+We have some already instrumented functions in [functions](functions). Make sure you're running **instrumented code** to see any output from the adpter. Running uninstrumented wasm code will output no results. The code in `[functions](functions)` should have `.instr.wasm` as a suffix to indicate that it is instrumented.
 
 You can upload and run them using the Makefile which just calls the service
 using curl:
