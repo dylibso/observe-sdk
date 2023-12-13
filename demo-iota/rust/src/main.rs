@@ -63,6 +63,11 @@ async fn run_module(
     let query: ModuleParams = params.0;
     // Define the WASI functions globally on the `Config`.
     let engine = Engine::default();
+
+    // NOTE: The wasm code loaded here will only report any metrics via the adapter _if the code is instrumented_. 
+	// If you expect to see telemetry data, please be sure you're running instrumented code. 
+	// This section of the docs is a good place to start: 
+	// https://dev.dylibso.com/docs/observe/overview#2-instrumenting-your-code-automatic-or-manual
     let data = std::fs::read(format!("/tmp/{}", query.name)).unwrap();
     let module = wasmtime::Module::new(&engine, &data).unwrap();
 
