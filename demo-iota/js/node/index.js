@@ -59,6 +59,11 @@ app.post('/run', bodyParser.raw({ limit: '256mb', type: () => true }), async (re
             stdout,
             env,
         })
+
+        // NOTE: The wasm code loaded here will only report any metrics via the adapter _if the code is instrumented_. 
+        // If you expect to see telemetry data, please be sure you're running instrumented code. 
+        // This section of the docs is a good place to start:
+        // https://dev.dylibso.com/docs/observe/overview#2-instrumenting-your-code-automatic-or-manual
         const bytes = fs.readFileSync(`${os.tmpdir()}/${req.query['name']}.wasm`)
         const traceContext = await adapter.start(bytes)
         const module = new WebAssembly.Module(bytes)
