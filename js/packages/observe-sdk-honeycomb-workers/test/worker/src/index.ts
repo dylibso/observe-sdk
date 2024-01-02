@@ -10,7 +10,9 @@ export default {
 	async fetch(req: Request, env: Env, _ctx: ExecutionContext): Promise<Response> {
 		// setup some custom configuration for the adapter
 		const config = {
-		  apiKey: env.HONEYCOMB_API_KEY, // loaded as a Secret defined in the Worker
+		  // loaded as a Secret defined in the Worker, 
+		  // see: https://developers.cloudflare.com/workers/wrangler/configuration/#environmental-variables
+		  apiKey: env.HONEYCOMB_API_KEY, 
 		  dataset: "cloudflare-worker",
 		  emitTracesInterval: 100,
 		  traceBatchMax: 100,
@@ -47,6 +49,9 @@ export default {
 		wasi.start(instance);
 		let dec = new TextDecoder();
 		const output = dec.decode(fds[1].file.data);
+
+		traceContext.stop();
+		await adapter.send();
 
 		return new Response(output)
 	},

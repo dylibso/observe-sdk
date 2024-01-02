@@ -10,6 +10,8 @@ export default {
 	async fetch(req: Request, env: Env, _ctx: ExecutionContext): Promise<Response> {
 		// setup some custom configuration for the adapter
 		const config: LightstepConfig = {
+			// loaded as a Secret defined in the Worker, 
+		  	// see: https://developers.cloudflare.com/workers/wrangler/configuration/#environmental-variables
 			apiKey: env.LIGHTSTEP_API_KEY,
 			serviceName: 'deno',
 			emitTracesInterval: 1000,
@@ -47,6 +49,9 @@ export default {
 		wasi.start(instance);
 		let dec = new TextDecoder();
 		const output = dec.decode(fds[1].file.data);
+
+		traceContext.stop();
+		await adapter.send();
 
 		return new Response(output)
 	},

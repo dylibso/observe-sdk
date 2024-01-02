@@ -39,6 +39,9 @@ export default {
 		let dec = new TextDecoder();
 		const output = dec.decode(fds[1].file.data);
 
+		traceContext.stop();
+		await adapter.send()
+
 		return new Response(output)
 	},
 };
