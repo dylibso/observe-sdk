@@ -41,8 +41,6 @@ export default {
 		let dec = new TextDecoder();
 		const output = dec.decode(fds[1].file.data);
 
-		adapter.flush();
-
 		return new Response(output)
 	},
 };
