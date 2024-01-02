@@ -1,4 +1,4 @@
-name = "dylibso-observe-sdk-honeycomb"
+name = "dylibso-observe-sdk-lightstep"
 main = "src/index.ts"
 compatibility_date = "2023-12-18"
 

@@ -1,4 +1,4 @@
-name = "dylibso-observe-sdk-datadog"
+name = "dylibso-observe-sdk-stdout"
 main = "src/index.ts"
 compatibility_date = "2023-12-18"
 
