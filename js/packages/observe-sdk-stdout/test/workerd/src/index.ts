@@ -1,4 +1,4 @@
-import { StdOutAdapter } from "@dylibso/observe-sdk-stdout-workers";
+import { StdOutAdapter } from "@dylibso/observe-sdk-stdout";
 import { File, OpenFile, WASI } from "@bjorn3/browser_wasi_shim";
 import code from './code.wasm';
 
