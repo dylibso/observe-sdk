@@ -9,7 +9,12 @@
     "module": "./dist/esm/index.js",
     "types": "./dist/types/index.d.ts",
     "exports": {
-        "workerd": "./dist/workerd/index.js"
+        "workerd": "./dist/workerd/index.js",
+        "default": {
+            "types": "./dist/types/index.d.ts",
+            "import": "./dist/esm/index.js",
+            "require": "./dist/cjs/index.js"
+        }
     },
     "scripts": {
         "build:esm": "node ../../esbuild/esbuild.js -b -e ./index.js -o ../observe-sdk-datadog/dist/esm/index.js -p browser -f esm",
