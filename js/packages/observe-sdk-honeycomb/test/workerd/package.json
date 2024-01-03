@@ -14,6 +14,6 @@
   },
   "dependencies": {
     "@bjorn3/browser_wasi_shim": "^0.2.17",
-    "@dylibso/observe-sdk-honeycomb-workers": "file:../.."
+    "@dylibso/observe-sdk-honeycomb": "file:../.."
   }
 }

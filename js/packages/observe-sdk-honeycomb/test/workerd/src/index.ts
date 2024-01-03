@@ -1,4 +1,4 @@
-import { HoneycombAdapter } from "@dylibso/observe-sdk-honeycomb-workers";
+import { HoneycombAdapter } from "@dylibso/observe-sdk-honeycomb";
 import { File, OpenFile, WASI } from "@bjorn3/browser_wasi_shim";
 import code from './code.wasm';
 

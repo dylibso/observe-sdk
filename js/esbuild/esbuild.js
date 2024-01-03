@@ -63,18 +63,18 @@ program
     .option('-p, --platform <string>')
     .option('-f, --format <string>')
     .option('-g, --generateTypes')
-    .option('-w, --workers')
+    .option('-w, --workerd')
 program.parse();
 
 const options = program.opts();
 
 // conditional logic for Cloudflare Workers
-const plugins = options.workers ? [] : [
+const plugins = options.workerd ? [] : [
     wasmPlugin,
 ]
 
 // conditional logic for Cloudflare Workers
-const loader = options.workers ? {
+const loader = options.workerd ? {
     '.wasm': 'copy',
 } : {}
 
