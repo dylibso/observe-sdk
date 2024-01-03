@@ -1,4 +1,4 @@
-import { DatadogAdapter } from "@dylibso/observe-sdk-datadog-workers";
+import { DatadogAdapter } from "@dylibso/observe-sdk-datadog";
 import { File, OpenFile, WASI } from "@bjorn3/browser_wasi_shim";
 import code from './code.wasm';
 
