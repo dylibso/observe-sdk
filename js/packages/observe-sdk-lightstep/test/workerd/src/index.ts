@@ -1,4 +1,4 @@
-import { LightstepAdapter, LightstepConfig } from "@dylibso/observe-sdk-lightstep-workers";
+import { LightstepAdapter, LightstepConfig } from "@dylibso/observe-sdk-lightstep";
 import { File, OpenFile, WASI } from "@bjorn3/browser_wasi_shim";
 import code from './code.wasm';
 
