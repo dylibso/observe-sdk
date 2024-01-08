@@ -1,0 +1,19 @@
+{
+  "name": "dylibso-observe-sdk-lightstep",
+  "version": "0.0.0",
+  "private": true,
+  "scripts": {
+    "deploy": "wrangler deploy",
+    "dev": "wrangler dev",
+    "start": "wrangler dev"
+  },
+  "devDependencies": {
+    "@cloudflare/workers-types": "^4.20231218.0",
+    "typescript": "^5.0.4",
+    "wrangler": "^3.22.2"
+  },
+  "dependencies": {
+    "@bjorn3/browser_wasi_shim": "^0.2.17",
+    "@dylibso/observe-sdk-lightstep": "file:../.."
+  }
+}

@@ -63,14 +63,20 @@ program
     .option('-p, --platform <string>')
     .option('-f, --format <string>')
     .option('-g, --generateTypes')
+    .option('-w, --workerd')
 program.parse();
 
 const options = program.opts();
 
-// conditional logic for polyfilling deno
-const plugins = [
+// conditional logic for Cloudflare Workers
+const plugins = options.workerd ? [] : [
     wasmPlugin,
 ]
+
+// conditional logic for Cloudflare Workers
+const loader = options.workerd ? {
+    '.wasm': 'copy',
+} : {}
 
 esbuild.build({
     entryPoints: [options.entrypoint],
@@ -80,8 +86,6 @@ esbuild.build({
     outfile: options.outfile,
     platform: options.platform,
     format: options.format,
-    // loader: {
-    //     '.data': 'binary'
-    // },
+    loader,
     plugins,
 })

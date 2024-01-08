@@ -18,8 +18,17 @@ import {
   WASM
 } from "../../mod.ts";
 
+// wasm is loaded from base64 encoded string
 // @ts-ignore - The esbuild wasm plugin provides a `default` function to initialize the wasm
-wasm.default().then((bytes) => __wbg_set_wasm(bytes));
+if (typeof wasm.default === "function") {
+  // @ts-ignore - The esbuild wasm plugin provides a `default` function to initialize the wasm
+  wasm.default().then((bytes) => __wbg_set_wasm(bytes));
+} else {
+  // cloudflare workers - wasm imported directly
+  // @ts-ignore
+  WebAssembly.instantiate(wasm.default).then((instance) => __wbg_set_wasm(instance.exports));
+}
+
 export class SpanCollector implements Collector {
   meta?: any;
   names: NamesMap;
@@ -79,7 +88,7 @@ export class SpanCollector implements Collector {
 
     // if the function duration is less than minimum duration, disregard
     const funcDuration = fn.duration() * 1e-3;
-    const minSpanDuration = this.opts.spanFilter.minDurationMicroseconds;
+    const minSpanDuration = this.opts.spanFilter?.minDurationMicroseconds ?? 0;
     if (funcDuration < minSpanDuration) {
       // check for memory allocations and attribute them to the parent span before filtering
       const f = this.stack.pop();

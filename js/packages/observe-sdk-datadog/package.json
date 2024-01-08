@@ -8,15 +8,25 @@
     "main": "./dist/cjs/index.js",
     "module": "./dist/esm/index.js",
     "types": "./dist/types/index.d.ts",
+    "exports": {
+        "workerd": "./dist/workerd/index.js",
+        "default": {
+            "types": "./dist/types/index.d.ts",
+            "import": "./dist/esm/index.js",
+            "require": "./dist/cjs/index.js"
+        }
+    },
     "scripts": {
         "build:esm": "node ../../esbuild/esbuild.js -b -e ./index.js -o ../observe-sdk-datadog/dist/esm/index.js -p browser -f esm",
         "build:cjs": "node ../../esbuild/esbuild.js -b -e ./index.js -o ../observe-sdk-datadog/dist/cjs/index.js -p browser -f cjs",
+        "build:workerd": "node ../../esbuild/esbuild.js -b -e ./index.js -o ./dist/workerd/index.js -p browser -f esm --workerd",
         "build:types": "tsc -b",
-        "build": "npm run build:esm && npm run build:cjs && npm run build:types",
+        "build": "npm run build:esm && npm run build:cjs && npm run build:workerd && npm run build:types",
         "build:web-test": "node ../../esbuild/esbuild.js -b -e ./test/web/index.js -o ./test/web/build.js -p browser",
         "test:node": "node test/node/index.js",
         "test:deno": "deno run -A test/deno/index.ts",
-        "test:web": "npm run build:web-test && npx serve ./test/web"
+        "test:web": "npm run build:web-test && npx serve ./test/web",
+        "test:workerd": "npx wrangler dev -c ./test/workerd/wrangler.toml"
     },
     "keywords": [
         "dylibso",
