@@ -90,66 +90,43 @@ func (t *TraceCtx) init(ctx context.Context, r wazero.Runtime) error {
 	functions.WithFunc(func(ctx context.Context, m api.Module, i int32) {
 		start := time.Now()
 		ev := <-t.raw
-		if ev.Kind != RawEnter {
-			log.Println("Expected event", RawEnter, "but got", ev.Kind)
-		}
-		t.pushFunction(CallEvent{Raw: []RawEvent{ev}, Time: start})
+
+		t.enter(ev, start)
 	}).Export("instrument_enter")
+
+	functions.WithFunc(func(ctx context.Context, m api.Module, ptr uint64, len uint32) {
+		start := time.Now()
+
+		functionName, ok := m.Memory().Read(uint32(ptr), len)
+		if !ok {
+			log.Printf("span_enter: failed to read memory at offset %v with length %v\n", ptr, len)
+		}
+
+		ev := RawEvent{
+			Kind:          RawEnter,
+			FunctionName:  string(functionName),
+			FunctionIndex: 0,
+		}
+
+		t.enter(ev, start)
+	}).Export("span_enter")
 
 	functions.WithFunc(func(ctx context.Context, i int32) {
 		end := time.Now()
 		ev := <-t.raw
-		if ev.Kind != RawExit {
-			log.Println("Expected event", RawExit, "but got", ev.Kind)
-			return
-		}
-		fn, ok := t.peekFunction()
-		if !ok {
-			log.Println("Expected values on started function stack, but none were found")
-			return
-		}
-		if ev.FunctionIndex != fn.FunctionIndex() {
-			log.Println("Expected call to", ev.FunctionIndex, "but found call to", fn.FunctionIndex())
-			return
-		}
 
-		fn, _ = t.popFunction()
-		fn.Stop(end)
-		fn.Raw = append(fn.Raw, ev)
-
-		// if there is no function left to pop, we are exiting the root function of the trace
-		f, ok := t.peekFunction()
-		if !ok {
-			t.events = append(t.events, fn)
-			return
-		}
-
-		// if the function duration is less than minimum duration, disregard
-		funcDuration := fn.Duration.Microseconds()
-		minSpanDuration := t.Options.SpanFilter.MinDuration.Microseconds()
-		if funcDuration < minSpanDuration {
-			// check for memory allocations and attribute them to the parent span
-			f, ok = t.popFunction()
-			if ok {
-				for _, ev := range fn.within {
-					switch e := ev.(type) {
-					case MemoryGrowEvent:
-						f.within = append(f.within, e)
-					}
-				}
-				t.pushFunction(f)
-			}
-			return
-		}
-
-		// the function is within another function
-		f, ok = t.popFunction()
-		if ok {
-			f.within = append(f.within, fn)
-			t.pushFunction(f)
-		}
-
+		t.exit(ev, end)
 	}).Export("instrument_exit")
+
+	functions.WithFunc(func(ctx context.Context, m api.Module) {
+		end := time.Now()
+		ev := RawEvent{
+			Kind:          RawExit,
+			FunctionIndex: 0,
+		}
+
+		t.exit(ev, end)
+	}).Export("span_exit")
 
 	functions.WithFunc(func(ctx context.Context, amt int32) {
 		ev := <-t.raw
@@ -183,6 +160,66 @@ func (t *TraceCtx) init(ctx context.Context, r wazero.Runtime) error {
 		return err
 	}
 	return nil
+}
+
+func (t *TraceCtx) enter(ev RawEvent, start time.Time) {
+	if ev.Kind != RawEnter {
+		log.Println("Expected event", RawEnter, "but got", ev.Kind)
+	}
+	t.pushFunction(CallEvent{Raw: []RawEvent{ev}, Time: start})
+}
+
+func (t *TraceCtx) exit(ev RawEvent, end time.Time) {
+
+	if ev.Kind != RawExit {
+		log.Println("Expected event", RawExit, "but got", ev.Kind)
+		return
+	}
+	fn, ok := t.peekFunction()
+	if !ok {
+		log.Println("Expected values on started function stack, but none were found")
+		return
+	}
+	if ev.FunctionIndex != fn.FunctionIndex() {
+		log.Println("Expected call to", ev.FunctionIndex, "but found call to", fn.FunctionIndex())
+		return
+	}
+
+	fn, _ = t.popFunction()
+	fn.Stop(end)
+	fn.Raw = append(fn.Raw, ev)
+
+	// if there is no function left to pop, we are exiting the root function of the trace
+	f, ok := t.peekFunction()
+	if !ok {
+		t.events = append(t.events, fn)
+		return
+	}
+
+	// if the function duration is less than minimum duration, disregard
+	funcDuration := fn.Duration.Microseconds()
+	minSpanDuration := t.Options.SpanFilter.MinDuration.Microseconds()
+	if funcDuration < minSpanDuration {
+		// check for memory allocations and attribute them to the parent span
+		f, ok = t.popFunction()
+		if ok {
+			for _, ev := range fn.within {
+				switch e := ev.(type) {
+				case MemoryGrowEvent:
+					f.within = append(f.within, e)
+				}
+			}
+			t.pushFunction(f)
+		}
+		return
+	}
+
+	// the function is within another function
+	f, ok = t.popFunction()
+	if ok {
+		f.within = append(f.within, fn)
+		t.pushFunction(f)
+	}
 }
 
 // Pushes a function onto the stack
