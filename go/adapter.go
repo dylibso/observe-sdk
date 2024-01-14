@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"log"
+	"strings"
 	"time"
 
 	"github.com/tetratelabs/wazero"
@@ -106,6 +107,20 @@ func (b *AdapterBase) MakeOtelCallSpans(event CallEvent, parentId []byte, traceI
 			if existing != nil {
 				last.Attributes[i] = AddOtelKeyValueInt64(kv, existing)
 			} else {
+				last.Attributes = append(last.Attributes, kv)
+			}
+		}
+		if tags, ok := ev.(SpanTagsEvent); ok {
+			last := spans[len(spans)-1]
+
+			for _, tag := range tags.Tags {
+				parts := strings.Split(tag, ":")
+				if len(parts) != 2 {
+					log.Printf("Invalid tag: %s\n", tag)
+					continue
+				}
+
+				kv := NewOtelKeyValueString(parts[0], parts[1])
 				last.Attributes = append(last.Attributes, kv)
 			}
 		}

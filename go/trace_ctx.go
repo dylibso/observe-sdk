@@ -3,6 +3,7 @@ package observe
 import (
 	"context"
 	"log"
+	"strings"
 	"time"
 
 	"github.com/tetratelabs/wazero"
@@ -96,17 +97,14 @@ func (t *TraceCtx) init(ctx context.Context, r wazero.Runtime) error {
 
 	functions.WithFunc(func(ctx context.Context, m api.Module, ptr uint64, len uint32) {
 		start := time.Now()
+		ev := <-t.raw
 
 		functionName, ok := m.Memory().Read(uint32(ptr), len)
 		if !ok {
 			log.Printf("span_enter: failed to read memory at offset %v with length %v\n", ptr, len)
 		}
 
-		ev := RawEvent{
-			Kind:          RawEnter,
-			FunctionName:  string(functionName),
-			FunctionIndex: 0,
-		}
+		ev.FunctionName = string(functionName)
 
 		t.enter(ev, start)
 	}).Export("span_enter")
@@ -120,10 +118,7 @@ func (t *TraceCtx) init(ctx context.Context, r wazero.Runtime) error {
 
 	functions.WithFunc(func(ctx context.Context, m api.Module) {
 		end := time.Now()
-		ev := RawEvent{
-			Kind:          RawExit,
-			FunctionIndex: 0,
-		}
+		ev := <-t.raw
 
 		t.exit(ev, end)
 	}).Export("span_exit")
@@ -154,6 +149,99 @@ func (t *TraceCtx) init(ctx context.Context, r wazero.Runtime) error {
 		fn.within = append(fn.within, event)
 		t.pushFunction(fn)
 	}).Export("instrument_memory_grow")
+
+	functions.WithFunc(func(ctx context.Context, m api.Module, f int32, ptr int64, len int32) {
+		format := MetricFormat(f)
+		buffer, ok := m.Memory().Read(uint32(ptr), uint32(len))
+		if !ok {
+			log.Printf("metric: failed to read memory at offset %v with length %v\n", ptr, len)
+		}
+
+		ev := <-t.raw
+		if ev.Kind != RawMetric {
+			log.Println("Expected event", Metric, "but got", ev.Kind)
+			return
+		}
+
+		event := MetricEvent{
+			Time:    time.Now(),
+			Format:  format,
+			Message: string(buffer),
+			Raw:     ev,
+		}
+
+		fn, ok := t.popFunction()
+		if !ok {
+			t.events = append(t.events, event)
+			return
+		}
+		fn.within = append(fn.within, event)
+		t.pushFunction(fn)
+
+	}).Export("metric")
+
+	functions.WithFunc(func(ctx context.Context, m api.Module, ptr int64, len int32) {
+		buffer, ok := m.Memory().Read(uint32(ptr), uint32(len))
+		if !ok {
+			log.Printf("metric: failed to read memory at offset %v with length %v\n", ptr, len)
+		}
+
+		ev := <-t.raw
+		if ev.Kind != RawSpanTags {
+			log.Println("Expected event", Metric, "but got", ev.Kind)
+			return
+		}
+
+		event := SpanTagsEvent{
+			Time: time.Now(),
+			Raw:  ev,
+			Tags: strings.Split(string(buffer), ","),
+		}
+
+		fn, ok := t.popFunction()
+		if !ok {
+			t.events = append(t.events, event)
+			return
+		}
+		fn.within = append(fn.within, event)
+		t.pushFunction(fn)
+
+	}).Export("span_tags")
+
+	functions.WithFunc(func(ctx context.Context, m api.Module, l int32, ptr int64, len int32) {
+		if l < int32(Error) || l > int32(Debug) {
+			log.Printf("log: invalid log level %v\n", l)
+		}
+
+		level := LogLevel(l)
+
+		buffer, ok := m.Memory().Read(uint32(ptr), uint32(len))
+		if !ok {
+			log.Printf("metric: failed to read memory at offset %v with length %v\n", ptr, len)
+		}
+
+		ev := <-t.raw
+		if ev.Kind != RawLog {
+			log.Println("Expected event", Metric, "but got", ev.Kind)
+			return
+		}
+
+		event := LogEvent{
+			Time:    time.Now(),
+			Raw:     ev,
+			Level:   level,
+			Message: string(buffer),
+		}
+
+		fn, ok := t.popFunction()
+		if !ok {
+			t.events = append(t.events, event)
+			return
+		}
+		fn.within = append(fn.within, event)
+		t.pushFunction(fn)
+
+	}).Export("log")
 
 	_, err := observe.Instantiate(ctx)
 	if err != nil {
