@@ -55,6 +55,15 @@ func (s *StdoutAdapter) printEvents(event observe.CallEvent, indentation int) {
 		if alloc, ok := event.(observe.MemoryGrowEvent); ok {
 			log.Println(strings.Repeat("  ", indentation), "Allocated", alloc.MemoryGrowAmount(), "pages of memory in", name)
 		}
+		if metric, ok := event.(observe.MetricEvent); ok {
+			log.Println(strings.Repeat("  ", indentation), "Metric", metric.Message, "Format", metric.Format)
+		}
+		if l, ok := event.(observe.LogEvent); ok {
+			log.Println(strings.Repeat("  ", indentation), "Log", l.Message)
+		}
+		if spanTags, ok := event.(observe.SpanTagsEvent); ok {
+			log.Println(strings.Repeat("  ", indentation), "Span tags:", spanTags.Tags)
+		}
 	}
 }
 

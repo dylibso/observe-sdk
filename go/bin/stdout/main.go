@@ -6,6 +6,7 @@ import (
 	"os"
 	"time"
 
+	observe "github.com/dylibso/observe-sdk/go"
 	"github.com/dylibso/observe-sdk/go/adapter/stdout"
 	"github.com/tetratelabs/wazero"
 	"github.com/tetratelabs/wazero/imports/wasi_snapshot_preview1"
@@ -27,7 +28,15 @@ func main() {
 
 	cfg := wazero.NewRuntimeConfig().WithCustomSections(true)
 	rt := wazero.NewRuntimeWithConfig(ctx, cfg)
-	traceCtx, err := adapter.NewTraceCtx(ctx, rt, wasm, nil)
+
+	opts := observe.Options{
+		ChannelBufferSize: 1024,
+		SpanFilter: &observe.SpanFilter{
+			MinDuration: 0,
+		},
+	}
+
+	traceCtx, err := adapter.NewTraceCtx(ctx, rt, wasm, &opts)
 	if err != nil {
 		log.Panicln(err)
 	}
