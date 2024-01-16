@@ -9,6 +9,7 @@ import (
 	"time"
 
 	observe "github.com/dylibso/observe-sdk/go"
+	"go.opentelemetry.io/otel/metric"
 	trace "go.opentelemetry.io/proto/otlp/trace/v1"
 	proto "google.golang.org/protobuf/proto"
 )
@@ -19,6 +20,7 @@ type HoneycombConfig struct {
 	EmitTracesInterval time.Duration
 	TraceBatchMax      uint32
 	Host               string
+	Meter              *metric.Meter
 }
 
 type HoneycombAdapter struct {
@@ -54,7 +56,7 @@ func (h *HoneycombAdapter) Flush(evts []observe.TraceEvent) error {
 		for _, e := range te.Events {
 			switch event := e.(type) {
 			case observe.CallEvent: // TODO: consider renaming to FunctionCall for consistency across Rust & JS
-				spans := h.MakeOtelCallSpans(event, nil, traceId)
+				spans := h.MakeOtelCallSpans(event, nil, traceId, h.Config.Meter)
 				if len(spans) > 0 {
 					allSpans = append(allSpans, spans...)
 				}

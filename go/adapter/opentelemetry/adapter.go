@@ -37,7 +37,7 @@ type OTelAdapter struct {
 	Config *OTelConfig
 }
 
-// UseCustomClient accepts a pre-initialized client to allow for customization of how to get data into a collector 
+// UseCustomClient accepts a pre-initialized client to allow for customization of how to get data into a collector
 func (a *OTelAdapter) UseCustomClient(client otlptrace.Client) {
 	if a.Config != nil {
 		a.Config.client = client
@@ -114,7 +114,7 @@ func (o *OTelAdapter) Flush(evts []observe.TraceEvent) error {
 		for _, e := range te.Events {
 			switch event := e.(type) {
 			case observe.CallEvent: // TODO: consider renaming to FunctionCall for consistency across Rust & JS
-				spans := o.MakeOtelCallSpans(event, nil, traceId)
+				spans := o.MakeOtelCallSpans(event, nil, traceId, nil)
 				if len(spans) > 0 {
 					allSpans = append(allSpans, spans...)
 				}

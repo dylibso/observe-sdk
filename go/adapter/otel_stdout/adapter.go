@@ -7,17 +7,20 @@ import (
 	"log"
 
 	observe "github.com/dylibso/observe-sdk/go"
+	"go.opentelemetry.io/otel/metric"
 	trace "go.opentelemetry.io/proto/otlp/trace/v1"
 )
 
 type OtelStdoutAdapter struct {
 	*observe.AdapterBase
+	Meter *metric.Meter
 }
 
-func NewOtelStdoutAdapter() *OtelStdoutAdapter {
+func NewOtelStdoutAdapter(meter *metric.Meter) *OtelStdoutAdapter {
 	base := observe.NewAdapterBase(1, 0)
 	adapter := &OtelStdoutAdapter{
 		AdapterBase: &base,
+		Meter:       meter,
 	}
 
 	adapter.AdapterBase.SetFlusher(adapter)
@@ -37,7 +40,7 @@ func (o *OtelStdoutAdapter) Flush(evts []observe.TraceEvent) error {
 		for _, e := range te.Events {
 			switch event := e.(type) {
 			case observe.CallEvent:
-				spans := o.MakeOtelCallSpans(event, nil, traceId)
+				spans := o.MakeOtelCallSpans(event, nil, traceId, o.Meter)
 				if len(spans) > 0 {
 					allSpans = append(allSpans, spans...)
 				}

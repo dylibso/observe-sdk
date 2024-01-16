@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/tetratelabs/wazero"
+	"go.opentelemetry.io/otel/metric"
 	trace "go.opentelemetry.io/proto/otlp/trace/v1"
 )
 
@@ -89,7 +90,7 @@ func (b *AdapterBase) Stop(wait bool) {
 }
 
 // MakeOtelCallSpans recursively constructs call spans in open telemetry format
-func (b *AdapterBase) MakeOtelCallSpans(event CallEvent, parentId []byte, traceId string) []*trace.Span {
+func (b *AdapterBase) MakeOtelCallSpans(event CallEvent, parentId []byte, traceId string, meter *metric.Meter) []*trace.Span {
 	name := event.FunctionName()
 	span := NewOtelSpan(traceId, parentId, name, event.Time, event.Time.Add(event.Duration))
 	span.Attributes = append(span.Attributes, NewOtelKeyValueString("function-name", fmt.Sprintf("function-call-%s", name)))
@@ -97,7 +98,7 @@ func (b *AdapterBase) MakeOtelCallSpans(event CallEvent, parentId []byte, traceI
 	spans := []*trace.Span{span}
 	for _, ev := range event.Within() {
 		if call, ok := ev.(CallEvent); ok {
-			spans = append(spans, b.MakeOtelCallSpans(call, span.SpanId, traceId)...)
+			spans = append(spans, b.MakeOtelCallSpans(call, span.SpanId, traceId, meter)...)
 		}
 		if alloc, ok := ev.(MemoryGrowEvent); ok {
 			last := spans[len(spans)-1]
@@ -123,6 +124,50 @@ func (b *AdapterBase) MakeOtelCallSpans(event CallEvent, parentId []byte, traceI
 				kv := NewOtelKeyValueString(parts[0], parts[1])
 				last.Attributes = append(last.Attributes, kv)
 			}
+		}
+		if metric, ok := ev.(MetricEvent); ok && meter != nil {
+
+			if metric.Format != Statsd {
+				log.Printf("Unsupported metric format: %v\n", metric.Format)
+				continue
+			}
+
+			datagram, err := parseStatsdDataGram(metric.Message)
+			if err != nil {
+				log.Printf("Failed to parse statsd datagram: %v\n", err)
+				continue
+			}
+
+			ctx := context.Background()
+
+			m := *meter
+
+			// TODO: maybe we should also support int64 metrics?
+			// TODO: double check this
+			// TODO: timestamps?
+			switch datagram.Type {
+			case StatsdCounter:
+				counter, _ := m.Float64Counter(datagram.Name)
+				counter.Add(ctx, datagram.Value)
+			case StatsdGauge:
+				gauge, _ := m.Float64UpDownCounter(datagram.Name)
+				gauge.Add(ctx, datagram.Value)
+			case StatsdTiming, StatsdHistogram:
+				histogram, _ := m.Float64Histogram(datagram.Name)
+				histogram.Record(ctx, datagram.Value)
+			case StatsdSet:
+				// TODO: how to support sets?
+			}
+		}
+		if log, ok := ev.(LogEvent); ok {
+			// TODO: since logs are not implemented in otel go, can we use span events instead?
+			last := spans[len(spans)-1]
+			event := trace.Span_Event{
+				Name:         log.Message,
+				TimeUnixNano: uint64(log.Time.UnixNano()),
+			}
+
+			last.Events = append(last.Events, &event)
 		}
 	}
 	return spans
