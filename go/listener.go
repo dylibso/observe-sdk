@@ -44,12 +44,8 @@ func (t *TraceCtx) Before(ctx context.Context, _ api.Module, def api.FunctionDef
 		event.Kind = RawEnter
 	case "span_exit":
 		event.Kind = RawExit
-	case "metric":
-		event.Kind = RawMetric
 	case "span_tags":
 		event.Kind = RawSpanTags
-	case "log":
-		event.Kind = RawLog
 	default:
 		return
 	}

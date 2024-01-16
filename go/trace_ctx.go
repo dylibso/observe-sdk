@@ -157,27 +157,13 @@ func (t *TraceCtx) init(ctx context.Context, r wazero.Runtime) error {
 			log.Printf("metric: failed to read memory at offset %v with length %v\n", ptr, len)
 		}
 
-		ev := <-t.raw
-		if ev.Kind != RawMetric {
-			log.Println("Expected event", Metric, "but got", ev.Kind)
-			return
-		}
-
 		event := MetricEvent{
 			Time:    time.Now(),
 			Format:  format,
 			Message: string(buffer),
-			Raw:     ev,
 		}
 
-		fn, ok := t.popFunction()
-		if !ok {
-			t.events = append(t.events, event)
-			return
-		}
-		fn.within = append(fn.within, event)
-		t.pushFunction(fn)
-
+		t.events = append(t.events, event)
 	}).Export("metric")
 
 	functions.WithFunc(func(ctx context.Context, m api.Module, ptr int64, len int32) {
@@ -220,27 +206,13 @@ func (t *TraceCtx) init(ctx context.Context, r wazero.Runtime) error {
 			log.Printf("metric: failed to read memory at offset %v with length %v\n", ptr, len)
 		}
 
-		ev := <-t.raw
-		if ev.Kind != RawLog {
-			log.Println("Expected event", Metric, "but got", ev.Kind)
-			return
-		}
-
 		event := LogEvent{
 			Time:    time.Now(),
-			Raw:     ev,
 			Level:   level,
 			Message: string(buffer),
 		}
 
-		fn, ok := t.popFunction()
-		if !ok {
-			t.events = append(t.events, event)
-			return
-		}
-		fn.within = append(fn.within, event)
-		t.pushFunction(fn)
-
+		t.events = append(t.events, event)
 	}).Export("log")
 
 	_, err := observe.Instantiate(ctx)

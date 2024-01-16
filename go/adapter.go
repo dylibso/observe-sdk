@@ -124,19 +124,6 @@ func (b *AdapterBase) MakeOtelCallSpans(event CallEvent, parentId []byte, traceI
 				last.Attributes = append(last.Attributes, kv)
 			}
 		}
-		if metric, ok := ev.(MetricEvent); ok {
-			if metric.Format != StatsdFormat {
-				log.Printf("Unsupported metric format: %v\n", metric.Format)
-				continue
-			}
-
-			// TODO: properly report metrics
-			fmt.Printf("metric: %s\n", metric.Message)
-		}
-		if l, ok := ev.(LogEvent); ok {
-			// TODO: otel Go doesn't support logs yet
-			log.Println(l.Message)
-		}
 	}
 	return spans
 }

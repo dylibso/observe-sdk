@@ -90,7 +90,6 @@ func (e CustomEvent) RawEvents() []RawEvent {
 }
 
 type MetricEvent struct {
-	Raw     RawEvent
 	Time    time.Time
 	Format  MetricFormat
 	Message string
@@ -117,7 +116,6 @@ const (
 )
 
 type LogEvent struct {
-	Raw     RawEvent
 	Time    time.Time
 	Message string
 	Level   LogLevel
@@ -156,7 +154,7 @@ func (e MemoryGrowEvent) MemoryGrowAmount() uint32 {
 }
 
 func (e MetricEvent) RawEvents() []RawEvent {
-	return []RawEvent{e.Raw}
+	return []RawEvent{}
 }
 
 func (e SpanTagsEvent) RawEvents() []RawEvent {
@@ -164,5 +162,5 @@ func (e SpanTagsEvent) RawEvents() []RawEvent {
 }
 
 func (e LogEvent) RawEvents() []RawEvent {
-	return []RawEvent{e.Raw}
+	return []RawEvent{}
 }
