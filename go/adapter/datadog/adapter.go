@@ -85,8 +85,6 @@ func (d *DatadogAdapter) Flush(evts []observe.TraceEvent) error {
 				log.Println("MemoryGrowEvent should be attached to a span")
 			case observe.CustomEvent:
 				log.Println("Datadog adapter does not respect custom events")
-			case observe.MetricEvent:
-				log.Println("MetricEvent should be attached to a span")
 			}
 		}
 
@@ -197,8 +195,13 @@ func (d *DatadogAdapter) makeCallSpans(event observe.CallEvent, parentId *uint64
 			span.AddAllocation(alloc.MemoryGrowAmount())
 		}
 		if metric, ok := ev.(observe.MetricEvent); ok {
-			_ = metric
-			// TODO: implement
+			if metric.Format != observe.Statsd {
+				log.Printf("Unsupported metric format: %v\n", metric.Format)
+				continue
+			}
+
+			// TODO: properly report metrics
+			fmt.Printf("metric: %s\n", metric.Message)
 		}
 		if tags, ok := ev.(observe.SpanTagsEvent); ok {
 			span := spans[len(spans)-1]
@@ -211,6 +214,10 @@ func (d *DatadogAdapter) makeCallSpans(event observe.CallEvent, parentId *uint64
 
 				span.AddTag(parts[0], parts[1])
 			}
+		}
+		if l, ok := ev.(observe.LogEvent); ok {
+			// TODO: otel Go doesn't support logs yet
+			log.Printf("metric: %s\n", l.Message)
 		}
 	}
 

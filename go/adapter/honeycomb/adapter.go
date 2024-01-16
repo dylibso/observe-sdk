@@ -56,7 +56,7 @@ func (h *HoneycombAdapter) Flush(evts []observe.TraceEvent) error {
 		for _, e := range te.Events {
 			switch event := e.(type) {
 			case observe.CallEvent: // TODO: consider renaming to FunctionCall for consistency across Rust & JS
-				spans := h.MakeOtelCallSpans(event, nil, traceId, h.Config.Meter)
+				spans := h.MakeOtelCallSpans(event, nil, traceId)
 				if len(spans) > 0 {
 					allSpans = append(allSpans, spans...)
 				}
