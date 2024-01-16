@@ -195,7 +195,7 @@ func (d *DatadogAdapter) makeCallSpans(event observe.CallEvent, parentId *uint64
 			span.AddAllocation(alloc.MemoryGrowAmount())
 		}
 		if metric, ok := ev.(observe.MetricEvent); ok {
-			if metric.Format != observe.Statsd {
+			if metric.Format != observe.StatsdFormat {
 				log.Printf("Unsupported metric format: %v\n", metric.Format)
 				continue
 			}
@@ -217,7 +217,7 @@ func (d *DatadogAdapter) makeCallSpans(event observe.CallEvent, parentId *uint64
 		}
 		if l, ok := ev.(observe.LogEvent); ok {
 			// TODO: otel Go doesn't support logs yet
-			log.Printf("metric: %s\n", l.Message)
+			log.Println(l.Message)
 		}
 	}
 

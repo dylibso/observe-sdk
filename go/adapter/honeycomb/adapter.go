@@ -9,7 +9,6 @@ import (
 	"time"
 
 	observe "github.com/dylibso/observe-sdk/go"
-	"go.opentelemetry.io/otel/metric"
 	trace "go.opentelemetry.io/proto/otlp/trace/v1"
 	proto "google.golang.org/protobuf/proto"
 )
@@ -20,7 +19,6 @@ type HoneycombConfig struct {
 	EmitTracesInterval time.Duration
 	TraceBatchMax      uint32
 	Host               string
-	Meter              *metric.Meter
 }
 
 type HoneycombAdapter struct {

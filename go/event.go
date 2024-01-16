@@ -32,7 +32,7 @@ const (
 type MetricFormat int
 
 const (
-	Statsd MetricFormat = 1
+	StatsdFormat MetricFormat = 1
 )
 
 // Represents the raw event in our Observe form.
