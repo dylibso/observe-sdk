@@ -1,6 +1,6 @@
 {
   "name": "@dylibso/observe-sdk-stdout",
-  "version": "0.1.3",
+  "version": "0.1.4",
   "description": "A library that produces function tracing to stdout",
   "directories": {
     "test": "test"
