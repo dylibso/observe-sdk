@@ -55,6 +55,10 @@ func (s *Span) AddAllocation(amount uint32) {
 	}
 }
 
+func (s *Span) AddTag(key, value string) {
+	s.Meta[key] = value
+}
+
 func New() *DatadogFormatter {
 	return &DatadogFormatter{}
 }

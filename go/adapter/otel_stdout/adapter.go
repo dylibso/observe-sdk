@@ -45,6 +45,10 @@ func (o *OtelStdoutAdapter) Flush(evts []observe.TraceEvent) error {
 				log.Println("MemoryGrowEvent should be attached to a span")
 			case observe.CustomEvent:
 				log.Println("Otel adapter does not respect custom events")
+			case observe.MetricEvent:
+				log.Printf("metric: %s\n", event.Message)
+			case observe.LogEvent:
+				log.Println(event.Message)
 			}
 		}
 

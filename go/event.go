@@ -13,6 +13,9 @@ const (
 	RawEnter RawEventKind = iota
 	RawExit
 	RawMemoryGrow
+	RawMetric
+	RawSpanTags
+	RawLog
 )
 
 type EventKind int
@@ -21,6 +24,15 @@ const (
 	Call EventKind = iota
 	MemoryGrow
 	Custom
+	Metric
+	SpanTags
+	Log
+)
+
+type MetricFormat int
+
+const (
+	StatsdFormat MetricFormat = 1
 )
 
 // Represents the raw event in our Observe form.
@@ -77,9 +89,36 @@ func (e CustomEvent) RawEvents() []RawEvent {
 	return []RawEvent{}
 }
 
+type MetricEvent struct {
+	Time    time.Time
+	Format  MetricFormat
+	Message string
+}
+
+type SpanTagsEvent struct {
+	Raw  RawEvent
+	Time time.Time
+	Tags []string
+}
+
 type MemoryGrowEvent struct {
 	Raw  RawEvent
 	Time time.Time
+}
+
+type LogLevel int
+
+const (
+	Error LogLevel = 1
+	Warn           = 2
+	Info           = 3
+	Debug          = 4
+)
+
+type LogEvent struct {
+	Time    time.Time
+	Message string
+	Level   LogLevel
 }
 
 func (e MemoryGrowEvent) RawEvents() []RawEvent {
@@ -112,4 +151,16 @@ func (e CallEvent) FunctionIndex() uint32 {
 
 func (e MemoryGrowEvent) MemoryGrowAmount() uint32 {
 	return e.Raw.MemoryGrowAmount
+}
+
+func (e MetricEvent) RawEvents() []RawEvent {
+	return []RawEvent{}
+}
+
+func (e SpanTagsEvent) RawEvents() []RawEvent {
+	return []RawEvent{e.Raw}
+}
+
+func (e LogEvent) RawEvents() []RawEvent {
+	return []RawEvent{}
 }

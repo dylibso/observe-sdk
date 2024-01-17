@@ -62,6 +62,10 @@ func (h *HoneycombAdapter) Flush(evts []observe.TraceEvent) error {
 				log.Println("MemoryGrowEvent should be attached to a span")
 			case observe.CustomEvent:
 				log.Println("Honeycomb adapter does not respect custom events")
+			case observe.MetricEvent:
+				log.Println("Honeycomb adapter does not respect metric events")
+			case observe.LogEvent:
+				log.Println("Honeycomb adapter does not respect log events")
 			}
 		}
 

@@ -38,6 +38,10 @@ func (s *StdoutAdapter) Flush(evts []observe.TraceEvent) error {
 				log.Println("Allocated", event.MemoryGrowAmount(), "pages of memory in", name)
 			case observe.CustomEvent:
 				log.Println(event.Name, event.Time)
+			case observe.MetricEvent:
+				log.Printf("metric: %s\n", event.Message)
+			case observe.LogEvent:
+				log.Println(event.Message)
 			}
 		}
 	}
@@ -54,6 +58,9 @@ func (s *StdoutAdapter) printEvents(event observe.CallEvent, indentation int) {
 		}
 		if alloc, ok := event.(observe.MemoryGrowEvent); ok {
 			log.Println(strings.Repeat("  ", indentation), "Allocated", alloc.MemoryGrowAmount(), "pages of memory in", name)
+		}
+		if spanTags, ok := event.(observe.SpanTagsEvent); ok {
+			log.Println(strings.Repeat("  ", indentation), "Span tags:", spanTags.Tags)
 		}
 	}
 }

@@ -8,6 +8,7 @@ import (
 	"log"
 	"net/http"
 	"net/url"
+	"strings"
 	"time"
 
 	observe "github.com/dylibso/observe-sdk/go"
@@ -192,6 +193,18 @@ func (d *DatadogAdapter) makeCallSpans(event observe.CallEvent, parentId *uint64
 		if alloc, ok := ev.(observe.MemoryGrowEvent); ok {
 			span := spans[len(spans)-1]
 			span.AddAllocation(alloc.MemoryGrowAmount())
+		}
+		if tags, ok := ev.(observe.SpanTagsEvent); ok {
+			span := spans[len(spans)-1]
+			for _, tag := range tags.Tags {
+				parts := strings.Split(tag, ":")
+				if len(parts) != 2 {
+					log.Printf("Invalid tag: %s\n", tag)
+					continue
+				}
+
+				span.AddTag(parts[0], parts[1])
+			}
 		}
 	}
 

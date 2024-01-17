@@ -38,6 +38,14 @@ func (t *TraceCtx) Before(ctx context.Context, _ api.Module, def api.FunctionDef
 	case "instrument_memory_grow":
 		event.Kind = RawMemoryGrow
 		event.MemoryGrowAmount = uint32(inputs[0])
+
+		// manual events
+	case "span_enter":
+		event.Kind = RawEnter
+	case "span_exit":
+		event.Kind = RawExit
+	case "span_tags":
+		event.Kind = RawSpanTags
 	default:
 		return
 	}

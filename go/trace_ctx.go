@@ -3,6 +3,7 @@ package observe
 import (
 	"context"
 	"log"
+	"strings"
 	"time"
 
 	"github.com/tetratelabs/wazero"
@@ -90,66 +91,37 @@ func (t *TraceCtx) init(ctx context.Context, r wazero.Runtime) error {
 	functions.WithFunc(func(ctx context.Context, m api.Module, i int32) {
 		start := time.Now()
 		ev := <-t.raw
-		if ev.Kind != RawEnter {
-			log.Println("Expected event", RawEnter, "but got", ev.Kind)
-		}
-		t.pushFunction(CallEvent{Raw: []RawEvent{ev}, Time: start})
+
+		t.enter(ev, start)
 	}).Export("instrument_enter")
+
+	functions.WithFunc(func(ctx context.Context, m api.Module, ptr uint64, len uint32) {
+		start := time.Now()
+		ev := <-t.raw
+
+		functionName, ok := m.Memory().Read(uint32(ptr), len)
+		if !ok {
+			log.Printf("span_enter: failed to read memory at offset %v with length %v\n", ptr, len)
+		}
+
+		ev.FunctionName = string(functionName)
+
+		t.enter(ev, start)
+	}).Export("span_enter")
 
 	functions.WithFunc(func(ctx context.Context, i int32) {
 		end := time.Now()
 		ev := <-t.raw
-		if ev.Kind != RawExit {
-			log.Println("Expected event", RawExit, "but got", ev.Kind)
-			return
-		}
-		fn, ok := t.peekFunction()
-		if !ok {
-			log.Println("Expected values on started function stack, but none were found")
-			return
-		}
-		if ev.FunctionIndex != fn.FunctionIndex() {
-			log.Println("Expected call to", ev.FunctionIndex, "but found call to", fn.FunctionIndex())
-			return
-		}
 
-		fn, _ = t.popFunction()
-		fn.Stop(end)
-		fn.Raw = append(fn.Raw, ev)
-
-		// if there is no function left to pop, we are exiting the root function of the trace
-		f, ok := t.peekFunction()
-		if !ok {
-			t.events = append(t.events, fn)
-			return
-		}
-
-		// if the function duration is less than minimum duration, disregard
-		funcDuration := fn.Duration.Microseconds()
-		minSpanDuration := t.Options.SpanFilter.MinDuration.Microseconds()
-		if funcDuration < minSpanDuration {
-			// check for memory allocations and attribute them to the parent span
-			f, ok = t.popFunction()
-			if ok {
-				for _, ev := range fn.within {
-					switch e := ev.(type) {
-					case MemoryGrowEvent:
-						f.within = append(f.within, e)
-					}
-				}
-				t.pushFunction(f)
-			}
-			return
-		}
-
-		// the function is within another function
-		f, ok = t.popFunction()
-		if ok {
-			f.within = append(f.within, fn)
-			t.pushFunction(f)
-		}
-
+		t.exit(ev, end)
 	}).Export("instrument_exit")
+
+	functions.WithFunc(func(ctx context.Context, m api.Module) {
+		end := time.Now()
+		ev := <-t.raw
+
+		t.exit(ev, end)
+	}).Export("span_exit")
 
 	functions.WithFunc(func(ctx context.Context, amt int32) {
 		ev := <-t.raw
@@ -178,11 +150,136 @@ func (t *TraceCtx) init(ctx context.Context, r wazero.Runtime) error {
 		t.pushFunction(fn)
 	}).Export("instrument_memory_grow")
 
+	functions.WithFunc(func(ctx context.Context, m api.Module, f int32, ptr int64, len int32) {
+		format := MetricFormat(f)
+		buffer, ok := m.Memory().Read(uint32(ptr), uint32(len))
+		if !ok {
+			log.Printf("metric: failed to read memory at offset %v with length %v\n", ptr, len)
+		}
+
+		event := MetricEvent{
+			Time:    time.Now(),
+			Format:  format,
+			Message: string(buffer),
+		}
+
+		t.events = append(t.events, event)
+	}).Export("metric")
+
+	functions.WithFunc(func(ctx context.Context, m api.Module, ptr int64, len int32) {
+		buffer, ok := m.Memory().Read(uint32(ptr), uint32(len))
+		if !ok {
+			log.Printf("metric: failed to read memory at offset %v with length %v\n", ptr, len)
+		}
+
+		ev := <-t.raw
+		if ev.Kind != RawSpanTags {
+			log.Println("Expected event", Metric, "but got", ev.Kind)
+			return
+		}
+
+		event := SpanTagsEvent{
+			Time: time.Now(),
+			Raw:  ev,
+			Tags: strings.Split(string(buffer), ","),
+		}
+
+		fn, ok := t.popFunction()
+		if !ok {
+			t.events = append(t.events, event)
+			return
+		}
+		fn.within = append(fn.within, event)
+		t.pushFunction(fn)
+
+	}).Export("span_tags")
+
+	functions.WithFunc(func(ctx context.Context, m api.Module, l int32, ptr int64, len int32) {
+		if l < int32(Error) || l > int32(Debug) {
+			log.Printf("log: invalid log level %v\n", l)
+		}
+
+		level := LogLevel(l)
+
+		buffer, ok := m.Memory().Read(uint32(ptr), uint32(len))
+		if !ok {
+			log.Printf("metric: failed to read memory at offset %v with length %v\n", ptr, len)
+		}
+
+		event := LogEvent{
+			Time:    time.Now(),
+			Level:   level,
+			Message: string(buffer),
+		}
+
+		t.events = append(t.events, event)
+	}).Export("log")
+
 	_, err := observe.Instantiate(ctx)
 	if err != nil {
 		return err
 	}
 	return nil
+}
+
+func (t *TraceCtx) enter(ev RawEvent, start time.Time) {
+	if ev.Kind != RawEnter {
+		log.Println("Expected event", RawEnter, "but got", ev.Kind)
+	}
+	t.pushFunction(CallEvent{Raw: []RawEvent{ev}, Time: start})
+}
+
+func (t *TraceCtx) exit(ev RawEvent, end time.Time) {
+
+	if ev.Kind != RawExit {
+		log.Println("Expected event", RawExit, "but got", ev.Kind)
+		return
+	}
+	fn, ok := t.peekFunction()
+	if !ok {
+		log.Println("Expected values on started function stack, but none were found")
+		return
+	}
+	if ev.FunctionIndex != fn.FunctionIndex() {
+		log.Println("Expected call to", ev.FunctionIndex, "but found call to", fn.FunctionIndex())
+		return
+	}
+
+	fn, _ = t.popFunction()
+	fn.Stop(end)
+	fn.Raw = append(fn.Raw, ev)
+
+	// if there is no function left to pop, we are exiting the root function of the trace
+	f, ok := t.peekFunction()
+	if !ok {
+		t.events = append(t.events, fn)
+		return
+	}
+
+	// if the function duration is less than minimum duration, disregard
+	funcDuration := fn.Duration.Microseconds()
+	minSpanDuration := t.Options.SpanFilter.MinDuration.Microseconds()
+	if funcDuration < minSpanDuration {
+		// check for memory allocations and attribute them to the parent span
+		f, ok = t.popFunction()
+		if ok {
+			for _, ev := range fn.within {
+				switch e := ev.(type) {
+				case MemoryGrowEvent:
+					f.within = append(f.within, e)
+				}
+			}
+			t.pushFunction(f)
+		}
+		return
+	}
+
+	// the function is within another function
+	f, ok = t.popFunction()
+	if ok {
+		f.within = append(f.within, fn)
+		t.pushFunction(f)
+	}
 }
 
 // Pushes a function onto the stack
