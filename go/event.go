@@ -16,6 +16,7 @@ const (
 	RawMetric
 	RawSpanTags
 	RawLog
+	RawUnknownEvent
 )
 
 type EventKind int
@@ -29,7 +30,7 @@ const (
 	Log
 )
 
-type MetricFormat int
+type MetricFormat uint
 
 const (
 	StatsdFormat MetricFormat = 1
@@ -106,7 +107,7 @@ type MemoryGrowEvent struct {
 	Time time.Time
 }
 
-type LogLevel int
+type LogLevel uint
 
 const (
 	Error LogLevel = 1
