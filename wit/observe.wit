@@ -1,4 +1,4 @@
-package dylibso:observe
+package dylibso:observe;
 
 interface api {
   enum log-level {
@@ -13,15 +13,15 @@ interface api {
     statsd,
   }
 
-  metric: func(format: metric-format, name: list<u8>)
-  log: func(level: log-level, msg: list<u8>)
-  span-enter: func(name: string)
-  span-tags: func(tags: string)
-  span-exit: func()
+  metric: func(format: metric-format, name: list<u8>);
+  log: func(level: log-level, msg: list<u8>);
+  span-enter: func(name: string);
+  span-tags: func(tags: string);
+  span-exit: func();
 }
 
 interface instrument {
-  memory-grow: func(amount-in-pages: u32)
-  enter: func(func-id: u32)
-  exit: func(func-id: u32)
+  memory-grow: func(amount-in-pages: u32);
+  enter: func(func-id: u32);
+  exit: func(func-id: u32);
 }
