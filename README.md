@@ -138,3 +138,33 @@ One of the test adapters will output to Zipkin, defaulting to one running on
 localhost.
 
     docker run -d -p 9411:9411 openzipkin/zipkin
+
+## Component Support
+
+WIT is available in `wit` for the (manual) observe api and (automatic) observe instrument api.
+
+### Examples
+
+First install dependencies:
+
+```bash
+cargo install wasm-tools cargo-component
+```
+
+Build the wit:
+
+```bash
+just build_wit
+```
+
+Build and run `component_demo`:
+
+```bash
+just component_demo
+```
+
+Build and run `component_demo_2`:
+
+```bash
+just component_demo_2
+```

@@ -1,6 +1,9 @@
-use dylibso_observe_sdk::{adapter::otelstdout::OtelStdoutAdapter, context::component::{ObserveSdk, ObserveSdkView}};
+use dylibso_observe_sdk::{
+    adapter::otelstdout::OtelStdoutAdapter,
+    context::component::{ObserveSdk, ObserveSdkView},
+};
 
-use wasmtime_wasi::preview2::{WasiView, WasiCtx, Table};
+use wasmtime_wasi::preview2::{Table, WasiCtx, WasiView};
 
 struct State {
     table: Table,
@@ -45,13 +48,13 @@ pub async fn main() -> anyhow::Result<()> {
     let engine = wasmtime::Engine::new(&config)?;
     let component = wasmtime::component::Component::new(&engine, &data)?;
 
-    let mut table = Table::new();
+    let table = Table::new();
 
     // Setup WASI
     let wasi_ctx = wasmtime_wasi::preview2::WasiCtxBuilder::new()
         .inherit_stdio()
         .args(&args.clone())
-        .build(&mut table)?;
+        .build();
 
     let mut linker = wasmtime::component::Linker::new(&engine);
 
@@ -61,7 +64,7 @@ pub async fn main() -> anyhow::Result<()> {
     let state = State {
         table,
         wasi_ctx,
-        observe_sdk
+        observe_sdk,
     };
     let mut store = wasmtime::Store::new(&engine, state);
 
@@ -69,7 +72,10 @@ pub async fn main() -> anyhow::Result<()> {
     dylibso_observe_sdk::context::component::add_to_linker(&mut linker)?;
 
     // get the function and run it, the events pop into the queue as the function is running
-    let (cmd, _) = wasmtime_wasi::preview2::command::Command::instantiate_async(&mut store, &component, &linker).await?;
+    let (cmd, _) = wasmtime_wasi::preview2::command::Command::instantiate_async(
+        &mut store, &component, &linker,
+    )
+    .await?;
     let run = cmd.wasi_cli_run();
     if let Err(()) = run.call_run(&mut store).await? {
         println!("encountered error");
