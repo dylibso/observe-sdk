@@ -105,3 +105,15 @@ jobs:
             | head -n 1 \
             | jq '.resourceSpans[].scopeSpans[].spans[0].attributes[0]' \
             | jq '.key == "function_name", .value.stringValue == "_start"'
+
+      - name: Install Component CLI Deps
+        run: cargo install wasm-tools cargo-component
+
+      - name: Build wit
+        run: just build_wit
+
+      - name: Component Demo
+        run: just component_demo
+
+      - name: Component Demo 2
+        run: just component_demo_2
