@@ -107,7 +107,13 @@ jobs:
             | jq '.key == "function_name", .value.stringValue == "_start"'
 
       - name: Install Component CLI Deps
-        run: cargo install wasm-tools cargo-component
+        uses: actions-rs/cargo@v1
+        with:
+          command: install
+          args: wasm-tools cargo-component
+
+      - name: Install Just
+        uses: extractions/setup-just@v1
 
       - name: Build wit
         run: just build_wit
