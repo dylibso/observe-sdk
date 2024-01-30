@@ -11,7 +11,8 @@ checksum = "b4682ae6287fcf752ecaabbfcc7b6f9b72aa33933dc23a554d853aea8eea8635"
 [[package]]
 name = "cargo-component-bindings"
 version = "0.6.0"
-source = "git+https://github.com/bytecodealliance/cargo-component#356fcac0d1cecd62737780447dca7d7f54abc490"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "545e48ba821e07f93c97aea897bee6d407de4d58947f914160131f3d78b2c704"
 dependencies = [
  "cargo-component-macro",
  "wit-bindgen",
@@ -20,7 +21,8 @@ dependencies = [
 [[package]]
 name = "cargo-component-macro"
 version = "0.6.0"
-source = "git+https://github.com/bytecodealliance/cargo-component#356fcac0d1cecd62737780447dca7d7f54abc490"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "e198ee0b668e902b43b5e7d2e9620a3891d2632429b3ba66e1ceea455053cbf5"
 dependencies = [
  "proc-macro2",
  "quote",
