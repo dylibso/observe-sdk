@@ -3,20 +3,20 @@ use dylibso_observe_sdk::{
     context::component::{ObserveSdk, ObserveSdkView},
 };
 
-use wasmtime_wasi::preview2::{Table, WasiCtx, WasiView};
+use wasmtime_wasi::preview2::{ResourceTable, WasiCtx, WasiView};
 
 struct State {
-    table: Table,
+    table: ResourceTable,
     wasi_ctx: WasiCtx,
     observe_sdk: ObserveSdk,
 }
 
 impl WasiView for State {
-    fn table(&self) -> &Table {
+    fn table(&self) -> &ResourceTable {
         &self.table
     }
 
-    fn table_mut(&mut self) -> &mut Table {
+    fn table_mut(&mut self) -> &mut ResourceTable {
         &mut self.table
     }
 
@@ -48,7 +48,7 @@ pub async fn main() -> anyhow::Result<()> {
     let engine = wasmtime::Engine::new(&config)?;
     let component = wasmtime::component::Component::new(&engine, &data)?;
 
-    let table = Table::new();
+    let table = ResourceTable::new();
 
     // Setup WASI
     let wasi_ctx = wasmtime_wasi::preview2::WasiCtxBuilder::new()

@@ -12,4 +12,4 @@ package = "component:combined"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-cargo-component-bindings = "0.6.0"
+wit-bindgen = { version = "0.16.0", default-features = false, features = ["realloc"]}
