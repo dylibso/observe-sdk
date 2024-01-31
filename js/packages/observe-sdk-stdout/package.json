@@ -1,6 +1,6 @@
 {
   "name": "@dylibso/observe-sdk-stdout",
-  "version": "0.1.4",
+  "version": "0.2.0",
   "description": "A library that produces function tracing to stdout",
   "directories": {
     "test": "test"
@@ -11,9 +11,9 @@
   "exports": {
     "workerd": "./dist/workerd/index.js",
     "default": {
-        "types": "./dist/types/index.d.ts",
-        "import": "./dist/esm/index.js",
-        "require": "./dist/cjs/index.js"
+      "types": "./dist/types/index.d.ts",
+      "import": "./dist/esm/index.js",
+      "require": "./dist/cjs/index.js"
     }
   },
   "scripts": {
