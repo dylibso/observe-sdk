@@ -81,25 +81,23 @@ func (t *TraceCtx) withListener(ctx context.Context) context.Context {
 func (t *TraceCtx) init(ctx context.Context, r wazero.Runtime) error {
 	ctx = t.withListener(ctx)
 
-	if r.Module("dylibso_observe") != nil {
+	if r.Module("dylibso_observe") != nil || r.Module("dylibso:observe/instrument") != nil ||
+		r.Module("dylibso:observe/api") != nil {
 		return nil
 	}
 
-	observe := r.NewHostModuleBuilder("dylibso_observe")
-	functions := observe.NewFunctionBuilder()
-
-	functions.WithFunc(func(ctx context.Context, m api.Module, i int32) {
+	enterFunc := func(ctx context.Context, m api.Module, i uint32) {
 		start := time.Now()
 		ev := <-t.raw
 
 		t.enter(ev, start)
-	}).Export("instrument_enter")
+	}
 
-	functions.WithFunc(func(ctx context.Context, m api.Module, ptr uint64, len uint32) {
+	spanEnterFunc := func(ctx context.Context, m api.Module, ptr uint32, len uint32) {
 		start := time.Now()
 		ev := <-t.raw
 
-		functionName, ok := m.Memory().Read(uint32(ptr), len)
+		functionName, ok := m.Memory().Read(ptr, len)
 		if !ok {
 			log.Printf("span_enter: failed to read memory at offset %v with length %v\n", ptr, len)
 		}
@@ -107,23 +105,27 @@ func (t *TraceCtx) init(ctx context.Context, r wazero.Runtime) error {
 		ev.FunctionName = string(functionName)
 
 		t.enter(ev, start)
-	}).Export("span_enter")
+	}
 
-	functions.WithFunc(func(ctx context.Context, i int32) {
+	oldSpanEnterFunc := func(ctx context.Context, m api.Module, ptr uint64, len uint32) {
+		spanEnterFunc(ctx, m, uint32(ptr), len)
+	}
+
+	exitFunc := func(ctx context.Context, i uint32) {
 		end := time.Now()
 		ev := <-t.raw
 
 		t.exit(ev, end)
-	}).Export("instrument_exit")
+	}
 
-	functions.WithFunc(func(ctx context.Context, m api.Module) {
+	spanExitFunc := func(ctx context.Context, m api.Module) {
 		end := time.Now()
 		ev := <-t.raw
 
 		t.exit(ev, end)
-	}).Export("span_exit")
+	}
 
-	functions.WithFunc(func(ctx context.Context, amt int32) {
+	memoryGrowFunc := func(ctx context.Context, amt uint32) {
 		ev := <-t.raw
 		if ev.Kind != RawMemoryGrow {
 			log.Println("Expected event", MemoryGrow, "but got", ev.Kind)
@@ -148,11 +150,11 @@ func (t *TraceCtx) init(ctx context.Context, r wazero.Runtime) error {
 		}
 		fn.within = append(fn.within, event)
 		t.pushFunction(fn)
-	}).Export("instrument_memory_grow")
+	}
 
-	functions.WithFunc(func(ctx context.Context, m api.Module, f int32, ptr int64, len int32) {
+	metricFunc := func(ctx context.Context, m api.Module, f uint32, ptr uint32, len uint32) {
 		format := MetricFormat(f)
-		buffer, ok := m.Memory().Read(uint32(ptr), uint32(len))
+		buffer, ok := m.Memory().Read(ptr, len)
 		if !ok {
 			log.Printf("metric: failed to read memory at offset %v with length %v\n", ptr, len)
 		}
@@ -164,17 +166,21 @@ func (t *TraceCtx) init(ctx context.Context, r wazero.Runtime) error {
 		}
 
 		t.events = append(t.events, event)
-	}).Export("metric")
+	}
 
-	functions.WithFunc(func(ctx context.Context, m api.Module, ptr int64, len int32) {
-		buffer, ok := m.Memory().Read(uint32(ptr), uint32(len))
+	oldMetricFunc := func(ctx context.Context, m api.Module, f uint32, ptr uint64, len uint32) {
+		metricFunc(ctx, m, f, uint32(ptr), len)
+	}
+
+	spanTagsFunc := func(ctx context.Context, m api.Module, ptr uint32, len uint32) {
+		buffer, ok := m.Memory().Read(ptr, len)
 		if !ok {
-			log.Printf("metric: failed to read memory at offset %v with length %v\n", ptr, len)
+			log.Printf("span-tags: failed to read memory at offset %v with length %v\n", ptr, len)
 		}
 
 		ev := <-t.raw
 		if ev.Kind != RawSpanTags {
-			log.Println("Expected event", Metric, "but got", ev.Kind)
+			log.Println("Expected event", SpanTags, "but got", ev.Kind)
 			return
 		}
 
@@ -192,18 +198,22 @@ func (t *TraceCtx) init(ctx context.Context, r wazero.Runtime) error {
 		fn.within = append(fn.within, event)
 		t.pushFunction(fn)
 
-	}).Export("span_tags")
+	}
 
-	functions.WithFunc(func(ctx context.Context, m api.Module, l int32, ptr int64, len int32) {
-		if l < int32(Error) || l > int32(Debug) {
+	oldSpanTagsFunc := func(ctx context.Context, m api.Module, ptr uint64, len uint32) {
+		spanTagsFunc(ctx, m, uint32(ptr), len)
+	}
+
+	logFunc := func(ctx context.Context, m api.Module, l uint32, ptr uint32, len uint32) {
+		if l < uint32(Error) || l > uint32(Debug) {
 			log.Printf("log: invalid log level %v\n", l)
 		}
 
 		level := LogLevel(l)
 
-		buffer, ok := m.Memory().Read(uint32(ptr), uint32(len))
+		buffer, ok := m.Memory().Read(ptr, len)
 		if !ok {
-			log.Printf("metric: failed to read memory at offset %v with length %v\n", ptr, len)
+			log.Printf("log: failed to read memory at offset %v with length %v\n", ptr, len)
 		}
 
 		event := LogEvent{
@@ -213,12 +223,58 @@ func (t *TraceCtx) init(ctx context.Context, r wazero.Runtime) error {
 		}
 
 		t.events = append(t.events, event)
-	}).Export("log")
-
-	_, err := observe.Instantiate(ctx)
-	if err != nil {
-		return err
 	}
+
+	oldLogFunc := func(ctx context.Context, m api.Module, l uint32, ptr uint64, len uint32) {
+		logFunc(ctx, m, l, uint32(ptr), len)
+	}
+
+	// instrument api
+	{
+		instrument := r.NewHostModuleBuilder("dylibso:observe/instrument")
+		instrFunctions := instrument.NewFunctionBuilder()
+		instrFunctions.WithFunc(enterFunc).Export("enter")
+		instrFunctions.WithFunc(exitFunc).Export("exit")
+		instrFunctions.WithFunc(memoryGrowFunc).Export("memory-grow")
+		_, err := instrument.Instantiate(ctx)
+		if err != nil {
+			return err
+		}
+	}
+
+	// manual api
+	{
+		api := r.NewHostModuleBuilder("dylibso:observe/api")
+		apiFunctions := api.NewFunctionBuilder()
+		apiFunctions.WithFunc(spanEnterFunc).Export("span-enter")
+		apiFunctions.WithFunc(spanExitFunc).Export("span-exit")
+		apiFunctions.WithFunc(spanTagsFunc).Export("span-tags")
+		apiFunctions.WithFunc(metricFunc).Export("metric")
+		apiFunctions.WithFunc(logFunc).Export("log")
+		_, err := api.Instantiate(ctx)
+		if err != nil {
+			return err
+		}
+	}
+
+	//old api (combined instrument and manual api)
+	{
+		observe := r.NewHostModuleBuilder("dylibso_observe")
+		observeFunctions := observe.NewFunctionBuilder()
+		observeFunctions.WithFunc(enterFunc).Export("instrument_enter")
+		observeFunctions.WithFunc(exitFunc).Export("instrument_exit")
+		observeFunctions.WithFunc(memoryGrowFunc).Export("instrument_memory_grow")
+		observeFunctions.WithFunc(oldSpanEnterFunc).Export("span_enter")
+		observeFunctions.WithFunc(spanExitFunc).Export("span_exit")
+		observeFunctions.WithFunc(oldSpanTagsFunc).Export("span_tags")
+		observeFunctions.WithFunc(oldMetricFunc).Export("metric")
+		observeFunctions.WithFunc(oldLogFunc).Export("log")
+		_, err := observe.Instantiate(ctx)
+		if err != nil {
+			return err
+		}
+	}
+
 	return nil
 }
 

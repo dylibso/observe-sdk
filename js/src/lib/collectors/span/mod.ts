@@ -57,6 +57,23 @@ export class SpanCollector implements Collector {
     mangledNames.forEach((value, key) => {
       this.names.set(key, demangle(value));
     });
+
+    let warnOnDylibsoObserve = true;
+    for (const iName of WebAssembly.Module.imports(module)) {
+      if (iName.module === 'dylibso_observe') {
+        if (warnOnDylibsoObserve) {
+          warnOnDylibsoObserve = false;
+          console.warn("Module uses deprecated namespace \"dylibso_observe\"!\n" +
+            "Please consider reinstrumenting with newer wasm-instr!");
+        }
+        const apiNames = new Set(["span_enter", "span_tags", "metric", "log", "span_exit"]);
+        if (apiNames.has(iName.name)) {
+          throw new Error("js sdk does not yet support Observe API");
+        }
+      } else if (iName.module === 'dylibso:observe/api') {
+        throw new Error("js sdk does not yet support Observe API");
+      }
+    }
   }
 
   public send(to: Adapter): void {
@@ -123,6 +140,11 @@ export class SpanCollector implements Collector {
 
   public getImportObject(): WebAssembly.Imports {
     return {
+      "dylibso:observe/instrument": {
+        "enter": this.instrumentEnter,
+        "exit": this.instrumentExit,
+        "memory-grow": this.instrumentMemoryGrow,
+      },
       "dylibso_observe": {
         "instrument_enter": this.instrumentEnter,
         "instrument_exit": this.instrumentExit,

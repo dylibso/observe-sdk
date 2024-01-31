@@ -1,0 +1,15 @@
+[package]
+name = "combined"
+version = "0.1.0"
+edition = "2021"
+
+[package.metadata.component]
+package = "component:combined"
+
+[package.metadata.component.dependencies]
+"component:component-instr-component" = { path = "../01-component-instr-component/target/wasm32-wasi/debug/component_instr_component.wasm" }
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+wit-bindgen = { version = "0.16.0", default-features = false, features = ["realloc"]}

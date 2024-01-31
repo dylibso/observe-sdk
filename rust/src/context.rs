@@ -1,5 +1,5 @@
 use anyhow::{bail, Context, Result};
-use log::{error, warn};
+use log::error;
 use modsurfer_demangle::demangle_function_name;
 use std::{
     collections::HashMap,
@@ -36,7 +36,7 @@ pub struct InstrumentationContext {
 }
 
 impl InstrumentationContext {
-    fn new(
+    pub(crate) fn new(
         options: Options,
     ) -> (
         Arc<Mutex<InstrumentationContext>>,
@@ -268,8 +268,8 @@ pub(crate) fn metric<T>(
     let ptr = input
         .get(1)
         .context("Missing ptr arg")?
-        .i64()
-        .context("Could not cast ptr arg to i64")?;
+        .i32()
+        .context("Could not cast ptr arg to i32")?;
 
     let len = input
         .get(2)
@@ -302,8 +302,8 @@ pub(crate) fn span_tags<T>(
     let ptr = input
         .get(0)
         .context("Missing ptr arg")?
-        .i64()
-        .context("Could not cast ptr arg to i64")?;
+        .i32()
+        .context("Could not cast ptr arg to i32")?;
 
     let len = input
         .get(1)
@@ -347,8 +347,8 @@ pub(crate) fn log_write<T>(
     let ptr = input
         .get(1)
         .context("Missing ptr arg")?
-        .i64()
-        .context("Could not cast ptr arg to i64")?;
+        .i32()
+        .context("Could not cast ptr arg to i32")?;
 
     let len = input
         .get(2)
@@ -381,8 +381,8 @@ pub(crate) fn span_enter<T>(
     let ptr = input
         .get(0)
         .context("Missing ptr arg")?
-        .i64()
-        .context("Could not cast ptr arg to i64")?;
+        .i32()
+        .context("Could not cast ptr arg to i32")?;
 
     let len = input
         .get(1)
@@ -420,8 +420,6 @@ pub(crate) fn span_exit<T>(
     Ok(())
 }
 
-const MODULE_NAME: &str = "dylibso_observe";
-
 type EventChannel = (Sender<Event>, Receiver<Event>);
 
 /// Link observability import functions required by instrumented wasm code
@@ -432,21 +430,16 @@ pub fn add_to_linker<T: 'static>(
 ) -> Result<EventChannel> {
     let (ctx, events_tx, events_rx) = InstrumentationContext::new(options);
 
-    // load the static wasm-instr info
+    //
+    // Dylibso Observe Instrument API
+    //
     let wasm_instr_info = WasmInstrInfo::new(data)?;
-
-    // check that the version number is supported with this SDK
-    // TODO decide what to do about this error?
-    if let Err(e) = wasm_instr_info.check_version() {
-        warn!("{}", e);
-    }
-
     let t = FuncType::new([ValType::I32], []);
 
     let enter_ctx = ctx.clone();
     linker.func_new(
-        MODULE_NAME,
-        "instrument_enter",
+        "dylibso:observe/instrument",
+        "enter",
         t.clone(),
         move |_caller: Caller<T>, params, results| {
             instrument_enter(
@@ -460,26 +453,49 @@ pub fn add_to_linker<T: 'static>(
 
     let exit_ctx = ctx.clone();
     linker.func_new(
-        MODULE_NAME,
-        "instrument_exit",
+        "dylibso:observe/instrument",
+        "exit",
         t.clone(),
         move |_caller, params, results| instrument_exit(params, results, exit_ctx.clone()),
     )?;
 
     let grow_ctx = ctx.clone();
     linker.func_new(
-        MODULE_NAME,
-        "instrument_memory_grow",
+        "dylibso:observe/instrument",
+        "memory-grow",
         t,
         move |_caller, params, results| instrument_memory_grow(params, results, grow_ctx.clone()),
     )?;
 
-    let t = FuncType::new([ValType::I64, ValType::I32], []);
+    // aliases to support old naming
+    linker.alias(
+        "dylibso:observe/instrument",
+        "enter",
+        "dylibso_observe",
+        "instrument_enter",
+    )?;
+    linker.alias(
+        "dylibso:observe/instrument",
+        "exit",
+        "dylibso_observe",
+        "instrument_exit",
+    )?;
+    linker.alias(
+        "dylibso:observe/instrument",
+        "memory-grow",
+        "dylibso_observe",
+        "instrument_memory_grow",
+    )?;
+
+    //
+    // Dylibso Observe API
+    //
+    let t = FuncType::new([ValType::I32, ValType::I32], []);
 
     let span_enter_ctx = ctx.clone();
     linker.func_new(
-        MODULE_NAME,
-        "span_enter",
+        "dylibso:observe/api",
+        "span-enter",
         t.clone(),
         move |mut caller, params, results| {
             span_enter(&mut caller, params, results, span_enter_ctx.clone())
@@ -488,35 +504,38 @@ pub fn add_to_linker<T: 'static>(
 
     let span_tags_ctx = ctx.clone();
     linker.func_new(
-        MODULE_NAME,
-        "span_tags",
+        "dylibso:observe/api",
+        "span-tags",
         t.clone(),
         move |mut caller, params, results| {
             span_tags(&mut caller, params, results, span_tags_ctx.clone())
         },
     )?;
 
-    let t = FuncType::new([ValType::I32, ValType::I64, ValType::I32], []);
+    let t = FuncType::new([ValType::I32, ValType::I32, ValType::I32], []);
 
     let metric_ctx = ctx.clone();
     linker.func_new(
-        MODULE_NAME,
+        "dylibso:observe/api",
         "metric",
         t.clone(),
         move |mut caller, params, results| metric(&mut caller, params, results, metric_ctx.clone()),
     )?;
 
     let log_ctx = ctx.clone();
-    linker.func_new(MODULE_NAME, "log", t, move |mut caller, params, results| {
-        log_write(&mut caller, params, results, log_ctx.clone())
-    })?;
+    linker.func_new(
+        "dylibso:observe/api",
+        "log",
+        t,
+        move |mut caller, params, results| log_write(&mut caller, params, results, log_ctx.clone()),
+    )?;
 
     let t = FuncType::new([], []);
 
     let span_exit_ctx = ctx.clone();
     linker.func_new(
-        MODULE_NAME,
-        "span_exit",
+        "dylibso:observe/api",
+        "span-exit",
         t,
         move |mut caller, params, results| {
             span_exit(&mut caller, params, results, span_exit_ctx.clone())
@@ -528,4 +547,264 @@ pub fn add_to_linker<T: 'static>(
     // global export, which by default can cause wasmtime to return an error during instantiation.
     linker.allow_unknown_exports(true);
     Ok((events_tx, events_rx))
+}
+
+#[cfg(feature = "component-model")]
+pub mod component {
+    //! # Component Model Observability
+    //!
+    //! Available via `feature = "component-model"`.
+    //!
+    //! This module exposes host observability capabilities to the component model. By using this
+    //! module, hosts can provide support for guest components which depend on the
+    //! `dylibso:observe/api` and `dylibso:observe/instrument` WIT interfaces.
+    //!
+    //! ## Integrating
+    //!
+    //! Like Wasmtime's [`wasmtime_wasi::preview2`] module, Observability support involves three steps:
+    //!
+    //! 1. Adding an [`ObserveSdk`] member to your host's [`wasmtime::Store`] state struct.
+    //! 2. Providing access to that member by implementing [`ObserveSdkView`] for your host's state
+    //!    struct.
+    //! 3. Adding the host bindings to the [`wasmtime::component::Linker`].
+    //!
+    //! ```rust
+    //! use dylibso_observe_sdk::context::component::{ ObserveSdk, ObserveSdkView };
+    //!
+    //! struct MyState {
+    //!   // Step 1: add a member to your state...
+    //!   sdk: ObserveSdk,
+    //! }
+    //!
+    //! // Step 2: implement the view trait for your state.
+    //! impl ObserveSdkView for MyState {
+    //!     fn sdk_mut(&mut self) -> &mut ObserveSdk {
+    //!         &mut self.sdk
+    //!     }
+    //! }
+    //! ```
+    //!
+    //! Once you've completed step 1 and 2, you can add host bindings like so:
+    //!
+    //! ```no_run
+    //! # use dylibso_observe_sdk::context::component::{ ObserveSdk, ObserveSdkView };
+    //! # struct MyState {
+    //! #  sdk: ObserveSdk,
+    //! # }
+    //! # impl ObserveSdkView for MyState {
+    //! #    fn sdk_mut(&mut self) -> &mut ObserveSdk {
+    //! #        &mut self.sdk
+    //! #    }
+    //! # }
+    //! # #[tokio::main]
+    //! # async fn main() -> anyhow::Result<()> {
+    //! use dylibso_observe_sdk::adapter::otelstdout::OtelStdoutAdapter;
+    //!
+    //! // (Setup: Read a Wasm module from stdin.)
+    //! let args: Vec<_> = std::env::args().skip(1).collect();
+    //! let wasm_data = std::fs::read(&args[0])?;
+    //! let mut config = wasmtime::Config::new();
+    //!
+    //! config.async_support(true);
+    //! config.wasm_component_model(true);
+    //! let engine = wasmtime::Engine::new(&config)?;
+    //! let component = wasmtime::component::Component::new(&engine, &wasm_data)?;
+    //! let mut linker = wasmtime::component::Linker::new(&engine);
+    //!
+    //! // All adapters have component support, OtelStdoutAdapter just happens to be
+    //! // easiest to use as an example:
+    //! let adapter = OtelStdoutAdapter::create();
+    //!
+    //! // Use the adapter to create observe_sdk bindings which you can then pass to your state.
+    //! let observe_sdk = adapter.build_observe_sdk(&wasm_data, Default::default())?;
+    //!
+    //! // Create your state and wrap it in a wasmtime::Store.
+    //! let state = MyState {
+    //!     sdk: observe_sdk
+    //! };
+    //! let mut store = wasmtime::Store::new(&engine, state);
+    //!
+    //! // ...Then add it to the linker.
+    //! dylibso_observe_sdk::context::component::add_to_linker(&mut linker)?;
+    //!
+    //! # let (cmd, _) = wasmtime_wasi::preview2::command::Command::instantiate_async(&mut store, &component, &linker).await?;
+    //! # let run = cmd.wasi_cli_run();
+    //! // Once you're done with wasm, call `shutdown()`, which shuts down the collector associated
+    //! // with the Observe SDK.
+    //! let state = store.into_data();
+    //! state.sdk.shutdown().await?;
+    //! # Ok(())
+    //! # }
+    //! ```
+    //!
+    //! To see an example integrating both Wasi preview 2 and the Observe SDK, see
+    //! `rust/examples/otel-stdout-components.rs` in the [observe sdk
+    //! repo](https://github.com/dylibso/observe-sdk/).
+    use crate::adapter::TraceContext;
+
+    use super::*;
+    use wasmtime::component::Linker;
+
+    /// Provide access to [`ObserveSdk`] from a [`wasmtime::Store`]'s inner object.
+    ///
+    /// ```rust
+    /// use dylibso_observe_sdk::context::component::{ ObserveSdk, ObserveSdkView };
+    ///
+    /// struct MyState {
+    ///   sdk: ObserveSdk,
+    /// }
+    ///
+    /// impl ObserveSdkView for MyState {
+    ///     fn sdk_mut(&mut self) -> &mut ObserveSdk {
+    ///         &mut self.sdk
+    ///     }
+    /// }
+    /// ```
+    pub trait ObserveSdkView {
+        fn sdk_mut(&mut self) -> &mut ObserveSdk;
+    }
+
+    // Hide the bindgen-generated modules from rustdoc by using an "internal" module.
+    mod internal {
+        wasmtime::component::bindgen!({
+            interfaces: r#"
+                import dylibso:observe/api;
+                import dylibso:observe/instrument;
+            "#,
+            path: "../wit",
+            async: false
+        });
+    }
+
+    use internal::dylibso::observe::api::{Host as ApiHost, LogLevel, MetricFormat};
+    use internal::dylibso::observe::instrument::Host as InstrumentHost;
+
+    /// A data structure backing ObserveSdk bindings: contains private information mapping
+    /// function ids to names and contexts for collector channels.
+    ///
+    /// Instantiate by calling
+    /// [`AdapterHandle::build_observe_sdk`](crate::adapter::AdapterHandle::build_observe_sdk)
+    /// using any adapter type:
+    ///
+    /// ```no_run
+    /// # use dylibso_observe_sdk::context::component::ObserveSdk;
+    /// use dylibso_observe_sdk::adapter::zipkin::ZipkinAdapter;
+    /// # fn main() -> anyhow::Result<()> {
+    /// let args: Vec<_> = std::env::args().skip(1).collect();
+    /// let wasm_data = std::fs::read(&args[0])?;
+    /// let zipkin = ZipkinAdapter::create();
+    ///
+    /// // NB: the ": ObserveSdk" type annotation here isn't necessary, it's just to indicate the
+    /// // return type.
+    /// let observe_sdk: ObserveSdk = zipkin.build_observe_sdk(&wasm_data,
+    /// Default::default()).unwrap();
+    /// # Ok(())
+    /// # }
+    /// ```
+    pub struct ObserveSdk {
+        pub(crate) instr_context: Arc<Mutex<InstrumentationContext>>,
+        pub(crate) wasm_instr_info: WasmInstrInfo,
+        pub(crate) trace_context: TraceContext,
+    }
+
+    impl ObserveSdk {
+        /// Shut down the trace collector. Once the collector is shut down this instance
+        /// should no longer be used. `shutdown` may be called multiple times but will emit
+        /// warnings on subsequent calls.
+        pub async fn shutdown(&self) -> Result<()> {
+            self.trace_context.shutdown().await;
+            Ok(())
+        }
+    }
+
+    impl TryInto<super::MetricFormat> for MetricFormat {
+        type Error = anyhow::Error;
+
+        fn try_into(self) -> std::result::Result<super::MetricFormat, Self::Error> {
+            #[allow(unreachable_patterns)]
+            match self {
+                MetricFormat::Statsd => Ok(super::MetricFormat::Statsd),
+                _ => bail!("Illegal metric format value"),
+            }
+        }
+    }
+
+    impl ApiHost for ObserveSdk {
+        fn metric(&mut self, format: MetricFormat, name: Vec<u8>) -> wasmtime::Result<()> {
+            if let Ok(mut cont) = self.instr_context.lock() {
+                cont.metric(format.try_into()?, name.as_slice())?;
+            }
+            Ok(())
+        }
+
+        fn log(&mut self, level: LogLevel, msg: Vec<u8>) -> wasmtime::Result<()> {
+            if let Ok(mut cont) = self.instr_context.lock() {
+                cont.log_write(level as u8, msg.as_slice())?;
+            }
+            Ok(())
+        }
+
+        fn span_enter(&mut self, name: String) -> wasmtime::Result<()> {
+            if let Ok(mut cont) = self.instr_context.lock() {
+                cont.enter(0u32, Some(name.as_str()))?;
+            }
+            Ok(())
+        }
+
+        fn span_tags(&mut self, tags: String) -> wasmtime::Result<()> {
+            let tags: Vec<String> = tags.split(',').map(|xs| xs.to_string()).collect();
+            if let Ok(mut cont) = self.instr_context.lock() {
+                cont.span_tags(tags)?;
+            }
+            Ok(())
+        }
+
+        fn span_exit(&mut self) -> wasmtime::Result<()> {
+            if let Ok(mut cont) = self.instr_context.lock() {
+                cont.exit(0u32)?;
+            }
+            Ok(())
+        }
+    }
+
+    impl InstrumentHost for ObserveSdk {
+        fn memory_grow(&mut self, amount_in_pages: u32) -> wasmtime::Result<()> {
+            if let Ok(mut cont) = self.instr_context.lock() {
+                cont.allocate(amount_in_pages)?;
+            }
+            Ok(())
+        }
+
+        fn enter(&mut self, func_id: u32) -> wasmtime::Result<()> {
+            let printname = self.wasm_instr_info.function_names.get(&func_id);
+            if let Ok(mut cont) = self.instr_context.lock() {
+                cont.enter(func_id, printname.map(|x| x.as_str()))?;
+            }
+            Ok(())
+        }
+
+        fn exit(&mut self, func_id: u32) -> wasmtime::Result<()> {
+            if let Ok(mut cont) = self.instr_context.lock() {
+                cont.exit(func_id)?;
+            }
+            Ok(())
+        }
+    }
+
+    /// Make ObserveSdk host bindings available to the component model
+    /// [`wasmtime::component::Linker`]. Assumes that [`ObserveSdkView`] has been implemented to
+    /// map from the [`wasmtime::Store`] to an instance of [`ObserveSdk`].
+    pub fn add_to_linker<T>(linker: &mut Linker<T>) -> Result<()>
+    where
+        T: ObserveSdkView + 'static,
+    {
+        internal::dylibso::observe::api::add_to_linker(linker, |s| -> &mut ObserveSdk {
+            s.sdk_mut()
+        })?;
+
+        internal::dylibso::observe::instrument::add_to_linker(linker, |s| -> &mut ObserveSdk {
+            s.sdk_mut()
+        })?;
+        Ok(())
+    }
 }

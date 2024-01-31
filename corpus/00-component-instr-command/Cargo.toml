@@ -1,0 +1,17 @@
+[package]
+name = "component-instr-command"
+version = "0.1.0"
+edition = "2021"
+
+[package.metadata.component]
+package = "example:component-instr-command"
+
+[package.metadata.component.target.dependencies]
+"dylibso:observe" = { path = "../../wit/observe.wasm" }
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+log = "0.4.20"
+wit-bindgen = { version = "0.16.0", default-features = false, features = ["realloc"]}
+observe_api = { path = "../../observe-api/rust" }

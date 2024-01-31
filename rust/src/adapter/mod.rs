@@ -14,6 +14,12 @@ use crate::{
     Event, TelemetryId, TraceEvent,
 };
 
+#[cfg(feature = "component-model")]
+use crate::{
+    context::{component::ObserveSdk, InstrumentationContext},
+    wasm_instr::WasmInstrInfo,
+};
+
 use self::datadog::DatadogMetadata;
 
 pub mod datadog;
@@ -181,6 +187,21 @@ impl AdapterHandle {
         let (collector, collector_rx) = add_to_linker(linker, data, options)?;
         Collector::start(collector_rx, self.clone());
         Ok(TraceContext { collector })
+    }
+
+    #[cfg(feature = "component-model")]
+    /// Given a slice representing a Wasm component and [`Options`], create an [`ObserveSdk`].
+    pub fn build_observe_sdk(&self, data: &[u8], options: Options) -> Result<ObserveSdk> {
+        let (ctx, collector, collector_rx) = InstrumentationContext::new(options);
+        let wasm_instr_info = WasmInstrInfo::new(data)?;
+
+        Collector::start(collector_rx, self.clone());
+        let bindings = ObserveSdk {
+            instr_context: ctx,
+            wasm_instr_info,
+            trace_context: TraceContext { collector },
+        };
+        Ok(bindings)
     }
 
     pub fn try_send(&self, event: TraceEvent) -> Result<()> {

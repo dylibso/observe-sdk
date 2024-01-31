@@ -5,11 +5,11 @@ This acts as the contract between the host and the guest layer. All data flows i
 from the guest to the host. Most of these APIs are simply ways to pass observability data as strings
 to the host layer.
 
-* `dylibso_observe.metric(i32, i64, i32)`
-* `dylibso_observe.log(i32, i64, i32)`
-* `dylibso_observe.span_enter(i64, i32)`
-* `dylibso_observe.span_exit()`
-* `dylibso_observe.span_tags(i64, i32)`
+* `dylibso:observe/api.metric(i32, i32, i32)`
+* `dylibso:observe/api.log(i32, i32, i32)`
+* `dylibso:observe/api.span-enter(i32, i32)`
+* `dylibso:observe/api.span-exit()`
+* `dylibso:observe/api.span-tags(i32, i32)`
 
 Ideally, you will not call this API layer directly but instead use language specific bindings to call them. And for end users, eventually, open source observability clients will *export* data to this layer.
 

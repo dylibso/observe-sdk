@@ -27,27 +27,43 @@ func (t *TraceCtx) Before(ctx context.Context, _ api.Module, def api.FunctionDef
 	name := def.Name()
 
 	switch name {
+	case "enter":
+		fallthrough
 	case "instrument_enter":
 		event.Kind = RawEnter
 		event.FunctionIndex = uint32(inputs[0])
 		event.FunctionName = t.names[event.FunctionIndex]
+	case "exit":
+		fallthrough
 	case "instrument_exit":
 		event.Kind = RawExit
 		event.FunctionIndex = uint32(inputs[0])
 		event.FunctionName = t.names[event.FunctionIndex]
+	case "memory-grow":
+		fallthrough
 	case "instrument_memory_grow":
 		event.Kind = RawMemoryGrow
 		event.MemoryGrowAmount = uint32(inputs[0])
 
 		// manual events
+	case "span-enter":
+		fallthrough
 	case "span_enter":
 		event.Kind = RawEnter
+	case "span-exit":
+		fallthrough
 	case "span_exit":
 		event.Kind = RawExit
+	case "span-tags":
+		fallthrough
 	case "span_tags":
 		event.Kind = RawSpanTags
-	default:
+	case "metric":
 		return
+	case "log":
+		return
+	default:
+		event.Kind = RawUnknownEvent
 	}
 	for stack.Next() {
 		f := stack.Function()
