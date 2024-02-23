@@ -49,5 +49,16 @@ pub async fn main() -> anyhow::Result<()> {
     f.call(&mut store, &[], &mut []).unwrap();
     trace_ctx.shutdown().await;
 
+    // call __wasm_call_dtors
+    // Normally reactors don't emit __wasm_call_dtors, but
+    // reactor-hello.c.instr.wasm includes it as an example of specifying
+    // a cleanup function in a reactor.
+    {
+        let f = instance
+            .get_func(&mut store, "__wasm_call_dtors")
+            .expect("function exists");
+        f.call(&mut store, &[], &mut []).unwrap();
+    }
+
     Ok(())
 }
