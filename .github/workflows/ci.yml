@@ -106,6 +106,12 @@ jobs:
             | jq '.resourceSpans[].scopeSpans[].spans[0].attributes[0]' \
             | jq '.key == "function_name", .value.stringValue == "_start"'
 
+      - name: Run Reactor example
+        uses: actions-rs/cargo@v1
+        with:
+          command: run
+          args: --example=reactor-hello test/reactor-hello.c.instr.wasm
+
       - name: Install Component CLI Deps
         uses: actions-rs/cargo@v1
         with:
