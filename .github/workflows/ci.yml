@@ -116,7 +116,7 @@ jobs:
         uses: actions-rs/cargo@v1
         with:
           command: install
-          args: wasm-tools cargo-component
+          args: wasm-tools@1.0.57 cargo-component@0.7.0
 
       - name: Install Just
         uses: extractions/setup-just@v1
