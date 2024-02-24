@@ -5,3 +5,4 @@ target
 build.js
 node_modules
 dist
+corpus/01-component-instr-component/wit/deps
