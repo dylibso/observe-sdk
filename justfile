@@ -17,6 +17,7 @@ component_demo_2:
   #!/bin/bash
   set -eou pipefail
   (cd corpus/01-component-instr-component; cargo component build)
+  (echo 'corpus/01-component-instr-component built, sleeping'; sleep 10)
   (cd corpus/02-component-instr-combined;
 
   cargo component build
