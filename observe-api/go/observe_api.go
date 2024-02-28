@@ -1,32 +1,29 @@
 package observe_api
 
-package main
-
 import (
-	"fmt"
 	"reflect"
 	"strings"
 	"unsafe"
 )
 
-//go:wasmimport dylibso_observe metric
-func metric(uint32, uint64, uint32)
+//go:wasmimport dylibso:observe/api metric
+func metric(uint32, uint32, uint32)
 
-//go:wasmimport dylibso_observe log
-func log(uint32, uint64, uint32)
+//go:wasmimport dylibso:observe/api log
+func log(uint32, uint32, uint32)
 
-//go:wasmimport dylibso_observe span_tags
-func span_tags(uint64, uint32)
+//go:wasmimport dylibso:observe/api span-tags
+func span_tags(uint32, uint32)
 
-//go:wasmimport dylibso_observe span_enter
-func span_enter(uint64, uint32)
+//go:wasmimport dylibso:observe/api span-enter
+func span_enter(uint32, uint32)
 
-//go:wasmimport dylibso_observe span_exit
+//go:wasmimport dylibso:observe/api span-exit
 func span_exit()
 
-func stringPointer(s *string) uint64 {
+func stringPointer(s *string) uint32 {
 	header := (*reflect.StringHeader)(unsafe.Pointer(s))
-	return uint64(header.Data)
+	return uint32(header.Data)
 }
 
 type MetricFormat int
@@ -69,7 +66,8 @@ type span struct {
 func NewSpan(name string) span {
 	ptr := stringPointer(&name)
 	span_enter(ptr, uint32(len(name)))
-	return span { name }
+	tags := []string{}
+	return span{name, tags}
 }
 
 func (s span) End() {
@@ -77,5 +75,5 @@ func (s span) End() {
 }
 
 func (s span) AddTags(tags ...string) {
-	SpanTags(tags...)
+	SpanTags(tags)
 }
