@@ -33,6 +33,10 @@ func newTraceCtx(ctx context.Context, eventsChan chan TraceEvent, r wazero.Runti
 		return nil, err
 	}
 
+	if opts.ChannelBufferSize == 0 {
+		opts.ChannelBufferSize = 64 // set a reasonable minimum here so unset option doesn't block execution on an unbuffered channel
+	}
+
 	traceCtx := &TraceCtx{
 		adapter:     eventsChan,
 		raw:         make(chan RawEvent, opts.ChannelBufferSize),
