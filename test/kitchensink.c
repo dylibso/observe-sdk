@@ -6,45 +6,45 @@
 #define IMPORT(a, b) __attribute__((import_module(a), import_name(b)))
 
 IMPORT("dylibso:observe/api", "metric")
-extern void metric(uint32_t, uint64_t, uint32_t);
+extern void metric(uint32_t, uint32_t, uint32_t);
 IMPORT("dylibso:observe/api", "log")
-extern void log_write(uint32_t, uint64_t, uint32_t);
+extern void log_write(uint32_t, uint32_t, uint32_t);
 IMPORT("dylibso:observe/api", "span-enter")
-extern void span_enter(uint64_t, uint32_t);
+extern void span_enter(uint32_t, uint32_t);
 IMPORT("dylibso:observe/api", "span-exit") extern void span_exit();
 
-void custom_span_enter(char name[]) {
-  uintptr_t ptr = (uintptr_t)name;
-  uint64_t uint64_ptr = (uint64_t)ptr;
-  uint32_t uint32_length = (uint32_t)(strlen(name));
+void custom_span_enter(const char name[]) {
+  const uintptr_t ptr = (uintptr_t)name;
+  const uint32_t uint32_ptr = ptr;
+  const uint32_t uint32_length = strlen(name);
 
-  span_enter(uint64_ptr, uint32_length);
+  span_enter(uint32_ptr, uint32_length);
 }
 
 void custom_span_exit() { span_exit(); }
 
 void write_stat() {
-  char stat[] = "vowels.count:1|c";
+  static const char stat[] = "vowels.count:1|c";
 
-  uintptr_t ptr = (uintptr_t)stat;
-  uint64_t uint64_ptr = (uint64_t)ptr;
-  uint32_t uint32_length = (uint32_t)(strlen(stat));
+  const uintptr_t ptr = (uintptr_t)stat;
+  const uint32_t uint32_ptr = ptr;
+  const uint32_t uint32_length = strlen(stat);
 
   custom_span_enter("statsd");
-  metric((uint64_t)1, uint64_ptr, uint32_length);
+  metric(1, uint32_ptr, uint32_length);
   custom_span_exit();
 }
 
 void write_log() {
-  char stat[] = "Vowels Counted: 3\n";
+  static const char stat[] = "Vowels Counted: 3\n";
 
-  uintptr_t ptr = (uintptr_t)stat;
-  uint64_t uint64_ptr = (uint64_t)ptr;
-  uint32_t uint32_length = (uint32_t)(strlen(stat));
-  uint32_t uint32_level = (uint32_t)1;
+  const uintptr_t ptr = (uintptr_t)stat;
+  const uint32_t uint32_ptr = ptr;
+  const uint32_t uint32_length = strlen(stat);
+  const uint32_t uint32_level = 1;
 
   custom_span_enter("log_write");
-  log_write(uint32_level, uint64_ptr, uint32_length);
+  log_write(uint32_level, uint32_ptr, uint32_length);
   custom_span_exit();
 }
 
