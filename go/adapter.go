@@ -100,19 +100,15 @@ func (b *AdapterBase) MakeOtelCallSpans(event CallEvent, parentId []byte, traceI
 			spans = append(spans, b.MakeOtelCallSpans(call, span.SpanId, traceId)...)
 		}
 		if alloc, ok := ev.(MemoryGrowEvent); ok {
-			last := spans[len(spans)-1]
-
 			kv := NewOtelKeyValueInt64("allocation", int64(alloc.MemoryGrowAmount()))
-			i, existing := GetOtelAttrFromSpan("allocation", last)
+			i, existing := GetOtelAttrFromSpan("allocation", span)
 			if existing != nil {
-				last.Attributes[i] = AddOtelKeyValueInt64(kv, existing)
+				span.Attributes[i] = AddOtelKeyValueInt64(kv, existing)
 			} else {
-				last.Attributes = append(last.Attributes, kv)
+				span.Attributes = append(span.Attributes, kv)
 			}
 		}
 		if tags, ok := ev.(SpanTagsEvent); ok {
-			last := spans[len(spans)-1]
-
 			for _, tag := range tags.Tags {
 				parts := strings.Split(tag, ":")
 				if len(parts) != 2 {
@@ -121,7 +117,7 @@ func (b *AdapterBase) MakeOtelCallSpans(event CallEvent, parentId []byte, traceI
 				}
 
 				kv := NewOtelKeyValueString(parts[0], parts[1])
-				last.Attributes = append(last.Attributes, kv)
+				span.Attributes = append(span.Attributes, kv)
 			}
 		}
 	}
