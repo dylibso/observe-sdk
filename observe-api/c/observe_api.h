@@ -22,9 +22,17 @@ enum DO_LOG_LEVEL {
   DO_LL_TRACE = 4
 };
 
-void span_enter(const char *name);
-void span_exit(void);
-void metric(const char *metric);
-void write_log(const enum DO_LOG_LEVEL level, const char *msg);
+#ifdef __cplusplus
+extern "C" {
+#endif
+
+void observe_api_span_enter(const char *name);
+void observe_api_span_exit(void);
+void observe_api_metric(const char *metric);
+void observe_api_write_log(const enum DO_LOG_LEVEL level, const char *msg);
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif
