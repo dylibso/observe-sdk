@@ -4,21 +4,21 @@
 #include <stdlib.h>
 #include <string.h>
 
-void span_enter(const char *name) {
+void observe_api_span_enter(const char *name) {
   const uint32_t uint32_ptr = (uint32_t)name;
   const uint32_t uint32_length = strlen(name);
   _span_enter(uint32_ptr, uint32_length);
 }
 
-void span_exit(void) { _span_exit(); }
+void observe_api_span_exit(void) { _span_exit(); }
 
-void metric(const char *metric) {
+void observe_api_metric(const char *metric) {
   const uint32_t uint32_ptr = (uint32_t)metric;
   const uint32_t uint32_length = strlen(metric);
   _metric(1, uint32_ptr, uint32_length);
 }
 
-void write_log(const enum DO_LOG_LEVEL level, const char *msg) {
+void observe_api_write_log(const enum DO_LOG_LEVEL level, const char *msg) {
   const uint32_t uint32_ptr = (uint32_t)msg;
   const uint32_t uint32_length = strlen(msg);
   const uint32_t uint32_level = level;
