@@ -1,4 +1,5 @@
-#include "../../c/observe_api.h"
+#define OBSERVE_API_IMPLEMENTATION
+#include "observe_api.h"
 #include <stdio.h>
 #include <stdlib.h>
 
