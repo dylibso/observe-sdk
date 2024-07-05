@@ -26,3 +26,30 @@ void observe_api_log(const enum DO_LOG_LEVEL level, const char *msg) {
   const size_t msg_length = strlen(msg);
   observe_api_log_n(level, msg, msg_length);
 }
+
+void observe_api_span_tags(const char *tags) {
+  const size_t tags_length = strlen(tags);
+  observe_api_span_tags_n(tags, tags_length);
+}
+
+void observe_api_span_tags_from_array(const char *const tags[],
+                                      size_t num_tags) {
+  char *tags_buf = NULL;
+  size_t tags_buf_size = 0;
+  for (size_t i = 0; i < num_tags; i++) {
+    size_t new_tag_length = strlen(tags[i]);
+    size_t new_tags_buf_size = tags_buf_size + new_tag_length + 1;
+    char *new_tags_buf = (char *)realloc(tags_buf, new_tags_buf_size);
+    if (!new_tags_buf) {
+      break;
+    }
+    memcpy(new_tags_buf + tags_buf_size, tags[i], new_tag_length);
+    new_tags_buf[new_tags_buf_size - 1] = ',';
+    tags_buf = new_tags_buf;
+    tags_buf_size = new_tags_buf_size;
+  }
+  if (tags_buf_size > 0) {
+    observe_api_span_tags_n(tags_buf, tags_buf_size - 1);
+    free(tags_buf);
+  }
+}

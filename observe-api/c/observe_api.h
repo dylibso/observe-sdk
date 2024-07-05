@@ -25,6 +25,8 @@ IMPORT("dylibso:observe/api", "span-enter")
 extern void observe_api_span_enter_n(const char *name, size_t name_length);
 IMPORT("dylibso:observe/api", "span-exit")
 extern void observe_api_span_exit(void);
+IMPORT("dylibso:observe/api", "span-tags")
+extern void observe_api_span_tags_n(const char *tags, size_t tags_length);
 
 #ifdef __cplusplus
 extern "C" {
@@ -35,6 +37,9 @@ void observe_api_metric(enum DO_METRIC_FMT format, const char *message);
 void observe_api_statsd_n(const char *metric, const size_t metric_length);
 void observe_api_statsd(const char *metric);
 void observe_api_log(const enum DO_LOG_LEVEL level, const char *msg);
+void observe_api_span_tags(const char *tags);
+void observe_api_span_tags_from_array(const char *const tags[],
+                                      size_t num_tags);
 
 #ifdef __cplusplus
 }
