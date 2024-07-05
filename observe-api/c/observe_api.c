@@ -5,22 +5,24 @@
 #include <string.h>
 
 void observe_api_span_enter(const char *name) {
-  const uint32_t uint32_ptr = (uint32_t)name;
-  const uint32_t uint32_length = strlen(name);
-  _span_enter(uint32_ptr, uint32_length);
+  const size_t name_length = strlen(name);
+  observe_api_span_enter_n(name, name_length);
 }
 
-void observe_api_span_exit(void) { _span_exit(); }
-
-void observe_api_metric(const char *metric) {
-  const uint32_t uint32_ptr = (uint32_t)metric;
-  const uint32_t uint32_length = strlen(metric);
-  _metric(1, uint32_ptr, uint32_length);
+void observe_api_metric(enum DO_METRIC_FMT format, const char *metric) {
+  const size_t metric_length = strlen(metric);
+  observe_api_metric_n(format, metric, metric_length);
 }
 
-void observe_api_write_log(const enum DO_LOG_LEVEL level, const char *msg) {
-  const uint32_t uint32_ptr = (uint32_t)msg;
-  const uint32_t uint32_length = strlen(msg);
-  const uint32_t uint32_level = level;
-  _log(uint32_level, uint32_ptr, uint32_length);
+void observe_api_statsd_n(const char *metric, const size_t metric_length) {
+  observe_api_metric_n(DO_MF_STATSD, metric, metric_length);
+}
+
+void observe_api_statsd(const char *metric) {
+  observe_api_metric(DO_MF_STATSD, metric);
+}
+
+void observe_api_log(const enum DO_LOG_LEVEL level, const char *msg) {
+  const size_t msg_length = strlen(msg);
+  observe_api_log_n(level, msg, msg_length);
 }

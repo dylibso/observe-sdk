@@ -4,6 +4,8 @@
 
 void run() {
   observe_api_span_enter("printf");
+  observe_api_statsd("ok:aaaaa");
+  observe_api_log(DO_LL_INFO, "bbbbb");
   printf("Hello from Wasm!\n");
   observe_api_span_exit();
 }
