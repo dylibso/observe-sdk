@@ -17,8 +17,41 @@ Ideally, you will not call this API layer directly but instead use language spec
 
 We currently provide these language bindings to this API:
 
-* [rust](rust/) -- [example](test/rust/src/main.rs)
-* [c](c/) -- [example](test/c/main.c)
+### [rust](rust/)
+
+* [example](test/rust/src/main.rs)
+
+
+### [c and c++](c/)
+
+Both the C and C++ bindings are implemented as header-only libraries. To use the C bindings,
+in __ONE__ source file:
+
+```c
+#define OBSERVE_API_IMPLEMENTATION
+#include "observe_api.h"
+```
+
+In other source files, just `#include "observe_api.h"`
+
+* [example](test/c/main.c)
+
+To use the C++ bindings, instead, in __ONE__ source file:
+
+```c++
+#define OBSERVE_API_IMPLEMENTATION
+#define OBSERVE_API_CPP_IMPLEMENTATION
+#include "observe_api.hpp"
+```
+
+In other source files, just `#include "observe_api.hpp"`
+
+__NOTE:__ `observe_api.hpp` `#include`s `observe_api.h`
+
+* [functional example](test/c/main.cpp)
+* [OO example](test/c/main2.cpp)
+
+### Other
 
 More languages will come soon as well as tools built on top of these bindings. If you are planning on building your own tooling we suggest using or contributing one of these language specific bindings.
 
