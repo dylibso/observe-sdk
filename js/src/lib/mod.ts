@@ -7,13 +7,20 @@ export const now = (): Nanoseconds => {
 export type WASM = Uint8Array | WebAssembly.Module;
 export type Nanoseconds = number;
 export type Microseconds = number;
-export type ObserveEvent = FunctionCall | MemoryGrow | Metric | SpanTags | CustomEvent;
+export type ObserveEvent = FunctionCall | MemoryGrow | Metric | SpanTags | Log | CustomEvent;
 export type MemoryGrowAmount = number;
 export type FunctionId = number;
 export type NamesMap = Map<FunctionId, string>;
 export const enum MetricFormat {
   StatsdFormat = 1
-}
+};
+export const enum LogLevel {
+  Error = 1,
+  Warn = 2,
+  Info = 3,
+  Debug = 4,
+  Trace = 5
+};
 
 export class CustomEvent {
   constructor(public readonly name: string, public readonly data: any) { }
@@ -40,6 +47,13 @@ export class Metric {
 export class SpanTags {
   start: Nanoseconds;
   constructor(public readonly tags: string[]) {
+    this.start = now();
+  }
+}
+
+export class Log {
+  start: Nanoseconds;
+  constructor(public readonly level: LogLevel, public readonly message: string) {
     this.start = now();
   }
 }

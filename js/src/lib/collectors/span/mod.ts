@@ -9,6 +9,8 @@ import {
   CustomEvent,
   FunctionCall,
   FunctionId,
+  Log,
+  LogLevel,
   MemoryGrow,
   MemoryGrowAmount,
   Metric,
@@ -64,21 +66,11 @@ export class SpanCollector implements Collector {
       this.names.set(key, demangle(value));
     });
 
-    let warnOnDylibsoObserve = true;
     for (const iName of WebAssembly.Module.imports(module)) {
       if (iName.module === 'dylibso_observe') {
-        if (warnOnDylibsoObserve) {
-          warnOnDylibsoObserve = false;
-          console.warn("Module uses deprecated namespace \"dylibso_observe\"!\n" +
-            "Please consider reinstrumenting with newer wasm-instr!");
-        }
-        const apiNames = new Set(["span_enter", "span_tags", "metric", "log", "span_exit"]);
-        if (apiNames.has(iName.name)) {
-          throw new Error("js sdk does not yet support Observe API");
-        }
-        //} else if (iName.module === 'dylibso:observe/api') {
-        //  throw new Error("js sdk does not yet support Observe API");
-        //}
+        console.warn("Module uses deprecated namespace \"dylibso_observe\"!\n" +
+          "Please consider reinstrumenting with newer wasm-instr!");
+        break;
       }
     }
   }
@@ -207,15 +199,23 @@ export class SpanCollector implements Collector {
     this.stack.push(fn);
   };
 
-  /*
-  enum DO_LOG_LEVEL {
-        DO_LL_ERROR = 1,
-        DO_LL_WARN = 2,
-        DO_LL_INFO = 3,
-        DO_LL_DEBUG = 4,
-        DO_LL_TRACE = 5
-      };
-  */
+  spanLog = (level: LogLevel, messagePtr: number, messageLength: number) => {
+    if (!this.memoryBuffer) {
+      throw new Error("Call initSpanEnter first!");
+    }
+    const message = this.textDecoder.decode(
+      this.memoryBuffer.subarray(messagePtr, messagePtr + messageLength)
+    );
+    const ev = new Log(level, message);
+    const fn = this.stack.pop();
+    if (!fn) {
+      this.events.push(ev);
+      return;
+    }
+
+    fn.within.push(ev);
+    this.stack.push(fn);
+  };
 
   public getImportObject(): WebAssembly.Imports {
     return {
@@ -229,7 +229,7 @@ export class SpanCollector implements Collector {
         "span-exit": this.spanExit,
         "metric": this.spanMetric,
         "span-tags": this.spanTags,
-        "log": () => { },
+        "log": this.spanLog,
       },
       // old (deprecated apis)
       "dylibso_observe": {
@@ -239,7 +239,8 @@ export class SpanCollector implements Collector {
         "span_enter": this.spanEnter,
         "span_exit": this.spanExit,
         "metric": this.spanMetric,
-        "span_tags": this.spanTags
+        "span_tags": this.spanTags,
+        "log": this.spanLog,
       },
     };
   }
