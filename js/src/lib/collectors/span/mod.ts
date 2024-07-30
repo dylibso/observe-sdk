@@ -17,6 +17,7 @@ import {
   now,
   ObserveEvent,
   Options,
+  SpanTags,
   WASM
 } from "../../mod.ts";
 
@@ -187,6 +188,25 @@ export class SpanCollector implements Collector {
     this.stack.push(fn);
   };
 
+  spanTags = (messagePtr: number, messageLength: number) => {
+    if (!this.memoryBuffer) {
+      throw new Error("Call initSpanEnter first!");
+    }
+    const message = this.textDecoder.decode(
+      this.memoryBuffer.subarray(messagePtr, messagePtr + messageLength)
+    );
+    const tags = message.split(',');
+    const ev = new SpanTags(tags);
+    const fn = this.stack.pop();
+    if (!fn) {
+      this.events.push(ev);
+      return;
+    }
+
+    fn.within.push(ev);
+    this.stack.push(fn);
+  };
+
   /*
   enum DO_LOG_LEVEL {
         DO_LL_ERROR = 1,
@@ -205,11 +225,11 @@ export class SpanCollector implements Collector {
         "memory-grow": this.instrumentMemoryGrow,
       },
       "dylibso:observe/api": {
-        "metric": this.spanMetric,
-        "log": () => { },
         "span-enter": this.spanEnter,
         "span-exit": this.spanExit,
-        "span-tags": () => { },
+        "metric": this.spanMetric,
+        "span-tags": this.spanTags,
+        "log": () => { },
       },
       // old (deprecated apis)
       "dylibso_observe": {
@@ -218,7 +238,8 @@ export class SpanCollector implements Collector {
         "instrument_memory_grow": this.instrumentMemoryGrow,
         "span_enter": this.spanEnter,
         "span_exit": this.spanExit,
-        "metric": this.spanMetric
+        "metric": this.spanMetric,
+        "span_tags": this.spanTags
       },
     };
   }
