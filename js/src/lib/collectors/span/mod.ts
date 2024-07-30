@@ -11,6 +11,8 @@ import {
   FunctionId,
   MemoryGrow,
   MemoryGrowAmount,
+  Metric,
+  MetricFormat,
   NamesMap,
   now,
   ObserveEvent,
@@ -100,7 +102,9 @@ export class SpanCollector implements Collector {
     if (!this.memoryBuffer) {
       throw new Error("Call initSpanEnter first!");
     }
-    const name = this.textDecoder.decode(this.memoryBuffer.subarray(namePtr, namePtr + nameLength))
+    const name = this.textDecoder.decode(
+      this.memoryBuffer.subarray(namePtr, namePtr + nameLength)
+    );
     const func = new FunctionCall(
       name
     );
@@ -165,6 +169,24 @@ export class SpanCollector implements Collector {
     this.stack.push(fn);
   };
 
+  spanMetric = (format: MetricFormat, messagePtr: number, messageLength: number) => {
+    if (!this.memoryBuffer) {
+      throw new Error("Call initSpanEnter first!");
+    }
+    const message = this.textDecoder.decode(
+      this.memoryBuffer.subarray(messagePtr, messagePtr + messageLength)
+    );
+    const ev = new Metric(format, message);
+    const fn = this.stack.pop();
+    if (!fn) {
+      this.events.push(ev);
+      return;
+    }
+
+    fn.within.push(ev);
+    this.stack.push(fn);
+  };
+
   /*
   enum DO_LOG_LEVEL {
         DO_LL_ERROR = 1,
@@ -173,8 +195,6 @@ export class SpanCollector implements Collector {
         DO_LL_DEBUG = 4,
         DO_LL_TRACE = 5
       };
-
-      enum DO_METRIC_FMT { DO_MF_STATSD = 1 };
   */
 
   public getImportObject(): WebAssembly.Imports {
@@ -184,18 +204,22 @@ export class SpanCollector implements Collector {
         "exit": this.instrumentExit,
         "memory-grow": this.instrumentMemoryGrow,
       },
+      "dylibso:observe/api": {
+        "metric": this.spanMetric,
+        "log": () => { },
+        "span-enter": this.spanEnter,
+        "span-exit": this.spanExit,
+        "span-tags": () => { },
+      },
+      // old (deprecated apis)
       "dylibso_observe": {
         "instrument_enter": this.instrumentEnter,
         "instrument_exit": this.instrumentExit,
         "instrument_memory_grow": this.instrumentMemoryGrow,
+        "span_enter": this.spanEnter,
+        "span_exit": this.spanExit,
+        "metric": this.spanMetric
       },
-      "dylibso:observe/api": {
-        "metric": () => { },
-        "log": () => { },
-        "span-enter": this.spanEnter,
-        "span-exit": this.spanExit,
-        "span-tags": () => { }
-      }
     };
   }
 
