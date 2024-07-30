@@ -11,10 +11,10 @@ export type ObserveEvent = FunctionCall | MemoryGrow | Metric | SpanTags | Log |
 export type MemoryGrowAmount = number;
 export type FunctionId = number;
 export type NamesMap = Map<FunctionId, string>;
-export const enum MetricFormat {
+export enum MetricFormat {
   StatsdFormat = 1
 };
-export const enum LogLevel {
+export enum LogLevel {
   Error = 1,
   Warn = 2,
   Info = 3,

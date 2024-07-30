@@ -1,4 +1,4 @@
-import { Adapter, FunctionCall, MemoryGrow, ObserveEvent, Options, WASM } from "../../mod.ts";
+import { Adapter, FunctionCall, MemoryGrow, Metric, MetricFormat, Log, LogLevel, ObserveEvent, Options, WASM, SpanTags } from "../../mod.ts";
 import { SpanCollector } from "../../collectors/span/mod.ts";
 
 export class StdOutAdapter extends Adapter {
@@ -29,6 +29,24 @@ function printEvents(event: ObserveEvent, indentation: number) {
     console.log(
       `${"  ".repeat(indentation - 1)
       } Allocation grew memory by ${event.getPages()} pages`,
+    );
+  }
+  if (event instanceof Metric) {
+    console.log(
+      `${"  ".repeat(indentation - 1)
+      } metric(${MetricFormat[event.format]}): ${event.message}`,
+    );
+  }
+  if (event instanceof SpanTags) {
+    console.log(
+      `${"  ".repeat(indentation - 1)
+      } tags: ${event.tags.join(', ')}`,
+    );
+  }
+  if (event instanceof Log) {
+    console.log(
+      `${"  ".repeat(indentation - 1)
+      } log(${LogLevel[event.level]}): ${event.message}`,
     );
   }
 }
