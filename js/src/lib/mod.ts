@@ -34,7 +34,7 @@ export class FunctionCall {
 
   constructor(
     public readonly name: string,
-    public readonly id: FunctionId,
+    public readonly id?: FunctionId,
   ) {
     this.start = now();
     this.end = this.start;

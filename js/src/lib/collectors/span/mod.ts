@@ -34,11 +34,14 @@ export class SpanCollector implements Collector {
   names: NamesMap;
   stack: Array<FunctionCall>;
   events: ObserveEvent[];
+  memoryBuffer?: Uint8Array;
+  textDecoder: TextDecoder;
 
   constructor(private adapter: Adapter, private opts: Options = new Options()) {
     this.stack = [];
     this.events = [];
     this.names = new Map<FunctionId, string>();
+    this.textDecoder = new TextDecoder('utf-8', { ignoreBOM: true, fatal: false });
   }
 
   setMetadata(data: any): void {
@@ -70,8 +73,9 @@ export class SpanCollector implements Collector {
         if (apiNames.has(iName.name)) {
           throw new Error("js sdk does not yet support Observe API");
         }
-      } else if (iName.module === 'dylibso:observe/api') {
-        throw new Error("js sdk does not yet support Observe API");
+        //} else if (iName.module === 'dylibso:observe/api') {
+        //  throw new Error("js sdk does not yet support Observe API");
+        //}
       }
     }
   }
@@ -88,7 +92,30 @@ export class SpanCollector implements Collector {
     this.stack.push(func);
   };
 
+  public initSpanEnter(memoryBuffer: ArrayBuffer | SharedArrayBuffer): void {
+    this.memoryBuffer = new Uint8Array(memoryBuffer);
+  };
+
+  spanEnter = (namePtr: number, nameLength: number) => {
+    if (!this.memoryBuffer) {
+      throw new Error("Call initSpanEnter first!");
+    }
+    const name = this.textDecoder.decode(this.memoryBuffer.subarray(namePtr, namePtr + nameLength))
+    const func = new FunctionCall(
+      name
+    );
+    this.stack.push(func);
+  };
+
   instrumentExit = (_funcId: FunctionId) => {
+    this.exitImpl();
+  };
+
+  spanExit = () => {
+    this.exitImpl();
+  }
+
+  exitImpl = () => {
     const end = now();
     const fn = this.stack.pop();
     if (!fn) {
@@ -138,6 +165,18 @@ export class SpanCollector implements Collector {
     this.stack.push(fn);
   };
 
+  /*
+  enum DO_LOG_LEVEL {
+        DO_LL_ERROR = 1,
+        DO_LL_WARN = 2,
+        DO_LL_INFO = 3,
+        DO_LL_DEBUG = 4,
+        DO_LL_TRACE = 5
+      };
+
+      enum DO_METRIC_FMT { DO_MF_STATSD = 1 };
+  */
+
   public getImportObject(): WebAssembly.Imports {
     return {
       "dylibso:observe/instrument": {
@@ -150,6 +189,13 @@ export class SpanCollector implements Collector {
         "instrument_exit": this.instrumentExit,
         "instrument_memory_grow": this.instrumentMemoryGrow,
       },
+      "dylibso:observe/api": {
+        "metric": () => { },
+        "log": () => { },
+        "span-enter": this.spanEnter,
+        "span-exit": this.spanExit,
+        "span-tags": () => { }
+      }
     };
   }
 
