@@ -60,6 +60,9 @@ export class SpanCollector implements Collector {
       return collector;
     }
     const instance = await opts.instantiateWasm(module, collector);
+    if (!(instance.exports.memory instanceof WebAssembly.Memory)) {
+      throw new Error("exported memory isn't WebAssembly.Memory");
+    }
     collector.initSpanEnter(instance.exports.memory.buffer);
     return { collector, instance };
   }
