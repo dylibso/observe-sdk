@@ -2,10 +2,8 @@ import { Adapter, FunctionCall, MemoryGrow, Metric, MetricFormat, Log, LogLevel,
 import { SpanCollector } from "../../collectors/span/mod.ts";
 
 export class StdOutAdapter extends Adapter {
-  public async start(wasm: WASM, opts?: Options): Promise<SpanCollector> {
-    const collector = new SpanCollector(this, opts);
-    await collector.setNames(wasm);
-    return collector;
+  public async start(wasm: WASM, opts?: Options): Promise<SpanCollector | { collector: SpanCollector, instance: WebAssembly.Instance }> {
+    return SpanCollector.Create(this, wasm, opts);
   }
 
   public collect(events: ObserveEvent[]): void {

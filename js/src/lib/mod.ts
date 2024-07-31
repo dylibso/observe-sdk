@@ -105,7 +105,7 @@ export abstract class Adapter {
   traceIntervalId: number | undefined | NodeJS.Timer = undefined;
   config: AdapterConfig;
 
-  abstract start(wasm: WASM, opts?: Options): Promise<Collector>;
+  abstract start(wasm: WASM, opts?: Options): Promise<Collector | { collector: Collector, instance: WebAssembly.Instance }>;
 
   abstract collect(events: Array<ObserveEvent>, metadata: any): void;
 
@@ -149,5 +149,6 @@ export interface SpanFilter {
 export class Options {
   spanFilter: SpanFilter = {
     minDurationMicroseconds: 20
-  }
+  };
+  instantiateWasm?: (module: WebAssembly.Module, collector: Collector) => Promise<WebAssembly.Instance>;
 }

@@ -49,6 +49,21 @@ export class SpanCollector implements Collector {
     this.textDecoder = new TextDecoder('utf-8', { ignoreBOM: true, fatal: false });
   }
 
+  public static async Create(adapter: Adapter, wasm: WASM, opts: Options = new Options()): Promise<SpanCollector | { collector: SpanCollector, instance: WebAssembly.Instance }> {
+    const collector = new SpanCollector(adapter, opts);
+    let module = wasm;
+    if (!(wasm instanceof WebAssembly.Module)) {
+      module = await WebAssembly.compile(wasm)
+    }
+    await collector.setNames(module);
+    if (!opts.instantiateWasm) {
+      return collector;
+    }
+    const instance = await opts.instantiateWasm(module, collector);
+    collector.initSpanEnter(instance.exports.memory.buffer);
+    return { collector, instance };
+  }
+
   setMetadata(data: any): void {
     this.meta = data;
   }

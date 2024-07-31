@@ -29,11 +29,9 @@ export class HoneycombAdapter extends Adapter {
         }
     }
 
-    public async start(wasm: WASM, opts?: Options): Promise<SpanCollector> {
+    public async start(wasm: WASM, opts?: Options): Promise<SpanCollector | { collector: SpanCollector, instance: WebAssembly.Instance }> {
         super.startTraceInterval();
-        const collector = new SpanCollector(this, opts);
-        await collector.setNames(wasm);
-        return collector;
+        return SpanCollector.Create(this, wasm, opts);
     }
 
     public collect(events: ObserveEvent[]): void {
