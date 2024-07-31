@@ -1,5 +1,3 @@
-import * as wasm from "./modsurfer-demangle/modsurfer_demangle_bg.wasm";
-import { __wbg_set_wasm } from "./modsurfer-demangle/modsurfer_demangle_bg.js";
 import { demangle } from "./modsurfer-demangle/modsurfer_demangle.js";
 import { parseNameSection } from "../../parser/mod.ts";
 
@@ -22,17 +20,6 @@ import {
   SpanTags,
   WASM
 } from "../../mod.ts";
-
-// wasm is loaded from base64 encoded string
-// @ts-ignore - The esbuild wasm plugin provides a `default` function to initialize the wasm
-if (typeof wasm.default === "function") {
-  // @ts-ignore - The esbuild wasm plugin provides a `default` function to initialize the wasm
-  wasm.default().then((bytes) => __wbg_set_wasm(bytes));
-} else {
-  // cloudflare workers - wasm imported directly
-  // @ts-ignore
-  WebAssembly.instantiate(wasm.default).then((instance) => __wbg_set_wasm(instance.exports));
-}
 
 export class SpanCollector implements Collector {
   meta?: any;
@@ -80,9 +67,9 @@ export class SpanCollector implements Collector {
     const mangledNames = parseNameSection(
       WebAssembly.Module.customSections(module, "name")[0],
     );
-    mangledNames.forEach((value, key) => {
-      this.names.set(key, demangle(value));
-    });
+    for (const [key, value] of mangledNames) {
+      this.names.set(key, await demangle(value));
+    }
 
     for (const iName of WebAssembly.Module.imports(module)) {
       if (iName.module === 'dylibso_observe') {
