@@ -28,9 +28,17 @@ void statsd(std::string_view mtc);
 void span_tags(std::vector<std::string> &tags);
 
 class Span {
+  bool ended;
+
 public:
-  Span(std::string_view name) { span_enter(name); }
-  ~Span() { span_exit(); }
+  Span(std::string_view name) : ended(false) { span_enter(name); }
+  void end() {
+    if (!ended) {
+      ended = true;
+      span_exit();
+    }
+  }
+  ~Span() { end(); }
   void metric(enum DO_METRIC_FMT format, std::string_view mtc) {
     observe_api::metric(format, mtc);
   }
