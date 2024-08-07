@@ -1,4 +1,3 @@
-#define OBSERVE_API_IMPLEMENTATION
 #define OBSERVE_API_CPP_IMPLEMENTATION
 #include "observe_api.hpp"
 #include <stdio.h>

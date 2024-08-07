@@ -3,8 +3,8 @@
 
 #include <stdint.h>
 
-#define IMPORT(a, b) __attribute__((import_module(a), import_name(b)))
-
+#ifndef OBSERVE_API_ENUM
+#define OBSERVE_API_ENUM
 enum DO_LOG_LEVEL {
   DO_LL_ERROR = 1,
   DO_LL_WARN = 2,
@@ -14,6 +14,9 @@ enum DO_LOG_LEVEL {
 };
 
 enum DO_METRIC_FMT { DO_MF_STATSD = 1 };
+#endif
+
+#define IMPORT(a, b) __attribute__((import_module(a), import_name(b)))
 
 IMPORT("dylibso:observe/api", "metric")
 extern void observe_api_metric_n(enum DO_METRIC_FMT format, const char *metric,
@@ -27,6 +30,8 @@ IMPORT("dylibso:observe/api", "span-exit")
 extern void observe_api_span_exit(void);
 IMPORT("dylibso:observe/api", "span-tags")
 extern void observe_api_span_tags_n(const char *tags, size_t tags_length);
+
+#undef IMPORT
 
 #ifdef __cplusplus
 extern "C" {
