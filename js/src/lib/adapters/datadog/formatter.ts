@@ -1,6 +1,9 @@
 import {
-  Nanoseconds,
+  Log,
   MemoryGrowAmount,
+  Metric,
+  MetricFormat,
+  Nanoseconds,
   newSpanId,
   newTraceId,
   TelemetryId,
@@ -50,6 +53,20 @@ export const addAllocation = (span: Span, amount: MemoryGrowAmount) => {
     }
   }
   span.meta[allocationKey] = sumAmount.toString();
+};
+
+export const addMetric = (span: Span, metric: Metric) => {
+  if (metric.format !== MetricFormat.StatsdFormat) {
+    console.error('cannot add non-statsd metric');
+    return;
+  }
+  const [key, value] = metric.message.split(/:(.*)/);
+};
+
+export const addTags = (span: Span, tags: string[]) => {
+};
+
+export const addLog = (span: Span, log: Log) => {
 };
 
 export class DatadogFormatter {

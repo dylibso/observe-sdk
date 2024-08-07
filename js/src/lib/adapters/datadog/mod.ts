@@ -5,13 +5,19 @@ import {
   CustomEvent,
   FunctionCall,
   MemoryGrow,
+  Metric,
+  MetricFormat,
+  Log,
+  LogLevel,
   ObserveEvent,
   Options,
   TelemetryId,
   WASM,
+  SpanTags,
 } from "../../mod.ts";
 import { SpanCollector } from "../../collectors/span/mod.ts";
-import { addAllocation, DatadogFormatter, Trace } from "./formatter.ts";
+import { addAllocation, addMetric, addTags, addLog, DatadogFormatter, Trace } from "./formatter.ts";
+
 export enum DatadogTraceType {
   Web = "web",
   Db = "db",
@@ -178,6 +184,15 @@ export class DatadogAdapter extends Adapter {
       }
       if (event instanceof MemoryGrow) {
         addAllocation(span, event.amount);
+      }
+      if (event instanceof Metric) {
+        addMetric(span, event);
+      }
+      if (event instanceof SpanTags) {
+        addTags(span, event.tags);
+      }
+      if (event instanceof Log) {
+        addLog(span, event);
       }
     });
   }
