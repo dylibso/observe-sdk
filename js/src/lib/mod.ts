@@ -7,10 +7,20 @@ export const now = (): Nanoseconds => {
 export type WASM = Uint8Array | WebAssembly.Module;
 export type Nanoseconds = number;
 export type Microseconds = number;
-export type ObserveEvent = FunctionCall | MemoryGrow | CustomEvent;
+export type ObserveEvent = FunctionCall | MemoryGrow | Metric | SpanTags | Log | CustomEvent;
 export type MemoryGrowAmount = number;
 export type FunctionId = number;
 export type NamesMap = Map<FunctionId, string>;
+export enum MetricFormat {
+  StatsdFormat = 1
+};
+export enum LogLevel {
+  Error = 1,
+  Warn = 2,
+  Info = 3,
+  Debug = 4,
+  Trace = 5
+};
 
 export class CustomEvent {
   constructor(public readonly name: string, public readonly data: any) { }
@@ -27,6 +37,27 @@ export class MemoryGrow {
   }
 }
 
+export class Metric {
+  start: Nanoseconds;
+  constructor(public readonly format: MetricFormat, public readonly message: string) {
+    this.start = now();
+  }
+}
+
+export class SpanTags {
+  start: Nanoseconds;
+  constructor(public readonly tags: string[]) {
+    this.start = now();
+  }
+}
+
+export class Log {
+  start: Nanoseconds;
+  constructor(public readonly level: LogLevel, public readonly message: string) {
+    this.start = now();
+  }
+}
+
 export class FunctionCall {
   start: Nanoseconds;
   end: Nanoseconds;
@@ -34,7 +65,7 @@ export class FunctionCall {
 
   constructor(
     public readonly name: string,
-    public readonly id: FunctionId,
+    public readonly id?: FunctionId,
   ) {
     this.start = now();
     this.end = this.start;
@@ -74,7 +105,7 @@ export abstract class Adapter {
   traceIntervalId: number | undefined | NodeJS.Timer = undefined;
   config: AdapterConfig;
 
-  abstract start(wasm: WASM, opts?: Options): Promise<Collector>;
+  abstract start(wasm: WASM, opts?: Options): Promise<Collector | { collector: Collector, instance: WebAssembly.Instance }>;
 
   abstract collect(events: Array<ObserveEvent>, metadata: any): void;
 
@@ -118,5 +149,6 @@ export interface SpanFilter {
 export class Options {
   spanFilter: SpanFilter = {
     minDurationMicroseconds: 20
-  }
+  };
+  instantiateWasm?: (module: WebAssembly.Module, collector: Collector) => Promise<WebAssembly.Instance>;
 }

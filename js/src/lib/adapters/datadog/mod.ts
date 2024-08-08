@@ -5,13 +5,19 @@ import {
   CustomEvent,
   FunctionCall,
   MemoryGrow,
+  Metric,
+  MetricFormat,
+  Log,
+  LogLevel,
   ObserveEvent,
   Options,
   TelemetryId,
   WASM,
+  SpanTags,
 } from "../../mod.ts";
 import { SpanCollector } from "../../collectors/span/mod.ts";
-import { addAllocation, DatadogFormatter, Trace } from "./formatter.ts";
+import { addAllocation, addMetric, addTags, addLog, DatadogFormatter, Trace } from "./formatter.ts";
+
 export enum DatadogTraceType {
   Web = "web",
   Db = "db",
@@ -113,13 +119,16 @@ export class DatadogAdapter extends Adapter {
   public async start(
     wasm: WASM,
     opts?: Options,
-  ): Promise<DatadogTraceContext> {
-    const spanCollector = new SpanCollector(this, opts);
-    await spanCollector.setNames(wasm);
-
+  ): Promise<DatadogTraceContext | { collector: DatadogTraceContext, instance: WebAssembly.Instance }> {
+    const obj = await SpanCollector.Create(this, wasm, opts);
     this.startTraceInterval();
-
-    return new DatadogTraceContext(spanCollector);
+    if (obj instanceof SpanCollector) {
+      return new DatadogTraceContext(obj);
+    }
+    return {
+      collector: new DatadogTraceContext(obj.collector),
+      instance: obj.instance
+    };
   }
 
   public collect(events: ObserveEvent[], metadata: any): void {
@@ -175,6 +184,15 @@ export class DatadogAdapter extends Adapter {
       }
       if (event instanceof MemoryGrow) {
         addAllocation(span, event.amount);
+      }
+      if (event instanceof Metric) {
+        addMetric(span, event);
+      }
+      if (event instanceof SpanTags) {
+        addTags(span, event.tags);
+      }
+      if (event instanceof Log) {
+        addLog(span, event);
       }
     });
   }
