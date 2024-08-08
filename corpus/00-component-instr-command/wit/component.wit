@@ -1,5 +1,0 @@
-package example:component-instr-command;
-
-world component-instr-command {
-  import dylibso:observe/api;
-}

@@ -1,7 +1,0 @@
-package component:component-instr-component;
-
-/// An example world for the component to target.
-world example {
-  import dylibso:observe/api;
-  export hello-world: func() -> string;
-}

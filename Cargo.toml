@@ -1,4 +1,4 @@
 [workspace]
 members = [ "rust" ]
-exclude = [ "observe-api/rust", "observe-api/test/rust", "corpus/" ]
+exclude = [ "observe-api/rust", "observe-api/test/rust" ]
 resolver = "2"
