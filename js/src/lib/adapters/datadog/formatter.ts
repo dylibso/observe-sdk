@@ -64,6 +64,13 @@ export const addMetric = (span: Span, metric: Metric) => {
 };
 
 export const addTags = (span: Span, tags: string[]) => {
+  for (const tag of tags) {
+    let [key, value] = tag.split(/:(.*)/);
+    if (value === undefined) {
+      value = 'true';
+    }
+    span.meta[key] = value;
+  }
 };
 
 export const addLog = (span: Span, log: Log) => {
