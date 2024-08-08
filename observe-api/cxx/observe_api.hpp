@@ -1,10 +1,22 @@
 #ifndef OBSERVE_API_HPP
 #define OBSERVE_API_HPP
 
-#include "observe_api.h"
 #include <string>
 #include <string_view>
 #include <vector>
+
+#ifndef OBSERVE_API_ENUM
+#define OBSERVE_API_ENUM
+enum DO_LOG_LEVEL {
+  DO_LL_ERROR = 1,
+  DO_LL_WARN = 2,
+  DO_LL_INFO = 3,
+  DO_LL_DEBUG = 4,
+  DO_LL_TRACE = 5
+};
+
+enum DO_METRIC_FMT { DO_MF_STATSD = 1 };
+#endif
 
 namespace observe_api {
 void span_enter(std::string_view name);
@@ -16,9 +28,17 @@ void statsd(std::string_view mtc);
 void span_tags(std::vector<std::string> &tags);
 
 class Span {
+  bool ended;
+
 public:
-  Span(std::string_view name) { span_enter(name); }
-  ~Span() { span_exit(); }
+  Span(std::string_view name) : ended(false) { span_enter(name); }
+  void end() {
+    if (!ended) {
+      ended = true;
+      span_exit();
+    }
+  }
+  ~Span() { end(); }
   void metric(enum DO_METRIC_FMT format, std::string_view mtc) {
     observe_api::metric(format, mtc);
   }
@@ -40,12 +60,28 @@ public:
 #ifndef OBSERVE_API_CPP
 #define OBSERVE_API_CPP
 
-#include "observe_api.h"
 #include <iterator>
 #include <sstream>
 #include <string>
 #include <string_view>
 #include <vector>
+
+#define IMPORT(a, b) __attribute__((import_module(a), import_name(b)))
+
+IMPORT("dylibso:observe/api", "metric")
+extern void observe_api_metric_n(enum DO_METRIC_FMT format, const char *metric,
+                                 size_t metric_length);
+IMPORT("dylibso:observe/api", "log")
+extern void observe_api_log_n(enum DO_LOG_LEVEL level, const char *message,
+                              size_t message_length);
+IMPORT("dylibso:observe/api", "span-enter")
+extern void observe_api_span_enter_n(const char *name, size_t name_length);
+IMPORT("dylibso:observe/api", "span-exit")
+extern void observe_api_span_exit(void);
+IMPORT("dylibso:observe/api", "span-tags")
+extern void observe_api_span_tags_n(const char *tags, size_t tags_length);
+
+#undef IMPORT
 
 namespace observe_api {
 
@@ -68,7 +104,7 @@ void span_tags(std::string_view tags) {
 }
 
 void statsd(std::string_view mtc) {
-  observe_api_statsd_n(mtc.data(), mtc.size());
+  observe_api_metric_n(DO_MF_STATSD, mtc.data(), mtc.size());
 }
 
 void span_tags(std::vector<std::string> &tags) {

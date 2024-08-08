@@ -22,9 +22,9 @@ We currently provide these language bindings to this API:
 * [example](test/rust/src/main.rs)
 
 
-### [c and c++](c/)
+### [c](c/) and [c++](cxx/)
 
-Both the C and C++ bindings are implemented as header-only libraries. To use the C bindings,
+Both the C and C++ bindings are implemented as single header libraries. To use the C bindings,
 in __ONE__ source file:
 
 ```c
@@ -39,17 +39,16 @@ In other source files, just `#include "observe_api.h"`
 To use the C++ bindings, instead, in __ONE__ source file:
 
 ```c++
-#define OBSERVE_API_IMPLEMENTATION
 #define OBSERVE_API_CPP_IMPLEMENTATION
 #include "observe_api.hpp"
 ```
 
 In other source files, just `#include "observe_api.hpp"`
 
-__NOTE:__ `observe_api.hpp` `#include`s `observe_api.h`
+* [functional example](test/cxx/main.cpp)
+* [OO example](test/cxx/main2.cpp)
 
-* [functional example](test/c/main.cpp)
-* [OO example](test/c/main2.cpp)
+In C++, both bindings may be used at the same time without conflict.
 
 ### Other
 
