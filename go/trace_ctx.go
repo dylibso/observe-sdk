@@ -77,7 +77,7 @@ func (t *TraceCtx) Finish() {
 
 // Attaches the wazero FunctionListener to the context
 func (t *TraceCtx) withListener(ctx context.Context) context.Context {
-	return context.WithValue(ctx, experimental.FunctionListenerFactoryKey{}, t)
+	return experimental.WithFunctionListenerFactory(ctx, t)
 }
 
 // Initializes the TraceCtx. This connects up the channels with events from the FunctionListener.
