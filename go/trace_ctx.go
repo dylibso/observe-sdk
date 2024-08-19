@@ -156,11 +156,11 @@ func (t *TraceCtx) init(ctx context.Context, r wazero.Runtime) error {
 		t.pushFunction(fn)
 	}
 
-	metricFunc := func(ctx context.Context, m api.Module, f uint32, ptr uint32, len uint32) {
+	metricFunc := func(ctx context.Context, m api.Module, f uint32, ptr uint32, l uint32) {
 		format := MetricFormat(f)
-		buffer, ok := m.Memory().Read(ptr, len)
+		buffer, ok := m.Memory().Read(ptr, l)
 		if !ok {
-			log.Printf("metric: failed to read memory at offset %v with length %v\n", ptr, len)
+			log.Printf("metric: failed to read memory at offset %v with length %v\n", ptr, l)
 		}
 
 		event := MetricEvent{
@@ -169,7 +169,13 @@ func (t *TraceCtx) init(ctx context.Context, r wazero.Runtime) error {
 			Message: string(buffer),
 		}
 
-		t.events = append(t.events, event)
+		fn, ok := t.popFunction()
+		if !ok {
+			t.events = append(t.events, event)
+			return
+		}
+		fn.within = append(fn.within, event)
+		t.pushFunction(fn)
 	}
 
 	oldMetricFunc := func(ctx context.Context, m api.Module, f uint32, ptr uint64, len uint32) {
@@ -201,7 +207,6 @@ func (t *TraceCtx) init(ctx context.Context, r wazero.Runtime) error {
 		}
 		fn.within = append(fn.within, event)
 		t.pushFunction(fn)
-
 	}
 
 	oldSpanTagsFunc := func(ctx context.Context, m api.Module, ptr uint64, len uint32) {
@@ -226,7 +231,13 @@ func (t *TraceCtx) init(ctx context.Context, r wazero.Runtime) error {
 			Message: string(buffer),
 		}
 
-		t.events = append(t.events, event)
+		fn, ok := t.popFunction()
+		if !ok {
+			t.events = append(t.events, event)
+			return
+		}
+		fn.within = append(fn.within, event)
+		t.pushFunction(fn)
 	}
 
 	oldLogFunc := func(ctx context.Context, m api.Module, l uint32, ptr uint64, len uint32) {
