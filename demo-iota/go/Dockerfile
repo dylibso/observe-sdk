@@ -1,4 +1,4 @@
-FROM golang:1.19
+FROM golang:1.22
 
 ADD /go /app/go
 ADD /demo-iota/go /app/demo-iota/go
