@@ -13,6 +13,7 @@
         "lib": [
             "DOM",
             "ESNext",
-        ]
+        ],
+        "target": "es2015"
     }
 }

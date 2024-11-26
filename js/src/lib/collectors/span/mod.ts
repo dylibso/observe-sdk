@@ -1,5 +1,3 @@
-import * as wasm from "./modsurfer-demangle/modsurfer_demangle_bg.wasm";
-import { __wbg_set_wasm } from "./modsurfer-demangle/modsurfer_demangle_bg.js";
 import { demangle } from "./modsurfer-demangle/modsurfer_demangle.js";
 import { parseNameSection } from "../../parser/mod.ts";
 
@@ -9,36 +7,51 @@ import {
   CustomEvent,
   FunctionCall,
   FunctionId,
+  Log,
+  LogLevel,
   MemoryGrow,
   MemoryGrowAmount,
+  Metric,
+  MetricFormat,
   NamesMap,
   now,
   ObserveEvent,
   Options,
+  SpanTags,
   WASM
 } from "../../mod.ts";
-
-// wasm is loaded from base64 encoded string
-// @ts-ignore - The esbuild wasm plugin provides a `default` function to initialize the wasm
-if (typeof wasm.default === "function") {
-  // @ts-ignore - The esbuild wasm plugin provides a `default` function to initialize the wasm
-  wasm.default().then((bytes) => __wbg_set_wasm(bytes));
-} else {
-  // cloudflare workers - wasm imported directly
-  // @ts-ignore
-  WebAssembly.instantiate(wasm.default).then((instance) => __wbg_set_wasm(instance.exports));
-}
 
 export class SpanCollector implements Collector {
   meta?: any;
   names: NamesMap;
   stack: Array<FunctionCall>;
   events: ObserveEvent[];
+  memoryBuffer?: Uint8Array;
+  textDecoder: TextDecoder;
 
   constructor(private adapter: Adapter, private opts: Options = new Options()) {
     this.stack = [];
     this.events = [];
     this.names = new Map<FunctionId, string>();
+    this.textDecoder = new TextDecoder('utf-8', { ignoreBOM: true, fatal: false });
+  }
+
+  public static async Create(adapter: Adapter, wasm: WASM, opts: Options = new Options()): Promise<SpanCollector | { collector: SpanCollector, instance: WebAssembly.Instance }> {
+    const collector = new SpanCollector(adapter, opts);
+    let module = wasm;
+    if (!(wasm instanceof WebAssembly.Module)) {
+      module = await WebAssembly.compile(wasm)
+    }
+    await collector.setNames(module);
+    if (!opts.instantiateWasm) {
+      return collector;
+    }
+    const instance = await opts.instantiateWasm(module, collector);
+    if (!(instance.exports.memory instanceof WebAssembly.Memory)) {
+      throw new Error("exported memory isn't WebAssembly.Memory");
+    }
+    collector.initSpanEnter(instance.exports.memory.buffer);
+    return { collector, instance };
   }
 
   setMetadata(data: any): void {
@@ -54,24 +67,15 @@ export class SpanCollector implements Collector {
     const mangledNames = parseNameSection(
       WebAssembly.Module.customSections(module, "name")[0],
     );
-    mangledNames.forEach((value, key) => {
-      this.names.set(key, demangle(value));
-    });
+    for (const [key, value] of mangledNames) {
+      this.names.set(key, await demangle(value));
+    }
 
-    let warnOnDylibsoObserve = true;
     for (const iName of WebAssembly.Module.imports(module)) {
       if (iName.module === 'dylibso_observe') {
-        if (warnOnDylibsoObserve) {
-          warnOnDylibsoObserve = false;
-          console.warn("Module uses deprecated namespace \"dylibso_observe\"!\n" +
-            "Please consider reinstrumenting with newer wasm-instr!");
-        }
-        const apiNames = new Set(["span_enter", "span_tags", "metric", "log", "span_exit"]);
-        if (apiNames.has(iName.name)) {
-          throw new Error("js sdk does not yet support Observe API");
-        }
-      } else if (iName.module === 'dylibso:observe/api') {
-        throw new Error("js sdk does not yet support Observe API");
+        console.warn("Module uses deprecated namespace \"dylibso_observe\"!\n" +
+          "Please consider reinstrumenting with newer wasm-instr!");
+        break;
       }
     }
   }
@@ -88,7 +92,32 @@ export class SpanCollector implements Collector {
     this.stack.push(func);
   };
 
+  public initSpanEnter(memoryBuffer: ArrayBuffer | SharedArrayBuffer): void {
+    this.memoryBuffer = new Uint8Array(memoryBuffer);
+  };
+
+  spanEnter = (namePtr: number, nameLength: number) => {
+    if (!this.memoryBuffer) {
+      throw new Error("Call initSpanEnter first!");
+    }
+    const name = this.textDecoder.decode(
+      this.memoryBuffer.subarray(namePtr, namePtr + nameLength)
+    );
+    const func = new FunctionCall(
+      name
+    );
+    this.stack.push(func);
+  };
+
   instrumentExit = (_funcId: FunctionId) => {
+    this.exitImpl();
+  };
+
+  spanExit = () => {
+    this.exitImpl();
+  }
+
+  exitImpl = () => {
     const end = now();
     const fn = this.stack.pop();
     if (!fn) {
@@ -138,6 +167,61 @@ export class SpanCollector implements Collector {
     this.stack.push(fn);
   };
 
+  spanMetric = (format: MetricFormat, messagePtr: number, messageLength: number) => {
+    if (!this.memoryBuffer) {
+      throw new Error("Call initSpanEnter first!");
+    }
+    const message = this.textDecoder.decode(
+      this.memoryBuffer.subarray(messagePtr, messagePtr + messageLength)
+    );
+    const ev = new Metric(format, message);
+    const fn = this.stack.pop();
+    if (!fn) {
+      this.events.push(ev);
+      return;
+    }
+
+    fn.within.push(ev);
+    this.stack.push(fn);
+  };
+
+  spanTags = (messagePtr: number, messageLength: number) => {
+    if (!this.memoryBuffer) {
+      throw new Error("Call initSpanEnter first!");
+    }
+    const message = this.textDecoder.decode(
+      this.memoryBuffer.subarray(messagePtr, messagePtr + messageLength)
+    );
+    const tags = message.split(',');
+    const ev = new SpanTags(tags);
+    const fn = this.stack.pop();
+    if (!fn) {
+      this.events.push(ev);
+      return;
+    }
+
+    fn.within.push(ev);
+    this.stack.push(fn);
+  };
+
+  spanLog = (level: LogLevel, messagePtr: number, messageLength: number) => {
+    if (!this.memoryBuffer) {
+      throw new Error("Call initSpanEnter first!");
+    }
+    const message = this.textDecoder.decode(
+      this.memoryBuffer.subarray(messagePtr, messagePtr + messageLength)
+    );
+    const ev = new Log(level, message);
+    const fn = this.stack.pop();
+    if (!fn) {
+      this.events.push(ev);
+      return;
+    }
+
+    fn.within.push(ev);
+    this.stack.push(fn);
+  };
+
   public getImportObject(): WebAssembly.Imports {
     return {
       "dylibso:observe/instrument": {
@@ -145,10 +229,23 @@ export class SpanCollector implements Collector {
         "exit": this.instrumentExit,
         "memory-grow": this.instrumentMemoryGrow,
       },
+      "dylibso:observe/api": {
+        "span-enter": this.spanEnter,
+        "span-exit": this.spanExit,
+        "metric": this.spanMetric,
+        "span-tags": this.spanTags,
+        "log": this.spanLog,
+      },
+      // old (deprecated apis)
       "dylibso_observe": {
         "instrument_enter": this.instrumentEnter,
         "instrument_exit": this.instrumentExit,
         "instrument_memory_grow": this.instrumentMemoryGrow,
+        "span_enter": this.spanEnter,
+        "span_exit": this.spanExit,
+        "metric": this.spanMetric,
+        "span_tags": this.spanTags,
+        "log": this.spanLog,
       },
     };
   }
