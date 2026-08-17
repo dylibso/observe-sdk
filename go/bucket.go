@@ -52,13 +52,17 @@ func (b *EventBucket) Wait() {
 // the bucket at some time in the future depending on flushPeriod.
 // Events will continue to build up until the flush comes due
 func (b *EventBucket) scheduleFlush(f Flusher) {
+	// register this flush with the wait group before starting the goroutine,
+	// so that a concurrent call to Wait() cannot return before the flush is
+	// tracked (Add must happen-before Wait, not from within the goroutine it
+	// is meant to guard).
+	b.wg.Add(1)
+
 	// we start this routine and immediately wait, we are effectively
 	// scheduling the flush to run flushPeriod sections later. In the meantime,
 	// events may still be coming into the eventBucket
 	go func() {
-		// register this flush with the wait group
 		defer b.wg.Done()
-		b.wg.Add(1)
 
 		// wait for flushPeriod
 		time.Sleep(b.flushPeriod)
